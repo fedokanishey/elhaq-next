@@ -10,10 +10,23 @@ export const onUserCreated = inngest.createFunction(
     try {
       await dbConnect();
       
-      // When using Inngest's Clerk integration, the user data is nested in event.data.data
-      const user = event.data.data;
+      console.log("🚀 Received user.created event:", JSON.stringify(event, null, 2));
+
+      // Handle different payload structures (Direct Integration vs Webhook)
+      const user = event.data.data || event.data;
+      
+      if (!user) {
+        console.error("❌ No user data found in event payload");
+        return;
+      }
+
       const { id, email_addresses, first_name, last_name, profile_image_url, email } = user;
       
+      if (!id) {
+         console.error("❌ User ID missing in payload:", user);
+         return;
+      }
+
       const dbUser = await User.findOneAndUpdate(
         { clerkId: id },
         {
@@ -27,10 +40,10 @@ export const onUserCreated = inngest.createFunction(
         { upsert: true, new: true }
       );
 
-      console.log('User created in MongoDB:', dbUser);
+      console.log('✅ User created/updated in MongoDB:', dbUser);
       return dbUser;
     } catch (error) {
-      console.error('Error creating user:', error);
+      console.error('❌ Error creating user:', error);
       throw error;
     }
   }
@@ -44,7 +57,15 @@ export const onUserUpdated = inngest.createFunction(
     try {
       await dbConnect();
       
-      const user = event.data.data;
+      console.log("🚀 Received user.updated event:", JSON.stringify(event, null, 2));
+
+      const user = event.data.data || event.data;
+      
+      if (!user || !user.id) {
+        console.error("❌ Invalid user data in updated event:", user);
+        return;
+      }
+
       const { id, email_addresses, first_name, last_name, profile_image_url, email } = user;
       
       const dbUser = await User.findOneAndUpdate(
@@ -58,10 +79,10 @@ export const onUserUpdated = inngest.createFunction(
         { new: true }
       );
 
-      console.log('User updated in MongoDB:', dbUser);
+      console.log('✅ User updated in MongoDB:', dbUser);
       return dbUser;
     } catch (error) {
-      console.error('Error updating user:', error);
+      console.error('❌ Error updating user:', error);
       throw error;
     }
   }
@@ -75,14 +96,21 @@ export const onUserDeleted = inngest.createFunction(
     try {
       await dbConnect();
       
-      const user = event.data.data;
+      console.log("🚀 Received user.deleted event:", JSON.stringify(event, null, 2));
+
+      const user = event.data.data || event.data;
+      
+      if (!user || !user.id) {
+         console.error("❌ Invalid user data in deleted event:", user);
+         return;
+      }
       
       const result = await User.deleteOne({ clerkId: user.id });
       
-      console.log('User deleted from MongoDB:', result);
+      console.log('✅ User deleted from MongoDB:', result);
       return result;
     } catch (error) {
-      console.error('Error deleting user:', error);
+      console.error('❌ Error deleting user:', error);
       throw error;
     }
   }
