@@ -13,7 +13,7 @@ export async function GET() {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let role = sessionClaims?.metadata?.role as string | undefined;
+    let role = (sessionClaims?.metadata as { role?: string })?.role;
     let clerkUser = null;
 
     if (!role) {

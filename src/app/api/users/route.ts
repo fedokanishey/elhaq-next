@@ -26,13 +26,13 @@ export async function GET() {
           firstName: clerkUser.firstName,
           lastName: clerkUser.lastName,
           profileImageUrl: clerkUser.imageUrl,
-          role: sessionClaims?.metadata?.role || clerkUser.publicMetadata?.role || 'user',
+          role: (sessionClaims?.metadata as { role?: string })?.role || clerkUser.publicMetadata?.role || 'user',
         });
       }
     }
 
     // Check if admin
-    let role = sessionClaims?.metadata?.role as string | undefined;
+    let role = (sessionClaims?.metadata as { role?: string })?.role;
     
     // Fallback: fetch from Clerk if not in session
     if (!role) {
