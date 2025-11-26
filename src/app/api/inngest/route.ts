@@ -16,5 +16,4 @@ export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [onUserCreated, onUserUpdated, onUserDeleted],
   signingKey: key,
-  landingPage: true, // Enable landing page to verify endpoint is working
 });
