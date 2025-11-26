@@ -13,39 +13,58 @@ export async function GET() {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let role = (sessionClaims?.metadata as { role?: string })?.role;
-    let clerkUser = null;
+    await dbConnect();
 
-    if (!role) {
-        clerkUser = await currentUser();
-        role = clerkUser?.publicMetadata?.role as string;
+    // Check MongoDB for role first (Source of Truth)
+    const dbUser = await User.findOne({ clerkId: userId });
+    let isAdmin = dbUser?.role === 'admin';
+
+    // Fallback to Clerk metadata if not admin in DB (e.g. first login)
+    if (!isAdmin) {
+        const role = (sessionClaims?.metadata as { role?: string })?.role;
+        if (role === 'admin') isAdmin = true;
     }
 
-    if (role !== "admin") {
+    if (!isAdmin) {
+         // Double check with currentUser() as last resort
+         const clerkUser = await currentUser();
+         if (clerkUser?.publicMetadata?.role === 'admin') isAdmin = true;
+    }
+
+    if (!isAdmin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await dbConnect();
+    // Sync admin user if not exists (Robust Logic)
+    const userEmail = (sessionClaims?.email as string) || (await currentUser())?.emailAddresses[0]?.emailAddress;
+    let clerkUser = null;
 
-    // Sync admin user if not exists
-    const existingUser = await User.findOne({ clerkId: userId });
-    if (!existingUser) {
-      if (!clerkUser) clerkUser = await currentUser();
-      if (clerkUser) {
-        await User.create({
-          clerkId: userId,
-          email: clerkUser.emailAddresses[0]?.emailAddress,
-          firstName: clerkUser.firstName,
-          lastName: clerkUser.lastName,
-          profileImageUrl: clerkUser.imageUrl,
-          role: 'admin',
-        });
-      }
+    if (userEmail) {
+        if (!clerkUser) clerkUser = await currentUser();
+        if (clerkUser) {
+             await User.findOneAndUpdate(
+                { $or: [{ clerkId: userId }, { email: userEmail }] },
+                {
+                    clerkId: userId,
+                    email: userEmail,
+                    firstName: clerkUser.firstName,
+                    lastName: clerkUser.lastName,
+                    profileImageUrl: clerkUser.imageUrl,
+                    // Ensure admin role is preserved or set
+                    $setOnInsert: { role: 'admin' }
+                },
+                { upsert: true, new: true, setDefaultsOnInsert: true }
+            );
+        }
     }
 
     const initiatives = await Initiative.find({});
     const beneficiaries = await Beneficiary.find({});
     const usersCount = await User.countDocuments({});
+
+    console.log(`[Reports API] Initiatives Found: ${initiatives.length}`);
+    console.log(`[Reports API] Beneficiaries Found: ${beneficiaries.length}`);
+    console.log(`[Reports API] Users Found: ${usersCount}`);
 
     const totalInitiatives = initiatives.length;
     const totalBeneficiaries = beneficiaries.length;

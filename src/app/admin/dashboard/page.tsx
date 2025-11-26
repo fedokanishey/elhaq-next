@@ -4,6 +4,16 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { 
+  Users, 
+  Activity, 
+  Target, 
+  UserPlus, 
+  Settings, 
+  BarChart3, 
+  Shield,
+  Loader2
+} from "lucide-react";
 
 interface DashboardStats {
   totalInitiatives: number;
@@ -51,100 +61,151 @@ export default function AdminDashboard() {
 
   if (!isLoaded) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <p>جاري التحميل...</p>
+      <div className="flex justify-center items-center min-h-screen bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
+      <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            لوحة التحكم - إدارة النظام
+        <div className="flex flex-col gap-2">
+          <h1 className="text-4xl font-bold text-foreground">
+            لوحة التحكم
           </h1>
-          <p className="text-gray-600">مرحباً بك {user?.firstName || "المسؤول"}</p>
+          <p className="text-muted-foreground">
+            مرحباً بك {user?.firstName || "المسؤول"}، إليك نظرة عامة على النظام
+          </p>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-3xl font-bold text-blue-600">{stats?.totalBeneficiaries || 0}</div>
-            <p className="text-gray-600 mt-2">إجمالي المستفيدين</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full">الإجمالي</span>
+            </div>
+            <div className="text-3xl font-bold text-foreground">{stats?.totalBeneficiaries || 0}</div>
+            <p className="text-sm text-muted-foreground mt-1">إجمالي المستفيدين</p>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-3xl font-bold text-green-600">{stats?.activeCases || 0}</div>
-            <p className="text-gray-600 mt-2">الحالات النشطة</p>
+          <div className="bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <Activity className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
+              <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full">نشط</span>
+            </div>
+            <div className="text-3xl font-bold text-foreground">{stats?.activeCases || 0}</div>
+            <p className="text-sm text-muted-foreground mt-1">الحالات النشطة</p>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-3xl font-bold text-purple-600">{stats?.totalUsers || 0}</div>
-            <p className="text-gray-600 mt-2">المستخدمين</p>
+          <div className="bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                <Shield className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              </div>
+              <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full">المستخدمين</span>
+            </div>
+            <div className="text-3xl font-bold text-foreground">{stats?.totalUsers || 0}</div>
+            <p className="text-sm text-muted-foreground mt-1">المستخدمين المسجلين</p>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-3xl font-bold text-orange-600">{stats?.totalInitiatives || 0}</div>
-            <p className="text-gray-600 mt-2">المبادرات</p>
+          <div className="bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                <Target className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+              </div>
+              <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full">المبادرات</span>
+            </div>
+            <div className="text-3xl font-bold text-foreground">{stats?.totalInitiatives || 0}</div>
+            <p className="text-sm text-muted-foreground mt-1">المبادرات الكلية</p>
           </div>
         </div>
 
         {/* Quick Actions */}
+        <h2 className="text-2xl font-bold text-foreground mt-8 mb-4">إجراءات سريعة</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Link
             href="/admin/beneficiaries"
-            className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer"
+            className="group bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
           >
-            <div className="text-2xl mb-2">👥</div>
-            <h3 className="text-lg font-bold text-gray-900">إدارة المستفيدين</h3>
-            <p className="text-gray-600 mt-2">إضافة وتعديل وحذف المستفيدين</p>
+            <div className="flex items-center gap-4 mb-3">
+              <div className="p-3 bg-primary/10 rounded-full group-hover:bg-primary/20 transition-colors">
+                <Users className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">إدارة المستفيدين</h3>
+            </div>
+            <p className="text-muted-foreground text-sm">إضافة وتعديل وحذف المستفيدين من النظام</p>
           </Link>
 
           <Link
             href="/admin/beneficiaries/add"
-            className="bg-blue-50 rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer"
+            className="group bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
           >
-            <div className="text-2xl mb-2">➕</div>
-            <h3 className="text-lg font-bold text-blue-900">إضافة مستفيد جديد</h3>
-            <p className="text-blue-700 mt-2">إضافة حالة جديدة إلى النظام</p>
+            <div className="flex items-center gap-4 mb-3">
+              <div className="p-3 bg-primary/10 rounded-full group-hover:bg-primary/20 transition-colors">
+                <UserPlus className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">إضافة مستفيد</h3>
+            </div>
+            <p className="text-muted-foreground text-sm">تسجيل حالة جديدة وإضافتها لقاعدة البيانات</p>
           </Link>
 
           <Link
             href="/admin/initiatives"
-            className="bg-green-50 rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer"
+            className="group bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
           >
-            <div className="text-2xl mb-2">🎯</div>
-            <h3 className="text-lg font-bold text-green-900">المبادرات</h3>
-            <p className="text-green-700 mt-2">إدارة المبادرات والمشاريع</p>
+            <div className="flex items-center gap-4 mb-3">
+              <div className="p-3 bg-primary/10 rounded-full group-hover:bg-primary/20 transition-colors">
+                <Target className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">المبادرات</h3>
+            </div>
+            <p className="text-muted-foreground text-sm">إدارة المبادرات والمشاريع الخيرية</p>
           </Link>
 
           <Link
             href="/admin/users"
-            className="bg-purple-50 rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer"
+            className="group bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
           >
-            <div className="text-2xl mb-2">👤</div>
-            <h3 className="text-lg font-bold text-purple-900">المستخدمين</h3>
-            <p className="text-purple-700 mt-2">إدارة صلاحيات المستخدمين</p>
+            <div className="flex items-center gap-4 mb-3">
+              <div className="p-3 bg-primary/10 rounded-full group-hover:bg-primary/20 transition-colors">
+                <Shield className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">المستخدمين</h3>
+            </div>
+            <p className="text-muted-foreground text-sm">إدارة صلاحيات المستخدمين والمسؤولين</p>
           </Link>
 
           <Link
             href="/admin/settings"
-            className="bg-orange-50 rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer"
+            className="group bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
           >
-            <div className="text-2xl mb-2">⚙️</div>
-            <h3 className="text-lg font-bold text-orange-900">الإعدادات</h3>
-            <p className="text-orange-700 mt-2">إعدادات النظام والتكوينات</p>
+            <div className="flex items-center gap-4 mb-3">
+              <div className="p-3 bg-primary/10 rounded-full group-hover:bg-primary/20 transition-colors">
+                <Settings className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">الإعدادات</h3>
+            </div>
+            <p className="text-muted-foreground text-sm">إعدادات النظام والتكوينات العامة</p>
           </Link>
 
           <Link
             href="/admin/reports"
-            className="bg-red-50 rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer"
+            className="group bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
           >
-            <div className="text-2xl mb-2">📊</div>
-            <h3 className="text-lg font-bold text-red-900">التقارير</h3>
-            <p className="text-red-700 mt-2">عرض التقارير والإحصائيات</p>
+            <div className="flex items-center gap-4 mb-3">
+              <div className="p-3 bg-primary/10 rounded-full group-hover:bg-primary/20 transition-colors">
+                <BarChart3 className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">التقارير</h3>
+            </div>
+            <p className="text-muted-foreground text-sm">عرض التقارير والإحصائيات التفصيلية</p>
           </Link>
         </div>
       </div>

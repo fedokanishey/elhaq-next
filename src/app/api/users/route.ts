@@ -13,34 +13,60 @@ export async function GET() {
 
     await dbConnect();
 
-    // Sync user to MongoDB if not exists
-    let clerkUser = null;
-    const existingUser = await User.findOne({ clerkId: userId });
-    
-    if (!existingUser) {
-      clerkUser = await currentUser();
-      if (clerkUser) {
-        await User.create({
-          clerkId: userId,
-          email: clerkUser.emailAddresses[0]?.emailAddress,
-          firstName: clerkUser.firstName,
-          lastName: clerkUser.lastName,
-          profileImageUrl: clerkUser.imageUrl,
-          role: (sessionClaims?.metadata as { role?: string })?.role || clerkUser.publicMetadata?.role || 'user',
-        });
-      }
+    // Check MongoDB for role first (Source of Truth)
+    const dbUser = await User.findOne({ clerkId: userId });
+    let role = dbUser?.role;
+
+    // Fallback to Clerk metadata
+    if (role !== 'admin') {
+        role = (sessionClaims?.metadata as { role?: string })?.role;
     }
 
-    // Check if admin
-    let role = (sessionClaims?.metadata as { role?: string })?.role;
+    // Sync user to MongoDB if not exists
+    let clerkUser = null;
     
-    // Fallback: fetch from Clerk if not in session
+    // Try to find user by Clerk ID or Email to avoid duplicates
+    const userEmail = (sessionClaims?.email as string) || (await currentUser())?.emailAddresses[0]?.emailAddress;
+    
+    // We need to fetch currentUser if we don't have the email from session
+    if (!userEmail) {
+        clerkUser = await currentUser();
+    }
+
+    const emailToSearch = userEmail || clerkUser?.emailAddresses[0]?.emailAddress;
+    
+    console.log(`[API] Syncing user: ${userId}, Email: ${emailToSearch}`);
+
+    // Use findOneAndUpdate with upsert to handle race conditions and duplicates safely
+    if (emailToSearch) {
+        clerkUser = clerkUser || await currentUser();
+        if (clerkUser) {
+             await User.findOneAndUpdate(
+                { $or: [{ clerkId: userId }, { email: emailToSearch }] },
+                {
+                    clerkId: userId,
+                    email: emailToSearch,
+                    firstName: clerkUser.firstName,
+                    lastName: clerkUser.lastName,
+                    profileImageUrl: clerkUser.imageUrl,
+                    // Only set role if it's not already set in DB (to avoid overwriting admin role)
+                    $setOnInsert: { 
+                        role: role || clerkUser.publicMetadata?.role || 'user' 
+                    }
+                },
+                { upsert: true, new: true, setDefaultsOnInsert: true }
+            );
+        }
+    }
+
+    // Fallback: fetch from Clerk if not in session and not in DB
     if (!role) {
         if (!clerkUser) clerkUser = await currentUser();
         role = clerkUser?.publicMetadata?.role as string;
     }
 
     console.log("User Role in API:", role);
+    console.log("DB Name:", (await dbConnect()).connection.name);
     
     if (role === "admin") {
       const users = await User.find({});
