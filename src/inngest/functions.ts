@@ -10,23 +10,25 @@ export const onUserCreated = inngest.createFunction(
     try {
       await dbConnect();
       
-      const { data } = event;
+      // When using Inngest's Clerk integration, the user data is nested in event.data.data
+      const user = event.data.data;
+      const { id, email_addresses, first_name, last_name, profile_image_url, email } = user;
       
-      const user = await User.findOneAndUpdate(
-        { clerkId: data.id },
+      const dbUser = await User.findOneAndUpdate(
+        { clerkId: id },
         {
-          clerkId: data.id,
-          email: data.email_addresses?.[0]?.email_address || data.email,
-          firstName: data.first_name,
-          lastName: data.last_name,
-          profileImageUrl: data.profile_image_url,
+          clerkId: id,
+          email: email_addresses?.[0]?.email_address || email,
+          firstName: first_name,
+          lastName: last_name,
+          profileImageUrl: profile_image_url,
           role: 'user',
         },
         { upsert: true, new: true }
       );
 
-      console.log('User created in MongoDB:', user);
-      return user;
+      console.log('User created in MongoDB:', dbUser);
+      return dbUser;
     } catch (error) {
       console.error('Error creating user:', error);
       throw error;
@@ -42,21 +44,22 @@ export const onUserUpdated = inngest.createFunction(
     try {
       await dbConnect();
       
-      const { data } = event;
+      const user = event.data.data;
+      const { id, email_addresses, first_name, last_name, profile_image_url, email } = user;
       
-      const user = await User.findOneAndUpdate(
-        { clerkId: data.id },
+      const dbUser = await User.findOneAndUpdate(
+        { clerkId: id },
         {
-          email: data.email_addresses?.[0]?.email_address || data.email,
-          firstName: data.first_name,
-          lastName: data.last_name,
-          profileImageUrl: data.profile_image_url,
+          email: email_addresses?.[0]?.email_address || email,
+          firstName: first_name,
+          lastName: last_name,
+          profileImageUrl: profile_image_url,
         },
         { new: true }
       );
 
-      console.log('User updated in MongoDB:', user);
-      return user;
+      console.log('User updated in MongoDB:', dbUser);
+      return dbUser;
     } catch (error) {
       console.error('Error updating user:', error);
       throw error;
@@ -72,9 +75,9 @@ export const onUserDeleted = inngest.createFunction(
     try {
       await dbConnect();
       
-      const { data } = event;
+      const user = event.data.data;
       
-      const result = await User.deleteOne({ clerkId: data.id });
+      const result = await User.deleteOne({ clerkId: user.id });
       
       console.log('User deleted from MongoDB:', result);
       return result;
