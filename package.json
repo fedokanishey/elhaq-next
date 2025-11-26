@@ -9,9 +9,21 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.35.5",
+    "@reduxjs/toolkit": "^2.11.0",
+    "classnames": "^2.5.1",
+    "cloudinary": "^2.8.0",
+    "file-saver": "^2.0.5",
+    "framer-motion": "^12.23.24",
+    "inngest": "^3.46.0",
+    "mongoose": "^9.0.0",
     "next": "16.0.4",
+    "next-cloudinary": "^6.17.5",
     "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react-dom": "19.2.0",
+    "react-icons": "^5.5.0",
+    "react-redux": "^9.2.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

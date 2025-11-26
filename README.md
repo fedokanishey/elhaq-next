@@ -1,8 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# دعوة الحق - نسخة Next.js
 
-## Getting Started
+نسخة محدثة من تطبيق دعوة الحق مع Next.js 16 و Clerk و MongoDB و Inngest
 
-First, run the development server:
+## المزايا الرئيسية
+
+- ✅ **Next.js 16** مع App Router و TypeScript
+- ✅ **Clerk Auth** لإدارة المصادقة والجلسات
+- ✅ **MongoDB** قاعدة البيانات الرئيسية
+- ✅ **Inngest** لربط Clerk و MongoDB تلقائياً
+- ✅ **Tailwind CSS** للتصميم
+- ✅ **RTL Support** دعم العربية والاتجاه من اليمين لليسار
+- ✅ **Protected Routes** مع Middleware
+
+## الإعداد السريع
+
+### 1. التثبيت
+
+```bash
+npm install
+```
+
+### 2. متغيرات البيئة (.env.local)
+
+```env
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_key
+CLERK_SECRET_KEY=your_secret
+MONGODB_URI=mongodb://localhost:27017/elhaq_db
+INNGEST_EVENT_KEY=your_key
+```
+
+### 3. التشغيل
+
+```bash
+npm run dev
+```
+
+اذهب إلى: `http://localhost:3000`
+
+## البنية
+
+- `src/app` - الصفحات والـ API routes
+- `src/lib` - MongoDB و utilities
+- `src/inngest` - Inngest functions
+
+## الأوامر
+
+```bash
+npm run dev     # تشغيل
+npm run build   # بناء للإنتاج
+npm run lint    # فحص الأخطاء
+```
 
 ```bash
 npm run dev
