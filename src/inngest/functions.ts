@@ -27,11 +27,16 @@ export const onUserCreated = inngest.createFunction(
          return;
       }
 
+      const userEmail = email_addresses?.[0]?.email_address || email;
+      
+      // Match by Clerk ID OR Email to handle cases where user exists but has old Clerk ID
+      const query = userEmail ? { $or: [{ clerkId: id }, { email: userEmail }] } : { clerkId: id };
+
       const dbUser = await User.findOneAndUpdate(
-        { clerkId: id },
+        query,
         {
           clerkId: id,
-          email: email_addresses?.[0]?.email_address || email,
+          email: userEmail,
           firstName: first_name,
           lastName: last_name,
           profileImageUrl: profile_image_url,
