@@ -8,11 +8,11 @@ import {
   Users, 
   Activity, 
   Target, 
-  UserPlus, 
-  Settings, 
+  UserPlus,  
   BarChart3, 
   Shield,
-  Loader2
+  Loader2,
+  Wallet
 } from "lucide-react";
 
 interface DashboardStats {
@@ -182,18 +182,7 @@ export default function AdminDashboard() {
             <p className="text-muted-foreground text-sm">إدارة صلاحيات المستخدمين والمسؤولين</p>
           </Link>
 
-          <Link
-            href="/admin/settings"
-            className="group bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
-          >
-            <div className="flex items-center gap-4 mb-3">
-              <div className="p-3 bg-primary/10 rounded-full group-hover:bg-primary/20 transition-colors">
-                <Settings className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-lg font-bold text-foreground">الإعدادات</h3>
-            </div>
-            <p className="text-muted-foreground text-sm">إعدادات النظام والتكوينات العامة</p>
-          </Link>
+        
 
           <Link
             href="/admin/reports"
@@ -206,6 +195,19 @@ export default function AdminDashboard() {
               <h3 className="text-lg font-bold text-foreground">التقارير</h3>
             </div>
             <p className="text-muted-foreground text-sm">عرض التقارير والإحصائيات التفصيلية</p>
+          </Link>
+
+          <Link
+            href="/admin/treasury"
+            className="group bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
+          >
+            <div className="flex items-center gap-4 mb-3">
+              <div className="p-3 bg-primary/10 rounded-full group-hover:bg-primary/20 transition-colors">
+                <Wallet className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">الخزينة</h3>
+            </div>
+            <p className="text-muted-foreground text-sm">تسجيل الوارد والصادر ومراجعة الرصيد المتبقي</p>
           </Link>
         </div>
       </div>

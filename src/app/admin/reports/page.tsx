@@ -50,63 +50,72 @@ export default function AdminReports() {
     }
   }, [isLoaded]);
 
-  if (!isLoaded) return <div>Loading...</div>;
+  if (!isLoaded) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-background text-muted-foreground">
+        جاري التحميل...
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8 transition-colors">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <Link href="/admin/dashboard" className="text-blue-600 hover:text-blue-700 mb-4 inline-block">
+          <Link href="/admin/dashboard" className="text-muted-foreground hover:text-primary mb-4 inline-flex items-center gap-2 transition-colors">
             ← العودة للوحة التحكم
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">التقارير والإحصائيات</h1>
+          <h1 className="text-3xl font-bold text-foreground">التقارير والإحصائيات</h1>
         </div>
 
         {loading ? (
-          <div className="text-center py-12">جاري التحميل...</div>
+          <div className="text-center py-12 text-muted-foreground">جاري التحميل...</div>
         ) : stats ? (
           <div className="space-y-6">
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white rounded-lg shadow p-6 border-r-4 border-blue-500">
-                <h3 className="text-gray-500 text-sm font-medium">إجمالي المبادرات</h3>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalInitiatives}</p>
+              <div className="relative bg-card border border-border rounded-lg shadow-sm p-6 overflow-hidden">
+                <span aria-hidden="true" className="absolute top-4 bottom-4 right-0 w-1 rounded-full bg-blue-500"></span>
+                <h3 className="text-muted-foreground text-sm font-medium">إجمالي المبادرات</h3>
+                <p className="text-3xl font-bold text-foreground mt-2">{stats.totalInitiatives}</p>
               </div>
-              <div className="bg-white rounded-lg shadow p-6 border-r-4 border-green-500">
-                <h3 className="text-gray-500 text-sm font-medium">إجمالي المستفيدين</h3>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalBeneficiaries}</p>
+              <div className="relative bg-card border border-border rounded-lg shadow-sm p-6 overflow-hidden">
+                <span aria-hidden="true" className="absolute top-4 bottom-4 right-0 w-1 rounded-full bg-green-500"></span>
+                <h3 className="text-muted-foreground text-sm font-medium">إجمالي المستفيدين</h3>
+                <p className="text-3xl font-bold text-foreground mt-2">{stats.totalBeneficiaries}</p>
               </div>
-              <div className="bg-white rounded-lg shadow p-6 border-r-4 border-purple-500">
-                <h3 className="text-gray-500 text-sm font-medium">إجمالي المصروفات</h3>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalAmountSpent.toLocaleString()} ج.م</p>
+              <div className="relative bg-card border border-border rounded-lg shadow-sm p-6 overflow-hidden">
+                <span aria-hidden="true" className="absolute top-4 bottom-4 right-0 w-1 rounded-full bg-purple-500"></span>
+                <h3 className="text-muted-foreground text-sm font-medium">إجمالي المصروفات</h3>
+                <p className="text-3xl font-bold text-foreground mt-2">{stats.totalAmountSpent.toLocaleString()} ج.م</p>
               </div>
             </div>
 
             {/* Initiatives Status */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">حالة المبادرات</h3>
+            <div className="bg-card border border-border rounded-lg shadow-sm p-6">
+              <h3 className="text-lg font-bold text-foreground mb-4">حالة المبادرات</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <span className="block text-2xl font-bold text-gray-700">{stats.initiativesByStatus.planned}</span>
-                  <span className="text-sm text-gray-500">مخططة</span>
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <span className="block text-2xl font-bold text-foreground">{stats.initiativesByStatus.planned}</span>
+                  <span className="text-sm text-muted-foreground">مخططة</span>
                 </div>
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <span className="block text-2xl font-bold text-green-700">{stats.initiativesByStatus.active}</span>
-                  <span className="text-sm text-green-600">نشطة</span>
+                <div className="text-center p-4 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <span className="block text-2xl font-bold text-green-700 dark:text-green-300">{stats.initiativesByStatus.active}</span>
+                  <span className="text-sm text-green-600 dark:text-green-300/90">نشطة</span>
                 </div>
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <span className="block text-2xl font-bold text-blue-700">{stats.initiativesByStatus.completed}</span>
-                  <span className="text-sm text-blue-600">مكتملة</span>
+                <div className="text-center p-4 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                  <span className="block text-2xl font-bold text-blue-700 dark:text-blue-300">{stats.initiativesByStatus.completed}</span>
+                  <span className="text-sm text-blue-600 dark:text-blue-300/90">مكتملة</span>
                 </div>
-                <div className="text-center p-4 bg-red-50 rounded-lg">
-                  <span className="block text-2xl font-bold text-red-700">{stats.initiativesByStatus.cancelled}</span>
-                  <span className="text-sm text-red-600">ملغاة</span>
+                <div className="text-center p-4 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                  <span className="block text-2xl font-bold text-red-700 dark:text-red-300">{stats.initiativesByStatus.cancelled}</span>
+                  <span className="text-sm text-red-600 dark:text-red-300/90">ملغاة</span>
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-center py-12 text-red-600">فشل تحميل البيانات</div>
+          <div className="text-center py-12 text-destructive">فشل تحميل البيانات</div>
         )}
       </div>
     </div>

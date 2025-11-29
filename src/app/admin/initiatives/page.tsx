@@ -66,63 +66,70 @@ export default function AdminInitiatives() {
     }
   };
 
-  if (!isLoaded) return <div>Loading...</div>;
+  if (!isLoaded) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-background text-muted-foreground">
+        جاري التحميل...
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8 transition-colors">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <Link href="/admin/dashboard" className="text-blue-600 hover:text-blue-700 mb-2 inline-block">
+            <Link href="/admin/dashboard" className="text-muted-foreground hover:text-primary mb-2 inline-flex items-center gap-2 transition-colors">
               ← العودة للوحة التحكم
             </Link>
-            <h1 className="text-3xl font-bold text-gray-900">إدارة المبادرات</h1>
+            <h1 className="text-3xl font-bold text-foreground">إدارة المبادرات</h1>
           </div>
           <Link
             href="/admin/initiatives/add"
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition"
           >
             ➕ إضافة مبادرة
           </Link>
         </div>
 
         {loading ? (
-          <div className="text-center py-12">جاري التحميل...</div>
+          <div className="text-center py-12 text-muted-foreground">جاري التحميل...</div>
         ) : initiatives.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center">
-            <p className="text-gray-600 text-lg">لا توجد مبادرات حالياً</p>
+          <div className="bg-card border border-border rounded-lg shadow-sm p-8 text-center">
+            <p className="text-muted-foreground text-lg">لا توجد مبادرات حالياً</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {initiatives.map((initiative) => (
-              <div key={initiative._id} className="bg-white rounded-lg shadow p-6">
+              <div key={initiative._id} className="bg-card border border-border rounded-lg shadow-sm p-6">
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-xl font-bold text-gray-900">{initiative.name}</h3>
+                  <h3 className="text-xl font-bold text-foreground">{initiative.name}</h3>
                   <span className={`px-2 py-1 rounded text-sm ${
-                    initiative.status === 'active' ? 'bg-green-100 text-green-800' :
-                    initiative.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                    'bg-gray-100 text-gray-800'
+                    initiative.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                    initiative.status === 'completed' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+                    initiative.status === 'planned' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' :
+                    'bg-muted text-foreground'
                   }`}>
                     {initiative.status === 'active' ? 'نشطة' :
                      initiative.status === 'completed' ? 'مكتملة' :
                      initiative.status === 'planned' ? 'مخططة' : 'ملغاة'}
                   </span>
                 </div>
-                <p className="text-gray-600 mb-4 line-clamp-2">{initiative.description}</p>
-                <div className="flex justify-between text-sm text-gray-500 border-t pt-4 mb-4">
+                <p className="text-muted-foreground mb-4 line-clamp-2">{initiative.description}</p>
+                <div className="flex justify-between text-sm text-muted-foreground border-t border-border pt-4 mb-4">
                   <span>📅 {new Date(initiative.date).toLocaleDateString('ar-SA')}</span>
                   <span>💰 {initiative.totalAmount} ج.م</span>
                 </div>
-                <div className="flex gap-2 justify-end border-t pt-4">
+                <div className="flex gap-2 justify-end border-t border-border pt-4">
                   <Link
                     href={`/admin/initiatives/${initiative._id}/edit`}
-                    className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                    className="px-3 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 text-sm"
                   >
                     تعديل
                   </Link>
                   <button
                     onClick={() => handleDelete(initiative._id)}
-                    className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+                    className="px-3 py-1 bg-destructive text-destructive-foreground rounded hover:bg-destructive/80 text-sm"
                   >
                     حذف
                   </button>

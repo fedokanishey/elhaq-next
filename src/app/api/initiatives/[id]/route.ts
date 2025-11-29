@@ -41,8 +41,15 @@ export async function PUT(
     await dbConnect();
     const { id } = await params;
     const body = await req.json();
+    const update: Record<string, unknown> = { ...body };
 
-    const initiative = await Initiative.findByIdAndUpdate(id, body, {
+    if (Object.prototype.hasOwnProperty.call(body, "beneficiaries")) {
+      update.beneficiaries = Array.isArray(body.beneficiaries)
+        ? body.beneficiaries
+        : [];
+    }
+
+    const initiative = await Initiative.findByIdAndUpdate(id, update, {
       new: true,
       runValidators: true,
     });

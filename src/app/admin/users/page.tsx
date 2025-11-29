@@ -4,7 +4,7 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Shield, ShieldAlert, User, Loader2, Search } from "lucide-react";
+import { ArrowRight, ShieldAlert, User, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 
 interface UserData {
@@ -54,6 +54,18 @@ export default function AdminUsers() {
   }, [isLoaded]);
 
   const handleRoleChange = async (userId: string, newRole: string) => {
+    const password = window.prompt("من فضلك أدخل كلمة مرور المسؤول لتأكيد التعديل")?.trim();
+
+    if (!password) {
+      toast.warning("تم إلغاء التعديل");
+      return;
+    }
+
+    if (password !== "admin") {
+      toast.error("كلمة المرور غير صحيحة");
+      return;
+    }
+
     setUpdatingId(userId);
     try {
       const res = await fetch(`/api/users/${userId}`, {

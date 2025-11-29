@@ -3,7 +3,7 @@
 import { useUser, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { useEffect } from "react";
-import { ArrowRight, User, Mail, Shield, Phone, Calendar, Code } from "lucide-react";
+import { ArrowRight, User, Mail, Shield, Phone, Calendar } from "lucide-react";
 
 export default function ProfilePage() {
   const { user } = useUser();
@@ -110,25 +110,6 @@ export default function ProfilePage() {
                         : "مستخدم"}
                     </span>
                   </div>
-                </div>
-              </div>
-
-              {/* Developer Info */}
-              <div className="pt-6 border-t border-border">
-                <div className="flex items-center gap-2 mb-2 text-muted-foreground">
-                  <Code className="h-4 w-4" />
-                  <label className="block text-sm font-medium">معلومات الصلاحيات (للمطورين)</label>
-                </div>
-                <div className="bg-muted p-4 rounded-md text-left border border-border" dir="ltr">
-                  <p className="font-mono text-sm text-foreground">
-                    Role (Public): {user?.publicMetadata?.role as string || "None"}<br/>
-                    Role (Unsafe): {user?.unsafeMetadata?.role as string || "None"}
-                  </p>
-                  <pre className="text-xs mt-2 overflow-auto text-muted-foreground">
-                    Public: {JSON.stringify(user?.publicMetadata, null, 2)}
-                    {"\n"}
-                    Unsafe: {JSON.stringify(user?.unsafeMetadata, null, 2)}
-                  </pre>
                 </div>
               </div>
             </div>

@@ -12,24 +12,23 @@ export async function GET() {
     const user = await currentUser();
 
     let actionTaken = "None";
-    let currentClerkRole = user?.publicMetadata?.role;
+    const currentClerkRole = user?.publicMetadata?.role;
 
     // AUTO-FIX: If you are logged in, make you an admin in MongoDB immediately
     if (userId && user) {
-        const email = user.emailAddresses[0]?.emailAddress;
+      const email = user.emailAddresses[0]?.emailAddress;
         
-        // Update MongoDB
-        const updatedUser = await User.findOneAndUpdate(
-            { $or: [{ clerkId: userId }, { email: email }] },
-            { 
-                role: 'admin',
-                clerkId: userId, // Ensure ID is synced
-                email: email
-            },
-            { new: true, upsert: true }
-        );
+      await User.findOneAndUpdate(
+        { $or: [{ clerkId: userId }, { email: email }] },
+        { 
+          role: 'admin',
+          clerkId: userId,
+          email: email
+        },
+        { new: true, upsert: true }
+      );
         
-        actionTaken = `User ${email} promoted to ADMIN in MongoDB.`;
+      actionTaken = `User ${email} promoted to ADMIN in MongoDB.`;
     }
 
     const dbName = conn.connection.name;
@@ -62,7 +61,9 @@ export async function GET() {
       adminsInDB: admins,
       initiativesList: allInitiatives
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message, stack: error.stack }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unexpected error";
+    const stack = error instanceof Error ? error.stack : undefined;
+    return NextResponse.json({ error: message, stack }, { status: 500 });
   }
 }

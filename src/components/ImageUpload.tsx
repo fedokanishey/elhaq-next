@@ -15,7 +15,7 @@ export default function ImageUpload({
   currentImage,
 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState<string | null>(currentImage || null);
+  const preview = currentImage || null;
 
   return (
     <div className="space-y-4">
@@ -36,7 +36,6 @@ export default function ImageUpload({
         onSuccess={(result: unknown) => {
           const uploadResult = result as { info: { secure_url: string } };
           const imageUrl = uploadResult.info.secure_url;
-          setPreview(imageUrl);
           onImageUpload(imageUrl);
           setUploading(false);
         }}

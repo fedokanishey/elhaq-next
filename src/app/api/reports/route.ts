@@ -42,19 +42,20 @@ export async function GET() {
     if (userEmail) {
         if (!clerkUser) clerkUser = await currentUser();
         if (clerkUser) {
-             await User.findOneAndUpdate(
-                { $or: [{ clerkId: userId }, { email: userEmail }] },
-                {
-                    clerkId: userId,
-                    email: userEmail,
-                    firstName: clerkUser.firstName,
-                    lastName: clerkUser.lastName,
-                    profileImageUrl: clerkUser.imageUrl,
-                    // Ensure admin role is preserved or set
-                    $setOnInsert: { role: 'admin' }
-                },
-                { upsert: true, new: true, setDefaultsOnInsert: true }
-            );
+          await User.findOneAndUpdate(
+            { $or: [{ clerkId: userId }, { email: userEmail }] },
+            {
+              $set: {
+                clerkId: userId,
+                email: userEmail,
+                firstName: clerkUser.firstName,
+                lastName: clerkUser.lastName,
+                profileImageUrl: clerkUser.imageUrl,
+              },
+              $setOnInsert: { role: 'admin' }
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+          );
         }
     }
 

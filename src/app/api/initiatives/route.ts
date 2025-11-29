@@ -26,8 +26,13 @@ export async function POST(req: Request) {
 
     await dbConnect();
     const body = await req.json();
-    
-    const initiative = new Initiative(body);
+
+    const initiative = new Initiative({
+      ...body,
+      beneficiaries: Array.isArray(body.beneficiaries)
+        ? body.beneficiaries
+        : [],
+    });
     await initiative.save();
 
     return NextResponse.json(initiative, { status: 201 });

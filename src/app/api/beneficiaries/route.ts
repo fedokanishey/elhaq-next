@@ -2,6 +2,11 @@ import { auth } from "@clerk/nextjs/server";
 import dbConnect from "@/lib/mongodb";
 import Beneficiary from "@/lib/models/Beneficiary";
 import { NextResponse } from "next/server";
+import { sanitizeBeneficiaryPayload } from "@/lib/beneficiaries/sanitizePayload";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 export async function GET() {
   try {
@@ -46,11 +51,12 @@ export async function POST(req: Request) {
 
     await dbConnect();
 
-    const body = await req.json();
+    const rawBody = await req.json();
+    const payload = sanitizeBeneficiaryPayload(rawBody);
 
     const beneficiary = new Beneficiary({
       clerkId: userId,
-      ...body,
+      ...payload,
     });
 
     await beneficiary.save();

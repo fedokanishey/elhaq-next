@@ -5,19 +5,31 @@ import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import BeneficiaryCard from "@/components/BeneficiaryCard";
 import { Loader2, Plus, Users, AlertCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface Beneficiary {
   _id: string;
   name: string;
   phone: string;
+  whatsapp?: string;
   address: string;
+  nationalId?: string;
   familyMembers: number;
   priority: number;
   profileImage?: string;
+  idImage?: string;
+  maritalStatus?: string;
+  spouse?: {
+    name?: string;
+    nationalId?: string;
+    phone?: string;
+    whatsapp?: string;
+  };
 }
 
 export default function BeneficiariesPage() {
   const { user, isLoaded } = useUser();
+  const router = useRouter();
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -26,7 +38,7 @@ export default function BeneficiariesPage() {
     const fetchBeneficiaries = async () => {
       try {
         setLoading(true);
-        const res = await fetch("/api/beneficiaries");
+        const res = await fetch("/api/beneficiaries", { cache: "no-store" });
         const data = await res.json();
 
         if (res.ok) {
@@ -35,6 +47,7 @@ export default function BeneficiariesPage() {
           setError(data.error || "حدث خطأ");
         }
       } catch (err) {
+        console.error(err);
         setError("فشل تحميل البيانات");
       } finally {
         setLoading(false);
@@ -99,24 +112,24 @@ export default function BeneficiariesPage() {
         {!loading && beneficiaries.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {beneficiaries.map((beneficiary) => (
-              <Link
-                key={beneficiary._id}
-                href={`/beneficiaries/${beneficiary._id}`}
-                className="block h-full"
-              >
-                <div className="cursor-pointer h-full">
-                  <BeneficiaryCard
-                    id={beneficiary._id}
-                    name={beneficiary.name}
-                    phone={beneficiary.phone}
-                    address={beneficiary.address}
-                    familyMembers={beneficiary.familyMembers}
-                    priority={beneficiary.priority}
-                    profileImage={beneficiary.profileImage}
-                    isReadOnly={!isAdmin}
-                  />
-                </div>
-              </Link>
+              <div key={beneficiary._id} className="h-full">
+                <BeneficiaryCard
+                  id={beneficiary._id}
+                  name={beneficiary.name}
+                  phone={beneficiary.phone}
+                  whatsapp={beneficiary.whatsapp}
+                  address={beneficiary.address}
+                  nationalId={beneficiary.nationalId}
+                  familyMembers={beneficiary.familyMembers}
+                  priority={beneficiary.priority}
+                  profileImage={beneficiary.profileImage}
+                  idImage={beneficiary.idImage}
+                  maritalStatus={beneficiary.maritalStatus}
+                  spouseName={beneficiary.spouse?.name}
+                  onView={() => router.push(`/admin/beneficiaries/${beneficiary._id}`)}
+                  isReadOnly={!isAdmin}
+                />
+              </div>
             ))}
           </div>
         )}
