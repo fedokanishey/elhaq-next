@@ -58,8 +58,8 @@ export async function PUT(
     const { children, spouse, ...rest } = payload;
 
     beneficiary.set(rest);
-    beneficiary.children = children;
-    beneficiary.spouse = spouse;
+    beneficiary.set("children", children);
+    beneficiary.set("spouse", spouse);
     beneficiary.markModified("children");
     beneficiary.markModified("spouse");
     await beneficiary.save();
