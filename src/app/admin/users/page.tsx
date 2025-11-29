@@ -157,99 +157,164 @@ export default function AdminUsers() {
             </p>
           </div>
         ) : (
-          <div className="bg-card border border-border rounded-lg shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-border">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      المستخدم
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      البريد الإلكتروني
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      الدور الحالي
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      تاريخ التسجيل
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      إجراءات
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-card divide-y divide-border">
-                  {filteredUsers.map((u) => (
-                    <tr key={u._id} className="hover:bg-muted/50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                            {u.firstName?.[0]?.toUpperCase() || "U"}
-                          </div>
-                          <div className="mr-4">
-                            <div className="text-sm font-medium text-foreground">
-                              {u.firstName} {u.lastName}
-                            </div>
-                            <div className="text-xs text-muted-foreground sm:hidden">
-                              {u.email}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap hidden sm:table-cell">
-                        <div className="text-sm text-muted-foreground">{u.email}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            u.role === "admin"
-                              ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                              : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                          }`}
-                        >
-                          {u.role === "admin" ? (
-                            <>
-                              <ShieldAlert className="w-3 h-3 ml-1" />
-                              مسؤول (Admin)
-                            </>
-                          ) : (
-                            <>
-                              <User className="w-3 h-3 ml-1" />
-                              مستخدم
-                            </>
-                          )}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                        {new Date(u.createdAt).toLocaleDateString("ar-EG")}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <select
-                          aria-label="تغيير دور المستخدم"
-                          disabled={updatingId === u._id || u.clerkId === user?.id}
-                          value={u.role}
-                          onChange={(e) => handleRoleChange(u._id, e.target.value)}
-                          className="block w-full pl-3 pr-10 py-2 text-base border-input bg-background text-foreground focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed border"
-                        >
-                          <option value="user">مستخدم</option>
-                          <option value="admin">مسؤول</option>
-                        </select>
-                        {updatingId === u._id && (
-                          <span className="mr-2 inline-flex items-center text-xs text-muted-foreground">
-                            <Loader2 className="w-3 h-3 animate-spin ml-1" />
-                            جاري التحديث...
-                          </span>
-                        )}
-                      </td>
+          <div className="space-y-4">
+            {/* Mobile Cards */}
+            <div className="space-y-3 md:hidden">
+              {filteredUsers.map((u) => (
+                <div
+                  key={u._id}
+                  className="bg-card border border-border rounded-xl p-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-11 w-11 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-lg">
+                        {u.firstName?.[0]?.toUpperCase() || "U"}
+                      </div>
+                      <div>
+                        <p className="text-base font-semibold text-foreground">
+                          {u.firstName} {u.lastName}
+                        </p>
+                        <p className="text-xs text-muted-foreground break-all">{u.email}</p>
+                      </div>
+                    </div>
+                    <RoleBadge role={u.role} />
+                  </div>
+
+                  <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
+                    <span>تاريخ التسجيل:</span>
+                    <span className="text-foreground">
+                      {new Date(u.createdAt).toLocaleDateString("ar-EG")}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground" htmlFor={`role-${u._id}`}>
+                      تغيير الدور
+                    </label>
+                    <select
+                      id={`role-${u._id}`}
+                      aria-label="تغيير دور المستخدم"
+                      disabled={updatingId === u._id || u.clerkId === user?.id}
+                      value={u.role}
+                      onChange={(e) => handleRoleChange(u._id, e.target.value)}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="user">مستخدم</option>
+                      <option value="admin">مسؤول</option>
+                    </select>
+                    {updatingId === u._id && (
+                      <span className="inline-flex items-center text-xs text-muted-foreground">
+                        <Loader2 className="w-3 h-3 animate-spin ml-1" />
+                        جاري التحديث...
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table */}
+            <div className="hidden md:block bg-card border border-border rounded-lg shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-border">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        المستخدم
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        البريد الإلكتروني
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        الدور الحالي
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        تاريخ التسجيل
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        إجراءات
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="bg-card divide-y divide-border">
+                    {filteredUsers.map((u) => (
+                      <tr key={u._id} className="hover:bg-muted/50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                              {u.firstName?.[0]?.toUpperCase() || "U"}
+                            </div>
+                            <div className="mr-4">
+                              <div className="text-sm font-medium text-foreground">
+                                {u.firstName} {u.lastName}
+                              </div>
+                              <div className="text-xs text-muted-foreground sm:hidden">
+                                {u.email}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap hidden sm:table-cell">
+                          <div className="text-sm text-muted-foreground">{u.email}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <RoleBadge role={u.role} />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                          {new Date(u.createdAt).toLocaleDateString("ar-EG")}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <select
+                            aria-label="تغيير دور المستخدم"
+                            disabled={updatingId === u._id || u.clerkId === user?.id}
+                            value={u.role}
+                            onChange={(e) => handleRoleChange(u._id, e.target.value)}
+                            className="block w-full pl-3 pr-10 py-2 text-base border-input bg-background text-foreground focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed border"
+                          >
+                            <option value="user">مستخدم</option>
+                            <option value="admin">مسؤول</option>
+                          </select>
+                          {updatingId === u._id && (
+                            <span className="mr-2 inline-flex items-center text-xs text-muted-foreground">
+                              <Loader2 className="w-3 h-3 animate-spin ml-1" />
+                              جاري التحديث...
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function RoleBadge({ role }: { role: string }) {
+  const isAdmin = role === "admin";
+  return (
+    <span
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+        isAdmin
+          ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+          : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+      }`}
+    >
+      {isAdmin ? (
+        <>
+          <ShieldAlert className="w-3 h-3 ml-1" />
+          مسؤول (Admin)
+        </>
+      ) : (
+        <>
+          <User className="w-3 h-3 ml-1" />
+          مستخدم
+        </>
+      )}
+    </span>
   );
 }
