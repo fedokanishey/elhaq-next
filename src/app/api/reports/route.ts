@@ -3,6 +3,7 @@ import dbConnect from "@/lib/mongodb";
 import Initiative from "@/lib/models/Initiative";
 import Beneficiary from "@/lib/models/Beneficiary";
 import User from "@/lib/models/User";
+import TreasuryTransaction from "@/lib/models/TreasuryTransaction";
 import { auth, currentUser } from "@clerk/nextjs/server";
 
 export async function GET() {
@@ -73,20 +74,25 @@ export async function GET() {
     // Calculate total amount spent on initiatives
     const totalAmountSpent = initiatives.reduce((sum, init) => sum + (init.totalAmount || 0), 0);
 
-    // Calculate active cases (beneficiaries in active initiatives)
-    const activeInitiatives = initiatives.filter(i => i.status === 'active');
-    const activeBeneficiaryIds = new Set<string>();
-    activeInitiatives.forEach(init => {
-      if (init.beneficiaries && Array.isArray(init.beneficiaries)) {
-        init.beneficiaries.forEach((bId: string) => activeBeneficiaryIds.add(bId.toString()));
-      }
-    });
-    const activeCases = activeBeneficiaryIds.size;
+    // Calculate remaining balance (total received - total spent)
+    const incomeTransactions = await TreasuryTransaction.find({ type: 'income' });
+    const expenseTransactions = await TreasuryTransaction.find({ type: 'expense' });
+    
+    console.log(`[Reports API] Income Transactions Found: ${incomeTransactions.length}`);
+    console.log(`[Reports API] Expense Transactions Found: ${expenseTransactions.length}`);
+    
+    const totalReceived = incomeTransactions.reduce((sum: number, transaction: any) => sum + (transaction.amount || 0), 0);
+    const totalExpenses = expenseTransactions.reduce((sum: number, transaction: any) => sum + (transaction.amount || 0), 0);
+    
+    console.log(`[Reports API] Total Received: ${totalReceived}, Total Expenses: ${totalExpenses}`);
+    
+    // If no treasury data exists, use 0 (will need to add treasury entries in admin panel)
+    const remainingBalance = totalReceived - totalExpenses;
 
     // Calculate initiatives by status
     const initiativesByStatus = {
       planned: initiatives.filter(i => i.status === 'planned').length,
-      active: activeInitiatives.length,
+      active: initiatives.filter(i => i.status === 'active').length,
       completed: initiatives.filter(i => i.status === 'completed').length,
       cancelled: initiatives.filter(i => i.status === 'cancelled').length,
     };
@@ -98,7 +104,7 @@ export async function GET() {
         totalAmountSpent,
         initiativesByStatus,
         totalUsers: usersCount,
-        activeCases
+        remainingBalance
       }
     });
   } catch (error) {

@@ -48,7 +48,7 @@ export async function GET(
 
       if (beneficiaryIds.length > 0) {
         const raw = await Beneficiary.find({ _id: { $in: beneficiaryIds } })
-          .select("name phone profileImage")
+          .select("name phone whatsapp nationalId address healthStatus housingType employment priority children spouse familyMembers maritalStatus income rentalCost")
           .lean();
 
         // Ensure _id is a string for the API response
@@ -56,6 +56,19 @@ export async function GET(
           _id: b._id?.toString?.() ?? b._id,
           name: b.name || "",
           phone: b.phone,
+          whatsapp: b.whatsapp,
+          nationalId: b.nationalId,
+          address: b.address,
+          healthStatus: b.healthStatus,
+          housingType: b.housingType,
+          employment: b.employment,
+          priority: b.priority,
+          children: b.children,
+          spouse: b.spouse,
+          familyMembers: b.familyMembers,
+          maritalStatus: b.maritalStatus,
+          income: b.income,
+          rentalCost: b.rentalCost,
           profileImage: b.profileImage,
         }));
       }

@@ -10,11 +10,15 @@ export default function AddInitiativePage() {
   const router = useRouter();
 
   useEffect(() => {
+    if (!isLoaded) return;
+    
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    if (isLoaded && role !== "admin") {
-      router.push("/");
+    if (role !== "admin") {
+      const timer = setTimeout(() => router.push("/"), 0);
+      return () => clearTimeout(timer);
     }
-  }, [isLoaded, user, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded]);
 
   if (!isLoaded) {
     return (

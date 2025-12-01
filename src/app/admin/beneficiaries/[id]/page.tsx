@@ -359,7 +359,7 @@ export default function ViewBeneficiary({
                   <dt className="text-sm text-muted-foreground">تكلفة الإيجار الشهرية</dt>
                   <dd className="mt-1 flex items-center gap-2 text-foreground">
                     <Wallet className="w-4 h-4" />
-                    {beneficiary.rentalCost} ر.س
+                    {beneficiary.rentalCost} ج.م
                   </dd>
                 </div>
               )}
@@ -376,7 +376,7 @@ export default function ViewBeneficiary({
                   <dt className="text-sm text-muted-foreground">الدخل الشهري</dt>
                   <dd className="mt-1 flex items-center gap-2 text-foreground">
                     <Wallet className="w-4 h-4" />
-                    {beneficiary.income} ر.س
+                    {beneficiary.income} ج.م
                   </dd>
                 </div>
               )}

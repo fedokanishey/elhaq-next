@@ -26,7 +26,7 @@ interface DashboardStats {
     cancelled: number;
   };
   totalUsers: number;
-  activeCases: number;
+  remainingBalance: number;
 }
 
 export default function AdminDashboard() {
@@ -96,12 +96,12 @@ export default function AdminDashboard() {
           <div className="bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                <Activity className="h-6 w-6 text-green-600 dark:text-green-400" />
+                <Wallet className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
-              <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full">نشط</span>
+              <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full">الرصيد</span>
             </div>
-            <div className="text-3xl font-bold text-foreground">{stats?.activeCases || 0}</div>
-            <p className="text-sm text-muted-foreground mt-1">الحالات النشطة</p>
+            <div className="text-3xl font-bold text-foreground">{(stats?.remainingBalance || 0).toLocaleString('ar-SA')} ج.م</div>
+            <p className="text-sm text-muted-foreground mt-1">الرصيد المتبقى في الخزينة</p>
           </div>
 
           <div className="bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">

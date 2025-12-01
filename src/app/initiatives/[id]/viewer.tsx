@@ -180,7 +180,7 @@ export default function InitiativeDetailsClient({
             {initiative.images && initiative.images.length > 1 && (
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold text-foreground">الصور الإضافية</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-96 overflow-y-auto pr-2">
                   {initiative.images.slice(1).map((image, index) => (
                     <div
                       key={`gallery-${index}`}
@@ -201,9 +201,9 @@ export default function InitiativeDetailsClient({
             )}
 
             {/* Description */}
-            <div className="bg-card border border-border overflow-scroll rounded-2xl p-6 sm:p-8 space-y-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-primary tracking-widest uppercase">عن المبادرة</h3>
-              <p className="text-muted-foreground leading-relaxed text-base">
+            <div className="bg-card border border-border/50 rounded-2xl p-8 space-y-4 shadow-md">
+              <h3 className="text-2xl font-bold text-foreground">عن المبادرة</h3>
+              <p className="text-muted-foreground leading-relaxed text-base whitespace-pre-wrap">
                 {initiative.description || "لا يوجد وصف تفصيلي متاح حالياً لهذه المبادرة. سيتم تحديث هذه المعلومات قريباً."}
               </p>
             </div>

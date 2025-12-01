@@ -105,12 +105,16 @@ export default function InitiativeForm({
     } else if (mode === "create") {
       setFormData(defaultFormValues());
     }
-  }, [initialValues, mode]);
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   useEffect(() => {
     setSelectionSeed(initialBeneficiaryIds);
     setHasHydratedSelection(false);
-  }, [initialBeneficiaryIds]);
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const loadBeneficiaries = async () => {
@@ -173,7 +177,8 @@ export default function InitiativeForm({
         .filter(Boolean) as BeneficiaryOption[]
     );
     setHasHydratedSelection(true);
-  }, [beneficiaries, selectionSeed, hasHydratedSelection]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beneficiaries, selectionSeed]);
 
   const filteredBeneficiaries = useMemo(() => {
     let result = beneficiaries;
