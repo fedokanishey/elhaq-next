@@ -117,7 +117,7 @@ export default function AdminInitiatives() {
                 </div>
                 <p className="text-muted-foreground mb-4 line-clamp-2">{initiative.description}</p>
                 <div className="flex justify-between text-sm text-muted-foreground border-t border-border pt-4 mb-4">
-                  <span>📅 {new Date(initiative.date).toLocaleDateString('ar-SA')}</span>
+                  <span>📅 {new Date(initiative.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
                   <span>💰 {initiative.totalAmount} ج.م</span>
                 </div>
                 <div className="flex gap-2 justify-end border-t border-border pt-4">

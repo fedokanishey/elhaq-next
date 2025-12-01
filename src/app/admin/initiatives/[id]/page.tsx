@@ -389,8 +389,8 @@ export default function ViewInitiativePage() {
   }
 
   const formattedDate = initiative.date
-    ? new Date(initiative.date).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" })
-    : "غير محدد";
+    ? new Date(initiative.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+    : "Not specified";
   const beneficiaries = initiative.beneficiaries || [];
 
   return (
@@ -478,23 +478,26 @@ export default function ViewInitiativePage() {
           </div>
 
           {beneficiaries.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {beneficiaries.map((beneficiary) => (
-                <div key={beneficiary._id} className="border border-border rounded-lg p-4 flex gap-4 items-center">
-                  <div className="w-14 h-14 rounded-full overflow-hidden border border-border bg-muted flex items-center justify-center text-lg font-semibold text-primary">
+                <div key={beneficiary._id} className="border border-border rounded-lg p-4 flex flex-col items-center text-center gap-3 hover:bg-muted/50 transition-colors">
+                  <div className="w-16 h-16 rounded-full overflow-hidden border border-border bg-muted flex items-center justify-center text-xl font-semibold text-primary">
                     {beneficiary.profileImage ? (
                       <img src={beneficiary.profileImage} alt={beneficiary.name} className="w-full h-full object-cover" />
                     ) : (
                       beneficiary.name?.charAt(0) || "م"
                     )}
                   </div>
-                  <div className="flex-1">
-                    <p className="text-foreground font-medium">{beneficiary.name}</p>
-                    <p className="text-muted-foreground text-sm">{beneficiary.phone || "لا يوجد رقم"}</p>
+                  <div className="flex-1 w-full">
+                    <p className="text-foreground font-semibold">{beneficiary.name}</p>
+                    <p className="text-muted-foreground text-xs">{beneficiary.phone || "بدون رقم"}</p>
+                    {beneficiary.whatsapp && (
+                      <p className="text-muted-foreground text-xs">{beneficiary.whatsapp}</p>
+                    )}
                   </div>
                   <Link
                     href={`/admin/beneficiaries/${beneficiary._id}`}
-                    className="inline-flex items-center gap-1 text-primary text-sm hover:text-primary/80"
+                    className="w-full inline-flex items-center justify-center gap-1 text-primary text-sm hover:text-primary/80 bg-primary/10 hover:bg-primary/20 px-3 py-2 rounded transition-colors"
                   >
                     فتح الملف
                     <ArrowRight className="w-4 h-4" />
@@ -503,7 +506,7 @@ export default function ViewInitiativePage() {
               ))}
             </div>
           ) : (
-            <p className="text-muted-foreground text-sm">لا توجد أسماء مستفيدين مرتبطة حالياً بهذه المبادرة.</p>
+            <p className="text-muted-foreground text-sm text-center py-8">لا توجد أسماء مستفيدين مرتبطة حالياً بهذه المبادرة.</p>
           )}
         </section>
       </div>
