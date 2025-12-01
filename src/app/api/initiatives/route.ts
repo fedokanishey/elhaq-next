@@ -32,6 +32,7 @@ export async function POST(req: Request) {
       beneficiaries: Array.isArray(body.beneficiaries)
         ? body.beneficiaries
         : [],
+      images: Array.isArray(body.images) ? body.images : [],
     });
     await initiative.save();
 

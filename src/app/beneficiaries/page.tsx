@@ -33,8 +33,21 @@ export default function BeneficiariesPage() {
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  const canAccessBeneficiaries = role === "admin" || role === "member";
 
   useEffect(() => {
+    if (!isLoaded) return;
+    if (!canAccessBeneficiaries) {
+      router.replace("/");
+    }
+  }, [isLoaded, canAccessBeneficiaries, router]);
+
+  useEffect(() => {
+    if (!isLoaded || !canAccessBeneficiaries) {
+      return;
+    }
+
     const fetchBeneficiaries = async () => {
       try {
         setLoading(true);
@@ -55,7 +68,7 @@ export default function BeneficiariesPage() {
     };
 
     fetchBeneficiaries();
-  }, []);
+  }, [isLoaded, canAccessBeneficiaries]);
 
   if (!isLoaded) {
     return (
@@ -65,7 +78,15 @@ export default function BeneficiariesPage() {
     );
   }
 
-  const isAdmin = user?.publicMetadata?.role === "admin" || user?.unsafeMetadata?.role === "admin";
+  if (!canAccessBeneficiaries) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-background text-muted-foreground">
+        جاري تحويلك للصفحة الرئيسية...
+      </div>
+    );
+  }
+
+  const isAdmin = role === "admin";
 
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8 transition-colors duration-300">

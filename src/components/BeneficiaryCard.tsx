@@ -3,14 +3,12 @@
 import { useMemo } from "react";
 
 import {
-  Phone,
   MapPin,
   Users,
   AlertCircle,
   Edit,
   Trash2,
   MessageCircle,
-  Hash,
 } from "lucide-react";
 
 interface BeneficiaryCardProps {
@@ -50,8 +48,6 @@ export default function BeneficiaryCard({
   isReadOnly = false,
 }: BeneficiaryCardProps) {
 
-  // ==============================
-  // ⭐ تعديل الواتساب هنا
   // ==============================
   const whatsappLink = useMemo(() => {
     if (!whatsapp) return null;
@@ -141,13 +137,11 @@ export default function BeneficiaryCard({
         <div className="space-y-2 text-sm sm:text-base text-muted-foreground">
           {nationalId && (
             <div className="flex items-center gap-2">
-              <Hash className="w-4 h-4" />
               <span>رقم المستفيد: {nationalId}</span>
             </div>
           )}
 
           <div className="flex flex-wrap items-center gap-2">
-            <Phone className="w-4 h-4" />
             <span>{phone}</span>
 
             {whatsappLink && (

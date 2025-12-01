@@ -4,7 +4,7 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ShieldAlert, User, Loader2, Search } from "lucide-react";
+import { ArrowRight, ShieldAlert, User, Loader2, Search, Users as UsersIcon } from "lucide-react";
 import { toast } from "sonner";
 
 interface UserData {
@@ -200,6 +200,7 @@ export default function AdminUsers() {
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <option value="user">مستخدم</option>
+                      <option value="member">عضو</option>
                       <option value="admin">مسؤول</option>
                     </select>
                     {updatingId === u._id && (
@@ -272,6 +273,7 @@ export default function AdminUsers() {
                             className="block w-full pl-3 pr-10 py-2 text-base border-input bg-background text-foreground focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed border"
                           >
                             <option value="user">مستخدم</option>
+                            <option value="member">عضو</option>
                             <option value="admin">مسؤول</option>
                           </select>
                           {updatingId === u._id && (
@@ -295,26 +297,32 @@ export default function AdminUsers() {
 }
 
 function RoleBadge({ role }: { role: string }) {
-  const isAdmin = role === "admin";
+  const roleConfig: Record<"admin" | "member" | "user", { label: string; classes: string; Icon: typeof ShieldAlert }> = {
+    admin: {
+      label: "مسؤول",
+      classes: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+      Icon: ShieldAlert,
+    },
+    member: {
+      label: "عضو",
+      classes: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+      Icon: UsersIcon,
+    },
+    user: {
+      label: "مستخدم",
+      classes: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+      Icon: User,
+    },
+  };
+
+  const fallback = roleConfig.user;
+  const config = roleConfig[role as keyof typeof roleConfig] || fallback;
+  const Icon = config.Icon;
+
   return (
-    <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-        isAdmin
-          ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-          : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-      }`}
-    >
-      {isAdmin ? (
-        <>
-          <ShieldAlert className="w-3 h-3 ml-1" />
-          مسؤول (Admin)
-        </>
-      ) : (
-        <>
-          <User className="w-3 h-3 ml-1" />
-          مستخدم
-        </>
-      )}
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.classes}`}>
+      <Icon className="w-3 h-3 ml-1" />
+      {config.label}
     </span>
   );
 }

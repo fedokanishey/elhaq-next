@@ -10,12 +10,15 @@ export default function Navbar() {
   const { user, isLoaded } = useUser();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const isAdmin = user?.publicMetadata?.role === "admin" || user?.unsafeMetadata?.role === "admin";
+  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  const isAdmin = role === "admin";
+  const isMember = role === "member";
+  const canViewBeneficiaries = isAdmin || isMember;
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
@@ -37,12 +40,14 @@ export default function Navbar() {
                     لوحة التحكم
                   </Link>
                 )}
-                <Link
-                  href="/beneficiaries"
-                  className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-                >
-                  المستفيدين
-                </Link>
+                {canViewBeneficiaries && (
+                  <Link
+                    href="/beneficiaries"
+                    className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+                  >
+                    المستفيدين
+                  </Link>
+                )}
                 <ThemeToggle />
                 <UserButton afterSignOutUrl="/" />
               </>
@@ -98,13 +103,15 @@ export default function Navbar() {
                     لوحة التحكم
                   </Link>
                 )}
-                <Link
-                  href="/beneficiaries"
-                  className="block rounded-md px-3 py-2 text-base font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  المستفيدين
-                </Link>
+                {canViewBeneficiaries && (
+                  <Link
+                    href="/beneficiaries"
+                    className="block rounded-md px-3 py-2 text-base font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    المستفيدين
+                  </Link>
+                )}
                 <div className="px-3 py-2">
                   <UserButton afterSignOutUrl="/" />
                 </div>

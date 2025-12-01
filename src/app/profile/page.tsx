@@ -15,6 +15,26 @@ export default function ProfilePage() {
     }
   }, [user]);
 
+  const role = (user?.publicMetadata?.role || user?.unsafeMetadata?.role || "user") as "admin" | "member" | "user";
+  const roleDetails: Record<"admin" | "member" | "user", { label: string; description: string; badgeClass: string }> = {
+    admin: {
+      label: "مسؤول",
+      description: "يمكنه إدارة لوحة التحكم وكافة البيانات",
+      badgeClass: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    },
+    member: {
+      label: "عضو",
+      description: "يمكنه الوصول إلى بيانات المستفيدين فقط",
+      badgeClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    },
+    user: {
+      label: "مستخدم",
+      description: "يمكنه استعراض الصفحة الرئيسية العامة والصور",
+      badgeClass: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    },
+  };
+  const activeRole = roleDetails[role] || roleDetails.user;
+
   return (
     <div className="min-h-screen bg-background py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
       <div className="max-w-3xl mx-auto">
@@ -100,16 +120,11 @@ export default function ProfilePage() {
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1">الدور</label>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      (user?.publicMetadata?.role === "admin" || user?.unsafeMetadata?.role === "admin")
-                        ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                        : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                    }`}>
-                      {(user?.publicMetadata?.role === "admin" || user?.unsafeMetadata?.role === "admin") 
-                        ? "مسؤول (Admin)" 
-                        : "مستخدم"}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${activeRole.badgeClass}`}>
+                      {activeRole.label}
                     </span>
                   </div>
+                  <p className="text-xs text-muted-foreground mt-1">{activeRole.description}</p>
                 </div>
               </div>
             </div>

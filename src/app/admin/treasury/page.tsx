@@ -3,7 +3,7 @@
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDownCircle, ArrowUpCircle, Loader2, PiggyBank, Receipt } from "lucide-react";
 
 interface TreasuryTotals {
@@ -21,7 +21,17 @@ interface TreasuryTransaction {
   reference?: string;
   transactionDate: string;
   recordedBy?: string;
+  donorId?: string;
+  donorNameSnapshot?: string;
   createdAt: string;
+}
+
+interface DonorSummary {
+  _id: string;
+  name: string;
+  totalDonated: number;
+  donationsCount: number;
+  lastDonationDate?: string;
 }
 
 type TreasuryFormState = {
@@ -31,6 +41,8 @@ type TreasuryFormState = {
   category: string;
   reference: string;
   transactionDate: string;
+  donorName: string;
+  donorId?: string;
 };
 
 const createDefaultFormState = (): TreasuryFormState => ({
@@ -40,6 +52,8 @@ const createDefaultFormState = (): TreasuryFormState => ({
   category: "",
   reference: "",
   transactionDate: new Date().toISOString().split("T")[0],
+  donorName: "",
+  donorId: "",
 });
 
 export default function TreasuryPage() {
@@ -51,6 +65,25 @@ export default function TreasuryPage() {
   const [formData, setFormData] = useState<TreasuryFormState>(createDefaultFormState);
   const [totals, setTotals] = useState<TreasuryTotals>({ incomeTotal: 0, expenseTotal: 0, balance: 0 });
   const [transactions, setTransactions] = useState<TreasuryTransaction[]>([]);
+  const [donors, setDonors] = useState<DonorSummary[]>([]);
+
+  const loadDonors = useCallback(async () => {
+    try {
+      const res = await fetch("/api/donors?limit=200", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setDonors(data.donors || []);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  const [showDonorSuggestions, setShowDonorSuggestions] = useState(false);
+  const filteredDonors = useMemo(() => {
+    const term = (formData.donorName || "").trim().toLowerCase();
+    if (!term) return donors.slice(0, 6);
+    return donors.filter((d) => d.name.toLowerCase().includes(term)).slice(0, 6);
+  }, [donors, formData.donorName]);
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
@@ -81,14 +114,16 @@ export default function TreasuryPage() {
 
     if (isLoaded) {
       fetchTreasury();
+      loadDonors();
     }
-  }, [isLoaded]);
+  }, [isLoaded, loadDonors]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value, ...(name === "donorName" ? { donorId: "" } : {}) }));
+    if (name === "donorName") setShowDonorSuggestions(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -151,6 +186,8 @@ export default function TreasuryPage() {
     expense: formatCurrency(totals.expenseTotal),
   }), [totals]);
 
+  // donors state is populated by loadDonors and used to populate donor pages
+
   if (!isLoaded) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-background">
@@ -169,6 +206,14 @@ export default function TreasuryPage() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">الخزينة</h1>
             <p className="text-muted-foreground">تتبع الوارد والصادر وراقب الرصيد المتبقي بسهولة.</p>
+            <div className="mt-2">
+              <Link
+                href="/admin/donors"
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                🧾 قائمة المتبرعين ({donors.length})
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -268,6 +313,42 @@ export default function TreasuryPage() {
                 </div>
               </div>
 
+              {formData.type === "income" && (
+                <div>
+                  <label htmlFor="donorName" className="block text-sm font-medium text-muted-foreground mb-1">اسم المتبرع (إذا وُجد)</label>
+                  <input
+                    id="donorName"
+                    name="donorName"
+                    type="text"
+                    placeholder="اسم المتبرع أو جهة التبرع"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    value={formData.donorName}
+                        onChange={handleInputChange}
+                        onFocus={() => setShowDonorSuggestions(true)}
+                        autoComplete="off"
+                  />
+                      {showDonorSuggestions && filteredDonors.length > 0 && (
+                        <div className="border border-border rounded-md mt-2 bg-card max-h-40 overflow-auto z-50">
+                          {filteredDonors.map((d) => (
+                            <button
+                              key={d._id}
+                              type="button"
+                              onMouseDown={(ev) => ev.preventDefault()}
+                              onClick={() => {
+                                setFormData((prev) => ({ ...prev, donorName: d.name, donorId: d._id }));
+                                setShowDonorSuggestions(false);
+                              }}
+                              className="w-full text-right px-4 py-2 hover:bg-muted text-foreground flex justify-between items-center"
+                            >
+                              <span>{d.name}</span>
+                              <span className="text-xs text-muted-foreground">{d.totalDonated?.toLocaleString("ar-EG") || 0} ج.م</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                </div>
+              )}
+
               <div>
                 <label htmlFor="description" className="block text-sm font-medium text-muted-foreground mb-1">الوصف</label>
                 <textarea
@@ -361,6 +442,13 @@ export default function TreasuryPage() {
                         <div className="text-xs text-muted-foreground">
                           {txn.category || "غير مصنف"}
                         </div>
+                        {txn.donorId && (
+                          <div className="mt-2 text-sm">
+                            <Link href={`/admin/donors/${txn.donorId}`} className="text-primary text-sm">
+                              {txn.donorNameSnapshot || "متبرع"}
+                            </Link>
+                          </div>
+                        )}
                       </div>
                     </div>
                     {(txn.reference || txn.recordedBy) && (

@@ -122,6 +122,12 @@ export default function AdminInitiatives() {
                 </div>
                 <div className="flex gap-2 justify-end border-t border-border pt-4">
                   <Link
+                    href={`/admin/initiatives/${initiative._id}`}
+                    className="px-3 py-1 border border-border text-foreground rounded hover:bg-muted text-sm"
+                  >
+                    عرض التفاصيل
+                  </Link>
+                  <Link
                     href={`/admin/initiatives/${initiative._id}/edit`}
                     className="px-3 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 text-sm"
                   >

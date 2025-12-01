@@ -25,6 +25,10 @@ interface Child {
   nationalId?: string;
   school?: string;
   educationStage?: string;
+  maritalStatus?: string;
+  spouse?: SpouseDetails;
+  healthStatus?: "healthy" | "sick";
+  healthCertificationImage?: string;
 }
 
 interface SpouseDetails {
@@ -32,6 +36,31 @@ interface SpouseDetails {
   nationalId?: string;
   phone?: string;
   whatsapp?: string;
+}
+
+type RelationshipType =
+  | "father"
+  | "mother"
+  | "son"
+  | "daughter"
+  | "brother"
+  | "sister"
+  | "spouse"
+  | "grandfather"
+  | "grandmother"
+  | "other";
+
+interface RelationshipEntry {
+  relation: RelationshipType;
+  relativeName: string;
+  relativeNationalId?: string;
+  relative?: {
+    _id: string;
+    name?: string;
+    nationalId?: string;
+    phone?: string;
+    whatsapp?: string;
+  };
 }
 
 interface Beneficiary {
@@ -48,8 +77,14 @@ interface Beneficiary {
   profileImage?: string;
   idImage?: string;
   notes?: string;
+  healthStatus?: "healthy" | "sick";
+  healthCertificationImage?: string;
+  housingType?: "owned" | "rented";
+  rentalCost?: number;
+  employment?: string;
   spouse?: SpouseDetails;
   children?: Child[];
+  relationships?: RelationshipEntry[];
 }
 
 interface InitiativeSummary {
@@ -81,6 +116,19 @@ const INITIATIVE_STATUS_LABELS: Record<string, string> = {
   active: "نشطة",
   completed: "مكتملة",
   cancelled: "ملغاة",
+};
+
+const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
+  father: "الأب",
+  mother: "الأم",
+  son: "الابن",
+  daughter: "الابنة",
+  brother: "الأخ",
+  sister: "الأخت",
+  spouse: "الزوج/الزوجة",
+  grandfather: "الجد",
+  grandmother: "الجدة",
+  other: "أخرى",
 };
 
 const INITIATIVE_STATUS_STYLES: Record<string, string> = {
@@ -176,6 +224,7 @@ export default function ViewBeneficiary({
 
   const spouse = beneficiary.spouse;
   const children = beneficiary.children || [];
+  const relationships = beneficiary.relationships || [];
 
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8 transition-colors">
@@ -243,9 +292,8 @@ export default function ViewBeneficiary({
             </h2>
             <dl className="grid gap-4 sm:grid-cols-2">
               <div>
-                <dt className="text-sm text-muted-foreground">رقم الهاتف</dt>
+                <dt className="text-sm text-muted-foreground">الرقم القومي</dt>
                 <dd className="mt-1 flex items-center gap-2 text-foreground">
-                  <Phone className="w-4 h-4" />
                   {beneficiary.phone}
                 </dd>
               </div>
@@ -294,9 +342,63 @@ export default function ViewBeneficiary({
                   {beneficiary.priority} / 10
                 </dd>
               </div>
+              <div>
+                <dt className="text-sm text-muted-foreground">الحالة الصحية</dt>
+                <dd className="mt-1 flex items-center gap-2 text-foreground">
+                  {beneficiary.healthStatus === "sick" ? "🏥 مريض/مريضة" : "💚 سليم/سليمة"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-sm text-muted-foreground">نوع السكن</dt>
+                <dd className="mt-1 flex items-center gap-2 text-foreground">
+                  {beneficiary.housingType === "rented" ? "🏢 مستأجر" : "🏠 مملوك"}
+                </dd>
+              </div>
+              {beneficiary.housingType === "rented" && beneficiary.rentalCost && (
+                <div>
+                  <dt className="text-sm text-muted-foreground">تكلفة الإيجار الشهرية</dt>
+                  <dd className="mt-1 flex items-center gap-2 text-foreground">
+                    <Wallet className="w-4 h-4" />
+                    {beneficiary.rentalCost} ر.س
+                  </dd>
+                </div>
+              )}
+              {beneficiary.employment && (
+                <div>
+                  <dt className="text-sm text-muted-foreground">الحالة الوظيفية</dt>
+                  <dd className="mt-1 flex items-center gap-2 text-foreground">
+                    {beneficiary.employment}
+                  </dd>
+                </div>
+              )}
+              {beneficiary.income && (
+                <div>
+                  <dt className="text-sm text-muted-foreground">الدخل الشهري</dt>
+                  <dd className="mt-1 flex items-center gap-2 text-foreground">
+                    <Wallet className="w-4 h-4" />
+                    {beneficiary.income} ر.س
+                  </dd>
+                </div>
+              )}
             </dl>
           </div>
         </div>
+
+        {(beneficiary.healthCertificationImage || beneficiary.income || beneficiary.rentalCost) && (
+          <div className="bg-card border border-border rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4">مستندات ومعلومات إضافية</h2>
+            <div className="grid gap-6 sm:grid-cols-2">
+              {beneficiary.healthCertificationImage && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-3">الشهادة الطبية</p>
+                  <div className="w-full h-40 rounded-lg overflow-hidden border border-border bg-muted">
+                    <img src={beneficiary.healthCertificationImage} alt="الشهادة الطبية" className="w-full h-full object-cover" />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {spouse && (spouse.name || spouse.phone || spouse.whatsapp) && (
           <div className="bg-card border border-border rounded-lg p-6">
@@ -359,6 +461,7 @@ export default function ViewBeneficiary({
                     <th className="px-4 py-3 text-right font-medium">الرقم القومي</th>
                     <th className="px-4 py-3 text-right font-medium">المدرسة</th>
                     <th className="px-4 py-3 text-right font-medium">المرحلة التعليمية</th>
+                    <th className="px-4 py-3 text-right font-medium">الحالة الصحية</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -375,6 +478,20 @@ export default function ViewBeneficiary({
                           ? EDUCATION_STAGE_LABELS[child.educationStage] || child.educationStage
                           : "-"}
                       </td>
+                          <td className="px-4 py-3 text-foreground">
+                            {child.healthStatus === "sick" ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-destructive">مريض</span>
+                                {child.healthCertificationImage && (
+                                  <a href={child.healthCertificationImage} target="_blank" rel="noreferrer">
+                                    <img src={child.healthCertificationImage} alt={`شهادة ${child.name}`} className="w-10 h-10 rounded-md object-cover border border-border" />
+                                  </a>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-green-600">سليم</span>
+                            )}
+                          </td>
                     </tr>
                   ))}
                 </tbody>
@@ -382,6 +499,60 @@ export default function ViewBeneficiary({
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">لا توجد بيانات أبناء مسجلة</p>
+          )}
+        </div>
+
+        <div className="bg-card border border-border rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
+            العلاقات العائلية
+          </h2>
+          {relationships.length > 0 ? (
+            <div className="overflow-x-auto rounded-xl border border-border/60">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 text-right font-medium">نوع العلاقة</th>
+                    <th className="px-4 py-3 text-right font-medium">الاسم</th>
+                    <th className="px-4 py-3 text-right font-medium">الرقم القومي</th>
+                    <th className="px-4 py-3 text-right font-medium">مستفيد مرتبط</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {relationships.map((relationship, index) => (
+                    <tr
+                      key=
+                        {relationship.relative?. _id || relationship.relativeNationalId || `${relationship.relativeName}-${index}`}
+                      className={`${index % 2 === 0 ? "bg-background" : "bg-muted/10"} border-t border-border/60`}
+                    >
+                      <td className="px-4 py-3 text-foreground font-medium">
+                        {RELATIONSHIP_LABELS[relationship.relation] || relationship.relation}
+                      </td>
+                      <td className="px-4 py-3 text-foreground">
+                        {relationship.relative?.name || relationship.relativeName}
+                      </td>
+                      <td className="px-4 py-3 text-foreground">
+                        {relationship.relative?.nationalId || relationship.relativeNationalId || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-foreground">
+                        {relationship.relative ? (
+                          <Link
+                            href={`/admin/beneficiaries/${relationship.relative._id}`}
+                            className="text-primary hover:underline"
+                          >
+                            عرض الملف
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">لا توجد علاقات مسجلة لهذا المستفيد</p>
           )}
         </div>
 

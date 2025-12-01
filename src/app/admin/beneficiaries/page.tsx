@@ -4,6 +4,7 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import BeneficiaryCard from "@/components/BeneficiaryCard";
+import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 
@@ -19,6 +20,9 @@ interface Beneficiary {
   profileImage?: string;
   idImage?: string;
   maritalStatus?: string;
+  healthStatus?: "healthy" | "sick";
+  housingType?: "owned" | "rented";
+  employment?: string;
   spouse?: {
     name?: string;
     nationalId?: string;
@@ -36,6 +40,7 @@ export default function AdminBeneficiaries() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [filters, setFilters] = useState<BeneficiaryFilterCriteria>({});
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
@@ -74,47 +79,84 @@ export default function AdminBeneficiaries() {
   }, [searchTerm]);
 
   const filteredBeneficiaries = useMemo(() => {
-    if (!debouncedSearch) return beneficiaries;
-    const normalize = (value?: string | number) =>
-      typeof value === "number"
-        ? value.toString()
-        : (value || "")
-            .toString()
-            .toLowerCase()
-            .normalize("NFKD")
-            .replace(/[\u064B-\u065F]/g, "");
+    let result = beneficiaries;
 
-    const query = normalize(debouncedSearch);
+    // Apply text search filter
+    if (debouncedSearch) {
+      const normalize = (value?: string | number) =>
+        typeof value === "number"
+          ? value.toString()
+          : (value || "")
+              .toString()
+              .toLowerCase()
+              .normalize("NFKD")
+              .replace(/[\u064B-\u065F]/g, "");
 
-    return beneficiaries.filter((beneficiary) => {
-      const spouseName = normalize(beneficiary.spouse?.name);
-      const childrenText = (beneficiary.children ?? [])
-        .map((child) =>
-          normalize(`${child.name ?? ""} ${child.nationalId ?? ""} ${child.school ?? ""}`)
-        )
-        .join(" ");
+      const query = normalize(debouncedSearch);
 
-      const searchableText = [
-        normalize(beneficiary.name),
-        normalize(beneficiary.phone),
-        normalize(beneficiary.whatsapp),
-        normalize(beneficiary.address),
-        normalize(beneficiary.nationalId),
-        normalize(beneficiary.maritalStatus),
-        normalize(beneficiary.priority),
-        normalize(beneficiary.familyMembers),
-        spouseName,
-        normalize(beneficiary.spouse?.phone),
-        normalize(beneficiary.spouse?.whatsapp),
-        normalize(beneficiary.notes),
-        childrenText,
-      ]
-        .filter(Boolean)
-        .join(" ");
+      result = result.filter((beneficiary) => {
+        const spouseName = normalize(beneficiary.spouse?.name);
+        const childrenText = (beneficiary.children ?? [])
+          .map((child) =>
+            normalize(`${child.name ?? ""} ${child.nationalId ?? ""} ${child.school ?? ""}`)
+          )
+          .join(" ");
 
-      return spouseName.includes(query) || searchableText.includes(query);
-    });
-  }, [beneficiaries, debouncedSearch]);
+        const searchableText = [
+          normalize(beneficiary.name),
+          normalize(beneficiary.phone),
+          normalize(beneficiary.whatsapp),
+          normalize(beneficiary.address),
+          normalize(beneficiary.nationalId),
+          normalize(beneficiary.maritalStatus),
+          normalize(beneficiary.priority),
+          normalize(beneficiary.familyMembers),
+          spouseName,
+          normalize(beneficiary.spouse?.phone),
+          normalize(beneficiary.spouse?.whatsapp),
+          normalize(beneficiary.notes),
+          childrenText,
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        return spouseName.includes(query) || searchableText.includes(query);
+      });
+    }
+
+    // Apply filter criteria
+    if (filters.city) {
+      const normalizedCity = filters.city.toLowerCase().trim();
+      result = result.filter((b) =>
+        b.address?.toLowerCase().includes(normalizedCity)
+      );
+    }
+
+    if (filters.healthStatus) {
+      result = result.filter((b) => b.healthStatus === filters.healthStatus);
+    }
+
+    if (filters.housingType) {
+      result = result.filter((b) => b.housingType === filters.housingType);
+    }
+
+    if (filters.employment) {
+      const normalizedEmployment = filters.employment.toLowerCase().trim();
+      result = result.filter((b) =>
+        b.employment?.toLowerCase().includes(normalizedEmployment)
+      );
+    }
+
+    if (filters.priorityMin !== undefined || filters.priorityMax !== undefined) {
+      result = result.filter((b) => {
+        const min = filters.priorityMin ?? 1;
+        const max = filters.priorityMax ?? 10;
+        return b.priority >= min && b.priority <= max;
+      });
+    }
+
+    return result;
+  }, [beneficiaries, debouncedSearch, filters]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("هل أنت متأكد من حذف هذا المستفيد؟")) return;
@@ -168,27 +210,32 @@ export default function AdminBeneficiaries() {
           </Link>
         </div>
 
-        {/* Search */}
-        <div className="bg-card border border-border rounded-lg shadow-sm p-4">
-          <label
-            htmlFor="beneficiaries-search"
-            className="block text-sm font-medium text-muted-foreground mb-2"
-          >
-            ابحث عن مستفيد
-          </label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <input
-              id="beneficiaries-search"
-              type="text"
-              placeholder="ابحث بالاسم، الهاتف، العنوان، رقم المستفيد، أو الواتساب"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-lg border border-input bg-background px-10 py-3 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
+        {/* Search & Filter Bar */}
+        <div className="bg-card border border-border rounded-lg shadow-sm p-4 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+            <div className="flex-1 w-full">
+              <label
+                htmlFor="beneficiaries-search"
+                className="block text-sm font-medium text-muted-foreground mb-2"
+              >
+                ابحث عن مستفيد
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  id="beneficiaries-search"
+                  type="text"
+                  placeholder="ابحث بالاسم، الهاتف، العنوان، رقم المستفيد، أو الواتساب"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full rounded-lg border border-input bg-background px-10 py-3 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+            </div>
+            <BeneficiaryFilterPanel onFilterChange={setFilters} variant="dropdown" />
           </div>
-          {debouncedSearch && (
-            <p className="mt-2 text-xs text-muted-foreground">
+          {(debouncedSearch || Object.values(filters).some(Boolean)) && (
+            <p className="text-xs text-muted-foreground">
               النتائج المطابقة: {filteredBeneficiaries.length}
             </p>
           )}

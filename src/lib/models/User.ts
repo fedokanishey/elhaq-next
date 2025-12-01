@@ -6,7 +6,7 @@ export interface IUser extends Document {
   firstName?: string;
   lastName?: string;
   profileImageUrl?: string;
-  role: 'admin' | 'user' | 'beneficiary' | 'donor';
+  role: 'admin' | 'member' | 'user';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -20,7 +20,7 @@ const UserSchema = new Schema<IUser>(
     profileImageUrl: String,
     role: {
       type: String,
-      enum: ['admin', 'user', 'beneficiary', 'donor'],
+      enum: ['admin', 'member', 'user'],
       default: 'user',
     },
   },

@@ -25,7 +25,7 @@ export async function PUT(
     const { role } = await req.json();
     const { id: targetUserId } = await params;
 
-    if (!["admin", "user", "beneficiary", "donor"].includes(role)) {
+    if (!["admin", "member", "user"].includes(role)) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 

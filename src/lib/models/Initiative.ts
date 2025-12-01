@@ -7,6 +7,7 @@ export interface IInitiative extends Document {
   totalAmount: number;
   status: 'planned' | 'active' | 'completed' | 'cancelled';
   beneficiaries: string[]; // Array of Beneficiary IDs
+  images: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,8 +24,18 @@ const InitiativeSchema = new Schema<IInitiative>(
       default: 'planned',
     },
     beneficiaries: [{ type: Schema.Types.ObjectId, ref: 'Beneficiary' }],
+    images: {
+      type: [String],
+      default: [],
+    },
   },
   { timestamps: true }
 );
 
-export default mongoose.models.Initiative || mongoose.model<IInitiative>('Initiative', InitiativeSchema);
+if (mongoose.models.Initiative) {
+  mongoose.deleteModel('Initiative');
+}
+
+const InitiativeModel = mongoose.model<IInitiative>('Initiative', InitiativeSchema);
+
+export default InitiativeModel;

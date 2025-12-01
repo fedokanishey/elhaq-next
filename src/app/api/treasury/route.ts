@@ -2,6 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import TreasuryTransaction from "@/lib/models/TreasuryTransaction";
+import Donor from "@/lib/models/Donor";
+import { isValidObjectId } from "mongoose";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -66,13 +68,65 @@ export async function POST(req: Request) {
 
     await dbConnect();
     const body = await req.json();
-    const { amount, type, description, category, reference, transactionDate, recordedBy } = body;
+    const {
+      amount,
+      type,
+      description,
+      category,
+      reference,
+      transactionDate,
+      recordedBy,
+      donorId,
+      donorName,
+    } = body;
 
     const normalizedType = type === "expense" ? "expense" : type === "income" ? "income" : null;
     const normalizedAmount = Number(amount);
 
     if (!normalizedType || !description || !Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
       return NextResponse.json({ error: "Invalid transaction payload" }, { status: 400 });
+    }
+
+    let resolvedDonor: { _id: string; name: string } | null = null;
+    const trimmedDonorName = typeof donorName === "string" ? donorName.trim() : "";
+
+    if (normalizedType === "income") {
+      if (!trimmedDonorName && !donorId) {
+        return NextResponse.json({ error: "يجب إضافة اسم المتبرع للوارد" }, { status: 400 });
+      }
+
+      if (donorId && isValidObjectId(donorId)) {
+        const donor = await Donor.findById(donorId).lean();
+        if (donor) {
+          resolvedDonor = { _id: donor._id.toString(), name: donor.name };
+        }
+      }
+
+      if (!resolvedDonor && trimmedDonorName) {
+        const normalizedName = trimmedDonorName.toLowerCase();
+        let donor = await Donor.findOne({ nameNormalized: normalizedName });
+        if (!donor) {
+          donor = await Donor.create({
+            name: trimmedDonorName,
+            nameNormalized: normalizedName,
+          });
+        }
+        resolvedDonor = { _id: donor._id.toString(), name: donor.name };
+      }
+
+      if (!resolvedDonor) {
+        return NextResponse.json({ error: "تعذر تحديد المتبرع" }, { status: 400 });
+      }
+
+      await Donor.findByIdAndUpdate(resolvedDonor._id, {
+          $inc: {
+            totalDonated: normalizedAmount,
+            donationsCount: 1,
+          },
+          $set: {
+            lastDonationDate: transactionDate ? new Date(transactionDate) : new Date(),
+          },
+        });
     }
 
     const entry = await TreasuryTransaction.create({
@@ -84,6 +138,8 @@ export async function POST(req: Request) {
       transactionDate: transactionDate ? new Date(transactionDate) : new Date(),
       createdBy: userId,
       recordedBy: recordedBy?.trim(),
+      donorId: resolvedDonor?._id,
+      donorNameSnapshot: resolvedDonor?.name || trimmedDonorName || undefined,
     });
 
     return NextResponse.json(entry, { status: 201 });

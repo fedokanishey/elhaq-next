@@ -2,10 +2,96 @@
 
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
-import { ArrowRight, Heart, Shield, Users, LayoutDashboard, UserCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowRight, Heart, Shield, Users, LayoutDashboard, UserCircle, Image as ImageIcon } from "lucide-react";
+
+interface InitiativePreview {
+  _id: string;
+  name: string;
+  description?: string;
+  status?: string;
+  images?: string[];
+}
+
+const normalizeInitiativeId = (value: unknown): string | null => {
+  if (!value) return null;
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "bigint") {
+    return value.toString();
+  }
+
+  if (typeof value === "object") {
+    const possibleOid = (value as { $oid?: string }).$oid;
+    if (typeof possibleOid === "string") {
+      return possibleOid;
+    }
+
+    if ("toString" in value && typeof value.toString === "function") {
+      const coerced = value.toString();
+      return typeof coerced === "string" && coerced !== "[object Object]" ? coerced : null;
+    }
+  }
+
+  return null;
+};
 
 export default function Home() {
   const { user, isLoaded } = useUser();
+  const [initiatives, setInitiatives] = useState<InitiativePreview[]>([]);
+  const [initiativesLoading, setInitiativesLoading] = useState(true);
+  const [initiativesError, setInitiativesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchInitiatives = async () => {
+      try {
+        setInitiativesLoading(true);
+        const res = await fetch("/api/initiatives", { cache: "no-store" });
+        if (!res.ok) {
+          throw new Error("Failed to fetch initiatives");
+        }
+        const data = await res.json();
+        const parsed = Array.isArray(data.initiatives)
+          ? data.initiatives
+              .map((item: InitiativePreview) => {
+                const rawId = (item as { _id?: unknown; id?: unknown })._id ?? (item as { id?: unknown }).id;
+                const normalizedId = normalizeInitiativeId(rawId);
+                if (!normalizedId) {
+                  return null;
+                }
+
+                return {
+                  _id: normalizedId,
+                  name: item.name,
+                  description: item.description,
+                  status: item.status,
+                  images: Array.isArray(item.images) ? item.images : [],
+                };
+              })
+              .filter((item): item is InitiativePreview => Boolean(item))
+          : [];
+        setInitiatives(parsed);
+        setInitiativesError(null);
+      } catch (error) {
+        console.error("Error loading initiatives", error);
+        setInitiativesError("تعذر تحميل المبادرات حالياً");
+      } finally {
+        setInitiativesLoading(false);
+      }
+    };
+
+    fetchInitiatives();
+  }, []);
+
+  const statusLabels: Record<string, string> = {
+    planned: "مخططة",
+    active: "نشطة",
+    completed: "مكتملة",
+    cancelled: "ملغاة",
+  };
+
+  const role = user ? (user.publicMetadata?.role || user.unsafeMetadata?.role) : undefined;
+  const canAccessDashboard = role === "admin";
+  const canViewBeneficiaries = role === "admin" || role === "member";
 
   return (
     <div className="min-h-screen bg-background flex flex-col transition-colors duration-300">
@@ -30,7 +116,7 @@ export default function Home() {
             </div>
           ) : user ? (
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
-              {(user?.publicMetadata?.role === "admin" || user?.unsafeMetadata?.role === "admin") && (
+              {canAccessDashboard && (
                 <Link
                   href="/admin/dashboard"
                   className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90 transition-colors shadow-lg hover:shadow-xl"
@@ -40,18 +126,20 @@ export default function Home() {
                 </Link>
               )}
               
-              <Link
-                href="/beneficiaries"
-                className={`w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md transition-colors shadow-md hover:shadow-lg ${
-                  (user?.publicMetadata?.role === "admin" || user?.unsafeMetadata?.role === "admin")
-                    ? "text-secondary-foreground bg-secondary hover:bg-secondary/80"
-                    : "text-primary-foreground bg-primary hover:bg-primary/90"
-                }`}
-              >
-                <Users className="ml-2 h-5 w-5" />
-                المستفيدين
-              </Link>
-              
+              {canViewBeneficiaries && (
+                <Link
+                  href="/beneficiaries"
+                  className={`w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md transition-colors shadow-md hover:shadow-lg ${
+                    canAccessDashboard
+                      ? "text-secondary-foreground bg-secondary hover:bg-secondary/80"
+                      : "text-primary-foreground bg-primary hover:bg-primary/90"
+                  }`}
+                >
+                  <Users className="ml-2 h-5 w-5" />
+                  المستفيدين
+                </Link>
+              )}
+
               <Link
                 href="/profile"
                 className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 border border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground text-base font-medium rounded-md transition-colors"
@@ -75,6 +163,99 @@ export default function Home() {
               >
                 إنشاء حساب جديد
               </Link>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Initiatives Gallery */}
+      <div className="py-16 px-4 sm:px-6 lg:px-8 bg-card/10">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="flex flex-col gap-3 text-center">
+            <p className="text-sm uppercase tracking-widest text-primary">مبادرات حديثة</p>
+            <h2 className="text-3xl font-bold text-foreground">صور من أرض الواقع</h2>
+            <p className="text-muted-foreground max-w-3xl mx-auto">
+              تعرف على المبادرات الجارية من خلال صورها وآخر تحديثاتها، يتم رفع الصور مباشرة بعد اعتماد المبادرة.
+            </p>
+          </div>
+
+          {initiativesLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : initiativesError ? (
+            <div className="text-center py-8 text-sm text-red-500 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              {initiativesError}
+            </div>
+          ) : initiatives.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground flex flex-col items-center gap-3 bg-card border border-border rounded-xl">
+              <ImageIcon className="h-8 w-8 text-muted-foreground" />
+              لا توجد صور مضافة للمبادرات بعد
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {initiatives.map((initiative) => {
+                const mainImage = initiative.images?.[0];
+                const extraImages = initiative.images?.slice(1, 4) || [];
+                const status = initiative.status ? statusLabels[initiative.status] || initiative.status : "";
+
+                return (
+                  <Link
+                    key={initiative._id}
+                    href={`/initiatives/${initiative._id}`}
+                    className="group bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col transition hover:-translate-y-1 hover:shadow-lg"
+                  >
+                    <div className="relative aspect-video bg-muted">
+                      {mainImage ? (
+                        <img
+                          src={mainImage}
+                          alt={`صورة رئيسية لمبادرة ${initiative.name}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+                          <ImageIcon className="h-8 w-8 mb-2" />
+                          <span className="text-sm">لم يتم رفع صورة بعد</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="px-5 pt-4 pb-2 flex items-center justify-between gap-3">
+                      <h3 className="text-xl font-semibold text-foreground line-clamp-1">
+                        {initiative.name}
+                      </h3>
+                      {status && (
+                        <span className="text-xs font-medium bg-primary/10 text-primary px-3 py-1 rounded-full">
+                          {status}
+                        </span>
+                      )}
+                    </div>
+
+                    {extraImages.length > 0 && (
+                      <div className="flex gap-2 px-5 pb-3 overflow-x-auto">
+                        {extraImages.map((image, index) => (
+                          <img
+                            key={`${image}-${index}`}
+                            src={image}
+                            alt={`صورة إضافية ${index + 1} لمبادرة ${initiative.name}`}
+                            className="h-16 w-20 rounded-md object-cover border border-border"
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="px-5 pb-5 space-y-3 text-sm text-muted-foreground">
+                      <p className="line-clamp-3">
+                        {initiative.description || "لا يوجد وصف متاح لهذه المبادرة حالياً."}
+                      </p>
+                      <span className="inline-flex items-center gap-2 text-primary font-medium">
+                        استعرض التفاصيل
+                        <ArrowRight className="h-4 w-4" />
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>

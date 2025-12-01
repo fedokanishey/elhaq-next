@@ -1,31 +1,6 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
 
-export interface IChild extends Document {
-  name: string;
-  dateOfBirth?: Date;
-  gender?: 'male' | 'female';
-  idNumber?: string;
-  nationalId?: string;
-  school?: string;
-  educationStage?: '' | 'kindergarten' | 'primary' | 'preparatory' | 'secondary' | 'university' | 'other';
-}
-
-const ChildSchema = new Schema<IChild>(
-  {
-    name: { type: String, required: true },
-    dateOfBirth: Date,
-    gender: { type: String, enum: ['male', 'female'] },
-    idNumber: String,
-    nationalId: String,
-    school: String,
-    educationStage: {
-      type: String,
-      enum: ['kindergarten', 'primary', 'preparatory', 'secondary', 'university', 'other', ''],
-      default: '',
-    },
-  },
-  { timestamps: true }
-);
+export type MaritalStatus = 'single' | 'married' | 'divorced' | 'widowed';
 
 export interface ISpouse extends Document {
   name?: string;
@@ -44,6 +19,80 @@ const SpouseSchema = new Schema<ISpouse>(
   { _id: false }
 );
 
+export interface IChild extends Document {
+  name: string;
+  dateOfBirth?: Date;
+  gender?: 'male' | 'female';
+  idNumber?: string;
+  nationalId?: string;
+  school?: string;
+  educationStage?: '' | 'kindergarten' | 'primary' | 'preparatory' | 'secondary' | 'university' | 'other';
+  maritalStatus?: MaritalStatus;
+  spouse?: ISpouse;
+}
+
+const ChildSchema = new Schema<IChild>(
+  {
+    name: { type: String, required: true },
+    dateOfBirth: Date,
+    gender: { type: String, enum: ['male', 'female'] },
+    idNumber: String,
+    nationalId: String,
+    school: String,
+    educationStage: {
+      type: String,
+      enum: ['kindergarten', 'primary', 'preparatory', 'secondary', 'university', 'other', ''],
+      default: '',
+    },
+    maritalStatus: {
+      type: String,
+      enum: ['single', 'married', 'divorced', 'widowed'],
+      default: 'single',
+    },
+    spouse: { type: SpouseSchema, default: undefined },
+    healthStatus: {
+      type: String,
+      enum: ['healthy', 'sick'],
+      default: 'healthy',
+    },
+    healthCertificationImage: String,
+  },
+  { timestamps: true }
+);
+
+export type RelationshipType =
+  | 'father'
+  | 'mother'
+  | 'son'
+  | 'daughter'
+  | 'brother'
+  | 'sister'
+  | 'spouse'
+  | 'grandfather'
+  | 'grandmother'
+  | 'other';
+
+export interface IRelationship extends Document {
+  relation: RelationshipType;
+  relativeName: string;
+  relativeNationalId?: string;
+  relative?: Types.ObjectId;
+}
+
+const RelationshipSchema = new Schema<IRelationship>(
+  {
+    relation: {
+      type: String,
+      enum: ['father', 'mother', 'son', 'daughter', 'brother', 'sister', 'spouse', 'grandfather', 'grandmother', 'other'],
+      required: true,
+    },
+    relativeName: { type: String, required: true },
+    relativeNationalId: String,
+    relative: { type: Schema.Types.ObjectId, ref: 'Beneficiary' },
+  },
+  { _id: false }
+);
+
 export interface IBeneficiary extends Document {
   clerkId: string;
   name: string;
@@ -54,12 +103,18 @@ export interface IBeneficiary extends Document {
   familyMembers: number;
   maritalStatus: 'single' | 'married' | 'divorced' | 'widowed';
   income?: number;
-  priority: number; // 1-10
+  priority: number; // 1-10, calculated dynamically
   profileImage?: string;
   idImage?: string;
   notes?: string;
+  healthStatus?: 'healthy' | 'sick';
+  healthCertificationImage?: string;
+  housingType?: 'owned' | 'rented';
+  rentalCost?: number;
+  employment?: string;
   children: IChild[];
   spouse?: ISpouse;
+  relationships: IRelationship[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -83,8 +138,22 @@ const BeneficiarySchema = new Schema<IBeneficiary>(
     profileImage: String,
     idImage: String,
     notes: String,
+    healthStatus: {
+      type: String,
+      enum: ['healthy', 'sick'],
+      default: 'healthy',
+    },
+    healthCertificationImage: String,
+    housingType: {
+      type: String,
+      enum: ['owned', 'rented'],
+      default: 'owned',
+    },
+    rentalCost: Number,
+    employment: String,
     children: [ChildSchema],
     spouse: { type: SpouseSchema, default: undefined },
+    relationships: { type: [RelationshipSchema], default: [] },
   },
   { timestamps: true }
 );
