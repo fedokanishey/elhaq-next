@@ -34,7 +34,9 @@ export async function POST(
       { $set: { donorId: donor._id } }
     );
 
-    return NextResponse.json({ modified: result.modifiedCount || result.nModified || 0 });
+    // Mongoose/Mongo return shapes changed across versions — guard access with safe checks
+    const modified = (result as any)?.modifiedCount ?? (result as any)?.nModified ?? 0;
+    return NextResponse.json({ modified });
   } catch (error) {
     console.error("Error relinking donations:", error);
     return NextResponse.json({ error: "Failed to relink donations" }, { status: 500 });
