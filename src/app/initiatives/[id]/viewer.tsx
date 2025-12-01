@@ -132,7 +132,7 @@ export default function InitiativeDetailsClient({
 
   return (
     <div className="w-full bg-linear-to-b from-background via-background to-background/80">
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
+      <div className="w-full max-w-5xl mx-auto px-3 sm:px-4 lg:px-8 py-6 sm:py-12 space-y-8">
         {/* Header */}
         <div className="space-y-4">
           <Link
@@ -173,9 +173,9 @@ export default function InitiativeDetailsClient({
         )}
 
         {/* Main Grid */}
-        <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
+        <div className="grid gap-8 grid-cols-1 lg:grid-cols-3">
           {/* Left Column: Gallery & Description */}
-          <div className="space-y-8">
+          <div className="lg:col-span-2 space-y-8">
             {/* Gallery */}
             {initiative.images && initiative.images.length > 1 && (
               <div className="space-y-3">
@@ -201,7 +201,7 @@ export default function InitiativeDetailsClient({
             )}
 
             {/* Description */}
-            <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 space-y-4 shadow-sm">
+            <div className="bg-card border border-border overflow-scroll rounded-2xl p-6 sm:p-8 space-y-4 shadow-sm">
               <h3 className="text-sm font-semibold text-primary tracking-widest uppercase">عن المبادرة</h3>
               <p className="text-muted-foreground leading-relaxed text-base">
                 {initiative.description || "لا يوجد وصف تفصيلي متاح حالياً لهذه المبادرة. سيتم تحديث هذه المعلومات قريباً."}
