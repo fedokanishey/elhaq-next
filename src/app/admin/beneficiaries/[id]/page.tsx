@@ -225,6 +225,7 @@ export default function ViewBeneficiary({
   const spouse = beneficiary.spouse;
   const children = beneficiary.children || [];
   const relationships = beneficiary.relationships || [];
+  console.log(beneficiary.whatsapp)
 
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8 transition-colors">
@@ -250,7 +251,7 @@ export default function ViewBeneficiary({
               ✏️ تعديل البيانات
             </Link>
             <Link
-              href={`tel:${beneficiary.phone}`}
+              href={`tel:${beneficiary.whatsapp}`}
               className="inline-flex items-center justify-center px-5 py-2 rounded-lg border border-border text-foreground hover:bg-muted"
             >
               ☎️ اتصال سريع
