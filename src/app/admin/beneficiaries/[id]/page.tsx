@@ -225,7 +225,6 @@ export default function ViewBeneficiary({
   const spouse = beneficiary.spouse;
   const children = beneficiary.children || [];
   const relationships = beneficiary.relationships || [];
-  console.log(beneficiary.whatsapp)
 
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8 transition-colors">
