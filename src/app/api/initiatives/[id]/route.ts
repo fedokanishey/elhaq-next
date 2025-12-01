@@ -47,9 +47,17 @@ export async function GET(
         .filter((value): value is string => Boolean(value));
 
       if (beneficiaryIds.length > 0) {
-        hydratedBeneficiaries = await Beneficiary.find({ _id: { $in: beneficiaryIds } })
+        const raw = await Beneficiary.find({ _id: { $in: beneficiaryIds } })
           .select("name phone profileImage")
           .lean();
+
+        // Ensure _id is a string for the API response
+        hydratedBeneficiaries = raw.map((b: any) => ({
+          _id: b._id?.toString?.() ?? b._id,
+          name: b.name || "",
+          phone: b.phone,
+          profileImage: b.profileImage,
+        }));
       }
     }
 
