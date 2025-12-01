@@ -29,6 +29,8 @@ export interface IChild extends Document {
   educationStage?: '' | 'kindergarten' | 'primary' | 'preparatory' | 'secondary' | 'university' | 'other';
   maritalStatus?: MaritalStatus;
   spouse?: ISpouse;
+  healthStatus?: 'healthy' | 'sick';
+  healthCertificationImage?: string;
 }
 
 const ChildSchema = new Schema<IChild>(
