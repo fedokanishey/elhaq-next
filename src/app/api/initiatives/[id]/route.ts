@@ -31,9 +31,17 @@ export async function GET(
 
     if (Array.isArray(initiative.beneficiaries) && initiative.beneficiaries.length > 0) {
       const beneficiaryIds = initiative.beneficiaries
-        .map((value) => {
+        .map((value: any) => {
           if (!value) return null;
-          const raw = typeof value === "object" && "toString" in value ? value.toString() : String(value);
+          let raw: string;
+          if (typeof value === "string") {
+            raw = value;
+          } else if (typeof value === "object" && value !== null) {
+            // If the value is an object, try to extract an _id or use its string representation
+            raw = (value as any)?._id?.toString?.() ?? String(value);
+          } else {
+            raw = String(value);
+          }
           return isValidObjectId(raw) ? raw : null;
         })
         .filter((value): value is string => Boolean(value));
