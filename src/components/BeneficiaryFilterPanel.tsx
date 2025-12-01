@@ -228,21 +228,30 @@ export default function BeneficiaryFilterPanel({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-72 bg-card border border-border rounded-lg shadow-lg p-6 z-10">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-foreground">خيارات التصفية</h3>
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              title="إغلاق"
-              aria-label="إغلاق خيارات التصفية"
-              className="p-1 hover:bg-muted rounded"
-            >
-              <X className="w-4 h-4 text-muted-foreground" />
-            </button>
+        <>
+          {/* Mobile backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-black/50 sm:hidden"
+            onClick={() => setIsOpen(false)}
+          />
+          
+          {/* Filter panel */}
+          <div className="fixed inset-x-0 top-0 z-50 sm:absolute sm:inset-auto sm:top-full sm:left-0 sm:mt-2 sm:w-72 bg-card border-b sm:border border-border sm:rounded-lg shadow-lg p-6 overflow-y-scroll sm:overflow-y-auto max-h-screen sm:max-h-none">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-foreground">خيارات التصفية</h3>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                title="إغلاق"
+                aria-label="إغلاق خيارات التصفية"
+                className="p-1 hover:bg-muted rounded"
+              >
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            {filterContent}
           </div>
-          {filterContent}
-        </div>
+        </>
       )}
     </div>
   );
