@@ -67,7 +67,7 @@ export default function Home() {
                   images: Array.isArray(item.images) ? item.images : [],
                 };
               })
-              .filter((item): item is InitiativePreview => Boolean(item))
+              .filter((item: InitiativePreview | null): item is InitiativePreview => Boolean(item))
           : [];
         setInitiatives(parsed);
         setInitiativesError(null);
