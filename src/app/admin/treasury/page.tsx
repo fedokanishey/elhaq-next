@@ -4,7 +4,7 @@ import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDownCircle, ArrowUpCircle, Loader2, PiggyBank, Receipt } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Loader2, PiggyBank, Receipt, Trash2 } from "lucide-react";
 
 interface TreasuryTotals {
   incomeTotal: number;
@@ -61,7 +61,9 @@ export default function TreasuryPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [sortDesc, setSortDesc] = useState(true);
   const [formData, setFormData] = useState<TreasuryFormState>(createDefaultFormState);
   const [totals, setTotals] = useState<TreasuryTotals>({ incomeTotal: 0, expenseTotal: 0, balance: 0 });
   const [transactions, setTransactions] = useState<TreasuryTransaction[]>([]);
@@ -179,6 +181,42 @@ export default function TreasuryPage() {
       console.error(err);
     }
   };
+
+  const handleDeleteTransaction = async (transactionId: string) => {
+    if (!confirm("هل أنت متأكد من حذف هذه العملية؟\nلا يمكن التراجع عن هذا الإجراء.")) {
+      return;
+    }
+
+    setDeleting(transactionId);
+    try {
+      const res = await fetch(`/api/treasury/${transactionId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "فشل حذف العملية");
+      }
+
+      setError("");
+      await refreshTreasury();
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : "حدث خطأ أثناء حذف العملية");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const sortedTransactions = useMemo(() => {
+    const sorted = [...transactions].sort((a, b) => {
+      const dateA = new Date(a.transactionDate || a.createdAt).getTime();
+      const dateB = new Date(b.transactionDate || b.createdAt).getTime();
+      return sortDesc ? dateB - dateA : dateA - dateB;
+    });
+    return sorted;
+  }, [transactions, sortDesc]);
 
   const formattedTotals = useMemo(() => ({
     balance: formatCurrency(totals.balance),
@@ -396,32 +434,52 @@ export default function TreasuryPage() {
                 <h2 className="text-xl font-semibold text-foreground">آخر العمليات</h2>
                 <p className="text-sm text-muted-foreground">يتم عرض آخر 100 عملية مالية.</p>
               </div>
-              <button
-                onClick={refreshTreasury}
-                className="text-sm text-muted-foreground hover:text-primary"
-                type="button"
-              >
-                تحديث
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSortDesc(!sortDesc)}
+                  className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1 px-2 py-1 rounded hover:bg-primary/10 transition"
+                  type="button"
+                  title={sortDesc ? "من الأحدث للأقدم" : "من الأقدم للأحدث"}
+                >
+                  {sortDesc ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronUp className="w-4 h-4" />
+                  )}
+                </button>
+                <button
+                  onClick={refreshTreasury}
+                  className="text-sm text-muted-foreground hover:text-primary"
+                  type="button"
+                >
+                  تحديث
+                </button>
+              </div>
             </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+                {error}
+              </div>
+            )}
 
             {loading ? (
               <div className="flex justify-center py-10">
                 <Loader2 className="w-6 h-6 animate-spin text-primary" />
               </div>
-            ) : transactions.length === 0 ? (
+            ) : sortedTransactions.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">
                 لا توجد عمليات مسجلة بعد
               </div>
             ) : (
               <div className="space-y-3 max-h-128 overflow-y-auto pr-1">
-                {transactions.map((txn) => (
+                {sortedTransactions.map((txn) => (
                   <div
                     key={txn._id}
-                    className="border border-border rounded-lg p-4 bg-background/60"
+                    className="border border-border rounded-lg p-4 bg-background/60 hover:bg-background/80 transition"
                   >
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <div>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex-1">
                         <p className="text-base font-semibold text-foreground">
                           {txn.description}
                         </p>
@@ -450,6 +508,19 @@ export default function TreasuryPage() {
                           </div>
                         )}
                       </div>
+                      <button
+                        onClick={() => handleDeleteTransaction(txn._id)}
+                        disabled={deleting === txn._id}
+                        className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 p-2 rounded transition flex items-center gap-1 disabled:opacity-50"
+                        type="button"
+                        title="حذف العملية"
+                      >
+                        {deleting === txn._id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
                     </div>
                     {(txn.reference || txn.recordedBy) && (
                       <div className="mt-3 text-sm text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">

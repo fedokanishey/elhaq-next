@@ -6,7 +6,8 @@ import Link from "next/link";
 import BeneficiaryCard from "@/components/BeneficiaryCard";
 import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, ArrowDownUp, Download } from "lucide-react";
+import BeneficiariesPrintModal from "@/components/BeneficiariesPrintModal";
 
 interface Beneficiary {
   _id: string;
@@ -41,6 +42,8 @@ export default function AdminBeneficiaries() {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filters, setFilters] = useState<BeneficiaryFilterCriteria>({});
+  const [sortByNationalId, setSortByNationalId] = useState(true);
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
@@ -155,8 +158,15 @@ export default function AdminBeneficiaries() {
       });
     }
 
+    // Sort by nationalId
+    result.sort((a, b) => {
+      const aId = parseInt(a.nationalId || "0", 10);
+      const bId = parseInt(b.nationalId || "0", 10);
+      return sortByNationalId ? aId - bId : bId - aId;
+    });
+
     return result;
-  }, [beneficiaries, debouncedSearch, filters]);
+  }, [beneficiaries, debouncedSearch, filters, sortByNationalId]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("هل أنت متأكد من حذف هذا المستفيد؟")) return;
@@ -233,6 +243,24 @@ export default function AdminBeneficiaries() {
               </div>
             </div>
             <BeneficiaryFilterPanel onFilterChange={setFilters} variant="dropdown" />
+            <button
+              onClick={() => setSortByNationalId(!sortByNationalId)}
+              className="px-4 py-3 bg-card border border-border rounded-lg text-foreground hover:bg-muted transition-colors inline-flex items-center gap-2"
+              type="button"
+              title={sortByNationalId ? "ترتيب تنازلي" : "ترتيب تصاعدي"}
+            >
+              <ArrowDownUp className="w-4 h-4" />
+              رقم المستفيد
+            </button>
+            <button
+              onClick={() => setShowPrintModal(true)}
+              className="px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors inline-flex items-center gap-2 font-medium"
+              type="button"
+              title="تصدير PDF"
+            >
+              <Download className="w-4 h-4" />
+              طباعة
+            </button>
           </div>
           {(debouncedSearch || Object.values(filters).some(Boolean)) && (
             <p className="text-xs text-muted-foreground">
@@ -290,6 +318,14 @@ export default function AdminBeneficiaries() {
             </Link>
           </div>
         )}
+
+        {/* Print Modal */}
+        <BeneficiariesPrintModal
+          isOpen={showPrintModal}
+          onClose={() => setShowPrintModal(false)}
+          beneficiaries={filteredBeneficiaries}
+          title="تقرير المستفيدين"
+        />
       </div>
     </div>
   );

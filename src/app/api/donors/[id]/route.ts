@@ -3,6 +3,7 @@ import { isValidObjectId } from "mongoose";
 import dbConnect from "@/lib/mongodb";
 import Donor from "@/lib/models/Donor";
 import TreasuryTransaction from "@/lib/models/TreasuryTransaction";
+import { auth } from "@clerk/nextjs/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -52,5 +53,46 @@ export async function GET(
   } catch (error) {
     console.error("Error fetching donor details:", error);
     return NextResponse.json({ error: "Failed to fetch donor details" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    await dbConnect();
+    const { id } = await params;
+
+    if (!isValidObjectId(id)) {
+      return NextResponse.json({ error: "Invalid donor id" }, { status: 400 });
+    }
+
+    const donor = await Donor.findById(id);
+    if (!donor) {
+      return NextResponse.json({ error: "Donor not found" }, { status: 404 });
+    }
+
+    // Delete all transactions associated with this donor
+    await TreasuryTransaction.deleteMany({ donorId: donor._id });
+
+    // Delete the donor
+    await Donor.findByIdAndDelete(id);
+
+    return NextResponse.json(
+      { message: "Donor deleted successfully" },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error deleting donor:", error);
+    return NextResponse.json(
+      { error: "Failed to delete donor" },
+      { status: 500 }
+    );
   }
 }

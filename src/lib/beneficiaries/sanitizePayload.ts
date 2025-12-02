@@ -88,8 +88,8 @@ const allowedRelationshipTypes: RelationshipType[] = [
 ];
 
 const NAME_REGEX = /^[\u0600-\u06FFa-zA-Z]+(?:[\s'-][\u0600-\u06FFa-zA-Z]+)*$/;
-const NATIONAL_ID_REGEX = /^\d{10,20}$/;
-const PHONE_REGEX = /^\+?\d{7,15}$/;
+const NATIONAL_ID_REGEX = /^\d+$/;
+const PHONE_REGEX = /^\+?\d{10,13}$/;
 const ADDRESS_MIN_LENGTH = 5;
 
 const normalizeString = (value: unknown) => {
@@ -110,13 +110,13 @@ const ensureName = (value: string, label: string) => {
 
 const ensureNationalId = (value: string, label: string) => {
   if (!NATIONAL_ID_REGEX.test(value)) {
-    throw new Error(`${label} يجب أن يتكون من أرقام فقط (10-20 رقم)`);
+    throw new Error(`${label} يجب أن يتكون من أرقام فقط`);
   }
 };
 
 const ensurePhone = (value: string, label: string) => {
   if (!PHONE_REGEX.test(value)) {
-    throw new Error(`${label} يجب أن يتكون من أرقام فقط (7-15 رقم)`);
+    throw new Error(`${label} يجب أن يتكون من أرقام فقط (10-13 رقم)`);
   }
 };
 

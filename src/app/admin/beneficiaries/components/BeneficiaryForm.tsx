@@ -90,8 +90,8 @@ export interface BeneficiaryFormProps {
 }
 
 const NAME_REGEX = /^[\u0600-\u06FFa-zA-Z]+(?:[\s'-][\u0600-\u06FFa-zA-Z]+)*$/;
-const NATIONAL_ID_REGEX = /^\d{10,20}$/;
-const PHONE_REGEX = /^\+?\d{7,15}$/;
+const NATIONAL_ID_REGEX = /^\d+$/;
+const PHONE_REGEX = /^\+?\d{10,20}$/;
 const ADDRESS_MIN_LENGTH = 5;
 
 const maritalStatusOptions: Array<{ value: MaritalStatus; label: string }> = [
@@ -472,7 +472,7 @@ export default function BeneficiaryForm({
   const validateForm = (): string | null => {
     const name = formData.name.trim();
     const beneficiaryIdValue = formData.nationalId.trim();
-    const nationalIdValue = formData.phone.trim();
+    const phone = formData.phone.trim();
     const whatsapp = formData.whatsapp.trim();
     const address = formData.address.trim();
 
@@ -481,15 +481,15 @@ export default function BeneficiaryForm({
     }
 
     if (!NATIONAL_ID_REGEX.test(beneficiaryIdValue)) {
-      return "رقم المستفيد يجب أن يكون أرقاماً فقط (10-20 رقم)";
+      return "رقم المستفيد يجب أن يكون أرقاماً فقط";
     }
 
-    if (!NATIONAL_ID_REGEX.test(nationalIdValue)) {
-      return "الرقم القومي يجب أن يكون أرقاماً فقط (10-20 رقم)";
+    if (!PHONE_REGEX.test(phone)) {
+      return "رقم الهاتف يجب أن يكون بين 10 و13 رقم";
     }
 
     if (!PHONE_REGEX.test(whatsapp)) {
-      return "رقم الواتساب يجب أن يكون بين 7 و15 رقم";
+      return "رقم الواتساب يجب أن يكون بين 10 و13 رقم";
     }
 
     if (address.length < ADDRESS_MIN_LENGTH) {
@@ -688,8 +688,8 @@ export default function BeneficiaryForm({
                 onChange={handleChange}
                 required
                 inputMode="numeric"
-                pattern="\d{10,20}"
-                title="أرقام فقط (10-20 رقم)"
+                pattern="\d+"
+                title="أرقام فقط"
                 className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary"
               />
             </div>
