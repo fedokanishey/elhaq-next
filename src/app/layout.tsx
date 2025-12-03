@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Geist, Geist_Mono } from "next/font/google";
 import Navbar from "@/components/Navbar";
+import BackToTopButton from "@/components/BackToTopButton";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
 
@@ -41,6 +42,7 @@ export default function RootLayout({
             <main className="min-h-screen">
               {children}
             </main>
+            <BackToTopButton />
           </ThemeProvider>
         </body>
       </html>

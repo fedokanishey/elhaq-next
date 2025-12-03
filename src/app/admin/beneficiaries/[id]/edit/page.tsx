@@ -49,6 +49,8 @@ const createBlankFormValues = (): BeneficiaryFormValues => ({
   housingType: "owned",
   rentalCost: "",
   employment: "",
+  acceptsMarriage: false,
+  marriageDetails: "",
   spouse: createEmptySpouse(),
   children: [],
   relationships: [],
@@ -161,6 +163,8 @@ export default function EditBeneficiaryPage() {
           housingType: record?.housingType || "owned",
           rentalCost: record?.rentalCost?.toString?.() || "",
           employment: record?.employment || "",
+          acceptsMarriage: record?.acceptsMarriage || false,
+          marriageDetails: record?.marriageDetails || "",
           spouse: record?.spouse
             ? {
                 name: record.spouse.name || "",

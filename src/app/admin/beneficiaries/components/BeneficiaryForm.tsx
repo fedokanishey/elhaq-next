@@ -63,6 +63,8 @@ export interface BeneficiaryFormValues {
   housingType: "owned" | "rented";
   rentalCost: string;
   employment: string;
+  acceptsMarriage: boolean;
+  marriageDetails: string;
   spouse: SpouseDetails;
   children: Child[];
   relationships: RelationshipEntry[];
@@ -156,6 +158,8 @@ const createInitialFormValues = (): BeneficiaryFormValues => ({
   housingType: "owned",
   rentalCost: "",
   employment: "",
+  acceptsMarriage: false,
+  marriageDetails: "",
   spouse: createEmptySpouse(),
   children: [],
   relationships: [],
@@ -894,6 +898,45 @@ export default function BeneficiaryForm({
                 className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary"
               />
             </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <input
+                id="accepts-marriage"
+                type="checkbox"
+                checked={formData.acceptsMarriage}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    acceptsMarriage: e.target.checked,
+                  }))
+                }
+                className="w-4 h-4 rounded border-input bg-background cursor-pointer accent-primary"
+              />
+              <label htmlFor="accepts-marriage" className="text-sm font-medium text-foreground cursor-pointer">
+                مقبل على الزواج
+              </label>
+            </div>
+
+            {formData.acceptsMarriage && (
+              <div>
+                <label htmlFor="marriage-details" className="block text-sm font-medium text-foreground mb-2">
+                  تفاصيل مستلزمات الزواج
+                </label>
+                <textarea
+                  id="marriage-details"
+                  value={formData.marriageDetails}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      marriageDetails: e.target.value,
+                    }))
+                  }
+                  placeholder="أضف أي تفاصيل إضافية حول مستلزمات الزواج..."
+                  rows={3}
+                  className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                />
+              </div>
+            )}
           </div>
 
           <div className="space-y-4 border-t border-border pt-6">

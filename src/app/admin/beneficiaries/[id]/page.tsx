@@ -82,6 +82,8 @@ interface Beneficiary {
   housingType?: "owned" | "rented";
   rentalCost?: number;
   employment?: string;
+  acceptsMarriage?: boolean;
+  marriageDetails?: string;
   spouse?: SpouseDetails;
   children?: Child[];
   relationships?: RelationshipEntry[];
@@ -371,6 +373,16 @@ export default function ViewBeneficiary({
                   </dd>
                 </div>
               )}
+              {beneficiary.acceptsMarriage && (
+                <div>
+                  <dt className="text-sm text-muted-foreground">💍 مقبل على الزواج</dt>
+                  <dd className="mt-1 flex items-center gap-2 text-foreground">
+                    <span className="px-3 py-1 bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-full text-sm">
+                      نعم
+                    </span>
+                  </dd>
+                </div>
+              )}
               {beneficiary.income && (
                 <div>
                   <dt className="text-sm text-muted-foreground">الدخل الشهري</dt>
@@ -444,6 +456,16 @@ export default function ViewBeneficiary({
                 </div>
               )}
             </dl>
+          </div>
+        )}
+
+        {beneficiary.acceptsMarriage && beneficiary.marriageDetails && (
+          <div className="bg-card border border-border rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              💍 تفاصيل مستلزمات الزواج
+            </h2>
+            <p className="text-foreground whitespace-pre-wrap">{beneficiary.marriageDetails}</p>
           </div>
         )}
 

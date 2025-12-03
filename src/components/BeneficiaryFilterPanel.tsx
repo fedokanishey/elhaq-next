@@ -10,6 +10,7 @@ export interface BeneficiaryFilterCriteria {
   priorityMin?: number;
   priorityMax?: number;
   employment?: string;
+  acceptsMarriage?: boolean;
 }
 
 interface BeneficiaryFilterPanelProps {
@@ -25,6 +26,7 @@ const defaultFilters: BeneficiaryFilterCriteria = {
   priorityMin: 1,
   priorityMax: 10,
   employment: "",
+  acceptsMarriage: false,
 };
 
 export default function BeneficiaryFilterPanel({
@@ -35,7 +37,7 @@ export default function BeneficiaryFilterPanel({
   const [filters, setFilters] = useState<BeneficiaryFilterCriteria>(defaultFilters);
   const [isOpen, setIsOpen] = useState(variant === "inline");
 
-  const handleChange = (field: keyof BeneficiaryFilterCriteria, value: string | number) => {
+  const handleChange = (field: keyof BeneficiaryFilterCriteria, value: string | number | boolean) => {
     const updated = { ...filters, [field]: value };
     setFilters(updated);
     onFilterChange(updated);
@@ -52,7 +54,8 @@ export default function BeneficiaryFilterPanel({
     filters.housingType ||
     filters.employment ||
     filters.priorityMin !== 1 ||
-    filters.priorityMax !== 10;
+    filters.priorityMax !== 10 ||
+    filters.acceptsMarriage;
 
   const filterContent = (
     <div className="space-y-4">
@@ -171,6 +174,22 @@ export default function BeneficiaryFilterPanel({
             />
           </div>
         </div>
+      </div>
+
+      {/* Accepts Marriage */}
+      <div className="flex items-center gap-3 pt-2">
+        <input
+          id="filter-accepts-marriage"
+          type="checkbox"
+          checked={filters.acceptsMarriage || false}
+          onChange={(e) => handleChange("acceptsMarriage", e.target.checked ? true : false)}
+          title="فلترة المقبولين على الزواج"
+          aria-label="فلترة المقبولين على الزواج"
+          className="w-4 h-4 rounded border-input bg-background cursor-pointer accent-primary"
+        />
+        <label htmlFor="filter-accepts-marriage" className="text-sm font-medium text-foreground cursor-pointer">
+          مقبل على الزواج فقط
+        </label>
       </div>
 
       {/* Reset Button */}

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Loader2, PiggyBank, Receipt, Trash2 } from "lucide-react";
 import SearchFilterBar from "@/components/SearchFilterBar";
-import BeneficiaryFilterCompact, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterCompact";
+import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
 
 interface TreasuryTotals {
   incomeTotal: number;
@@ -41,6 +41,14 @@ interface DonorSummary {
 interface BeneficiarySummary {
   _id: string;
   name: string;
+  phone?: string;
+  address?: string;
+  healthStatus?: "healthy" | "sick";
+  housingType?: "owned" | "rented";
+  employment?: string;
+  priority?: number;
+  acceptsMarriage?: boolean;
+  marriageDetails?: string;
 }
 
 type TreasuryFormState = {
@@ -101,7 +109,18 @@ export default function TreasuryPage() {
       const res = await fetch("/api/beneficiaries?limit=500", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
-      setBeneficiaries(data.beneficiaries?.map((b: any) => ({ _id: b._id, name: b.name })) || []);
+      setBeneficiaries(data.beneficiaries?.map((b: any) => ({
+        _id: b._id,
+        name: b.name,
+        phone: b.phone,
+        address: b.address,
+        healthStatus: b.healthStatus,
+        housingType: b.housingType,
+        employment: b.employment,
+        priority: b.priority,
+        acceptsMarriage: b.acceptsMarriage,
+        marriageDetails: b.marriageDetails,
+      })) || []);
     } catch (err) {
       console.error(err);
     }
@@ -125,15 +144,45 @@ export default function TreasuryPage() {
       );
     }
 
+    // Apply filter criteria - city/address
+    if (beneficiaryFilters.city?.trim()) {
+      const cityTerm = beneficiaryFilters.city.toLowerCase();
+      result = result.filter((b) =>
+        (b.address || "").toLowerCase().includes(cityTerm)
+      );
+    }
+
     // Apply filter criteria - health status
     if (beneficiaryFilters.healthStatus) {
-      // This would need to be fetched with full beneficiary data
-      // For now, we filter by name if it contains the status
+      result = result.filter((b) => b.healthStatus === beneficiaryFilters.healthStatus);
     }
 
     // Apply filter criteria - housing type
     if (beneficiaryFilters.housingType) {
-      // This would need to be fetched with full beneficiary data
+      result = result.filter((b) => b.housingType === beneficiaryFilters.housingType);
+    }
+
+    // Apply filter criteria - employment
+    if (beneficiaryFilters.employment?.trim()) {
+      const empTerm = beneficiaryFilters.employment.toLowerCase();
+      result = result.filter((b) =>
+        (b.employment || "").toLowerCase().includes(empTerm)
+      );
+    }
+
+    // Apply filter criteria - priority range
+    if (beneficiaryFilters.priorityMin !== undefined || beneficiaryFilters.priorityMax !== undefined) {
+      const minPriority = beneficiaryFilters.priorityMin ?? 1;
+      const maxPriority = beneficiaryFilters.priorityMax ?? 10;
+      result = result.filter((b) => {
+        const priority = b.priority ?? 5;
+        return priority >= minPriority && priority <= maxPriority;
+      });
+    }
+
+    // Apply filter criteria - accepts marriage
+    if (beneficiaryFilters.acceptsMarriage) {
+      result = result.filter((b) => b.acceptsMarriage === true);
     }
 
     return result;
@@ -486,50 +535,93 @@ export default function TreasuryPage() {
 
               {formData.type === "expense" && (
                 <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-3">المستفيدون من المبلغ</label>
-                  <div className="mb-3 flex gap-3">
-                    <div className="flex-1">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-sm font-medium text-muted-foreground">المستفيدون من المبلغ</label>
+                    <span className="text-xs text-muted-foreground">
+                      {formData.beneficiaryIds.length} مختار
+                    </span>
+                  </div>
+                  <div className="mb-3 flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+                    <div className="flex-1 w-full">
                       <SearchFilterBar
                         searchTerm={beneficiarySearchTerm}
                         onSearchChange={setBeneficiarySearchTerm}
-                        placeholder="ابحث عن المستفيد..."
+                        placeholder="ابحث بالاسم أو الهاتف..."
                         onClearSearch={() => setBeneficiarySearchTerm("")}
                       />
                     </div>
-                    <BeneficiaryFilterCompact
+                    <BeneficiaryFilterPanel
                       onFilterChange={setBeneficiaryFilters}
-                      onClear={() => setBeneficiaryFilters({})}
+                      variant="dropdown"
                     />
                   </div>
-                  <div className="space-y-3 max-h-64 overflow-y-auto border border-border rounded-lg p-3 bg-background/50">
+
+                  {formData.beneficiaryIds.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {formData.beneficiaryIds.map((beneficiaryId) => {
+                        const beneficiary = beneficiaries.find(b => b._id === beneficiaryId);
+                        return beneficiary ? (
+                          <span
+                            key={beneficiaryId}
+                            className="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary px-3 py-1 text-sm"
+                          >
+                            {beneficiary.name}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  beneficiaryIds: prev.beneficiaryIds.filter(id => id !== beneficiaryId)
+                                }));
+                              }}
+                              className="text-xs text-primary/70 hover:text-primary"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
+
+                  <div className="rounded-lg border border-border bg-muted/30 divide-y divide-border max-h-64 overflow-y-auto">
                     {filteredBeneficiaries.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-4">
                         {beneficiaries.length === 0 ? "لا يوجد مستفيدون" : "لا توجد نتائج بحث"}
                       </p>
                     ) : (
-                      filteredBeneficiaries.map((b) => (
-                        <label key={b._id} className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded transition">
-                          <input
-                            type="checkbox"
-                            checked={formData.beneficiaryIds.includes(b._id)}
-                            onChange={(e) => {
+                      filteredBeneficiaries.map((b) => {
+                        const isSelected = formData.beneficiaryIds.includes(b._id);
+                        return (
+                          <button
+                            key={b._id}
+                            type="button"
+                            onClick={() => {
                               setFormData((prev) => ({
                                 ...prev,
-                                beneficiaryIds: e.target.checked
-                                  ? [...prev.beneficiaryIds, b._id]
-                                  : prev.beneficiaryIds.filter(id => id !== b._id)
+                                beneficiaryIds: isSelected
+                                  ? prev.beneficiaryIds.filter(id => id !== b._id)
+                                  : [...prev.beneficiaryIds, b._id]
                               }));
                             }}
-                            className="w-4 h-4 rounded border-border"
-                          />
-                          <span className="text-sm text-foreground">{b.name}</span>
-                        </label>
-                      ))
+                            className={`w-full text-right px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 transition-colors ${
+                              isSelected ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-1">
+                              <span className="font-medium">{b.name}</span>
+                              {b.phone && <span className="text-sm text-muted-foreground">📞 {b.phone}</span>}
+                              {b.acceptsMarriage && (
+                                <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-full">
+                                  💍 مقبل على الزواج
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })
                     )}
                   </div>
-                  {formData.beneficiaryIds.length > 0 && (
-                    <p className="text-sm text-muted-foreground mt-2">تم اختيار {formData.beneficiaryIds.length} مستفيد</p>
-                  )}
                 </div>
               )}
 

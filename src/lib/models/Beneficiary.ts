@@ -114,6 +114,8 @@ export interface IBeneficiary extends Document {
   housingType?: 'owned' | 'rented';
   rentalCost?: number;
   employment?: string;
+  acceptsMarriage?: boolean;
+  marriageDetails?: string;
   children: IChild[];
   spouse?: ISpouse;
   relationships: IRelationship[];
@@ -153,6 +155,8 @@ const BeneficiarySchema = new Schema<IBeneficiary>(
     },
     rentalCost: Number,
     employment: String,
+    acceptsMarriage: { type: Boolean, default: false },
+    marriageDetails: String,
     children: [ChildSchema],
     spouse: { type: SpouseSchema, default: undefined },
     relationships: { type: [RelationshipSchema], default: [] },

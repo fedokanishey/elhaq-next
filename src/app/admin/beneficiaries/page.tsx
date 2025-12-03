@@ -25,6 +25,8 @@ interface Beneficiary {
   healthStatus?: "healthy" | "sick";
   housingType?: "owned" | "rented";
   employment?: string;
+  acceptsMarriage?: boolean;
+  marriageDetails?: string;
   spouse?: {
     name?: string;
     nationalId?: string;
@@ -157,6 +159,10 @@ export default function AdminBeneficiaries() {
         const max = filters.priorityMax ?? 10;
         return b.priority >= min && b.priority <= max;
       });
+    }
+
+    if (filters.acceptsMarriage) {
+      result = result.filter((b) => b.acceptsMarriage === true);
     }
 
     // Sort by nationalId
