@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import BeneficiaryCard from "@/components/BeneficiaryCard";
 import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
+import SearchFilterBar from "@/components/SearchFilterBar";
 import { useEffect, useMemo, useState } from "react";
 import { Search, ArrowDownUp, Download } from "lucide-react";
 import BeneficiariesPrintModal from "@/components/BeneficiariesPrintModal";
@@ -230,17 +231,12 @@ export default function AdminBeneficiaries() {
               >
                 ابحث عن مستفيد
               </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <input
-                  id="beneficiaries-search"
-                  type="text"
-                  placeholder="ابحث بالاسم، الهاتف، العنوان، رقم المستفيد، أو الواتساب"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full rounded-lg border border-input bg-background px-10 py-3 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </div>
+              <SearchFilterBar
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                placeholder="ابحث بالاسم، الهاتف، العنوان، رقم المستفيد، أو الواتساب"
+                onClearSearch={() => setSearchTerm("")}
+              />
             </div>
             <BeneficiaryFilterPanel onFilterChange={setFilters} variant="dropdown" />
             <button

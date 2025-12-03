@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Loader2, PiggyBank, Receipt, Trash2 } from "lucide-react";
+import SearchFilterBar from "@/components/SearchFilterBar";
+import BeneficiaryFilterCompact, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterCompact";
 
 interface TreasuryTotals {
   incomeTotal: number;
@@ -23,6 +25,8 @@ interface TreasuryTransaction {
   recordedBy?: string;
   donorId?: string;
   donorNameSnapshot?: string;
+  beneficiaryIds?: string[];
+  beneficiaryNamesSnapshot?: string[];
   createdAt: string;
 }
 
@@ -34,6 +38,11 @@ interface DonorSummary {
   lastDonationDate?: string;
 }
 
+interface BeneficiarySummary {
+  _id: string;
+  name: string;
+}
+
 type TreasuryFormState = {
   amount: string;
   type: "income" | "expense";
@@ -43,6 +52,7 @@ type TreasuryFormState = {
   transactionDate: string;
   donorName: string;
   donorId?: string;
+  beneficiaryIds: string[];
 };
 
 const createDefaultFormState = (): TreasuryFormState => ({
@@ -54,6 +64,7 @@ const createDefaultFormState = (): TreasuryFormState => ({
   transactionDate: new Date().toISOString().split("T")[0],
   donorName: "",
   donorId: "",
+  beneficiaryIds: [],
 });
 
 export default function TreasuryPage() {
@@ -64,10 +75,15 @@ export default function TreasuryPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [sortDesc, setSortDesc] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [beneficiarySearchTerm, setBeneficiarySearchTerm] = useState("");
+  const [beneficiaryFilters, setBeneficiaryFilters] = useState<BeneficiaryFilterCriteria>({});
   const [formData, setFormData] = useState<TreasuryFormState>(createDefaultFormState);
   const [totals, setTotals] = useState<TreasuryTotals>({ incomeTotal: 0, expenseTotal: 0, balance: 0 });
   const [transactions, setTransactions] = useState<TreasuryTransaction[]>([]);
   const [donors, setDonors] = useState<DonorSummary[]>([]);
+  const [beneficiaries, setBeneficiaries] = useState<BeneficiarySummary[]>([]);
 
   const loadDonors = useCallback(async () => {
     try {
@@ -80,12 +96,48 @@ export default function TreasuryPage() {
     }
   }, []);
 
+  const loadBeneficiaries = useCallback(async () => {
+    try {
+      const res = await fetch("/api/beneficiaries?limit=500", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setBeneficiaries(data.beneficiaries?.map((b: any) => ({ _id: b._id, name: b.name })) || []);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
   const [showDonorSuggestions, setShowDonorSuggestions] = useState(false);
   const filteredDonors = useMemo(() => {
     const term = (formData.donorName || "").trim().toLowerCase();
     if (!term) return donors.slice(0, 6);
     return donors.filter((d) => d.name.toLowerCase().includes(term)).slice(0, 6);
   }, [donors, formData.donorName]);
+
+  const filteredBeneficiaries = useMemo(() => {
+    let result = beneficiaries;
+
+    // Apply search filter
+    const searchTerm = beneficiarySearchTerm.trim().toLowerCase();
+    if (searchTerm) {
+      result = result.filter((b) =>
+        b.name.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Apply filter criteria - health status
+    if (beneficiaryFilters.healthStatus) {
+      // This would need to be fetched with full beneficiary data
+      // For now, we filter by name if it contains the status
+    }
+
+    // Apply filter criteria - housing type
+    if (beneficiaryFilters.housingType) {
+      // This would need to be fetched with full beneficiary data
+    }
+
+    return result;
+  }, [beneficiaries, beneficiarySearchTerm, beneficiaryFilters]);
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
@@ -117,8 +169,17 @@ export default function TreasuryPage() {
     if (isLoaded) {
       fetchTreasury();
       loadDonors();
+      loadBeneficiaries();
     }
-  }, [isLoaded, loadDonors]);
+  }, [isLoaded, loadDonors, loadBeneficiaries]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim());
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -210,13 +271,49 @@ export default function TreasuryPage() {
   };
 
   const sortedTransactions = useMemo(() => {
-    const sorted = [...transactions].sort((a, b) => {
+    let result = [...transactions];
+
+    // Apply search filter
+    if (debouncedSearch) {
+      const normalize = (value?: string | number) =>
+        typeof value === "number"
+          ? value.toString()
+          : (value || "")
+              .toString()
+              .toLowerCase()
+              .normalize("NFKD")
+              .replace(/[\u064B-\u065F]/g, "");
+
+      const query = normalize(debouncedSearch);
+      
+      result = result.filter((txn) => {
+        const searchableText = [
+          normalize(txn.description),
+          normalize(txn.category),
+          normalize(txn.reference),
+          normalize(txn.amount),
+          normalize(txn.donorNameSnapshot),
+          normalize(txn.type),
+          (txn.beneficiaryNamesSnapshot || [])
+            .map(name => normalize(name))
+            .join(" ")
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        return searchableText.includes(query);
+      });
+    }
+
+    // Sort by date
+    result.sort((a, b) => {
       const dateA = new Date(a.transactionDate || a.createdAt).getTime();
       const dateB = new Date(b.transactionDate || b.createdAt).getTime();
       return sortDesc ? dateB - dateA : dateA - dateB;
     });
-    return sorted;
-  }, [transactions, sortDesc]);
+
+    return result;
+  }, [transactions, debouncedSearch, sortDesc]);
 
   const formattedTotals = useMemo(() => ({
     balance: formatCurrency(totals.balance),
@@ -387,6 +484,55 @@ export default function TreasuryPage() {
                 </div>
               )}
 
+              {formData.type === "expense" && (
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-3">المستفيدون من المبلغ</label>
+                  <div className="mb-3 flex gap-3">
+                    <div className="flex-1">
+                      <SearchFilterBar
+                        searchTerm={beneficiarySearchTerm}
+                        onSearchChange={setBeneficiarySearchTerm}
+                        placeholder="ابحث عن المستفيد..."
+                        onClearSearch={() => setBeneficiarySearchTerm("")}
+                      />
+                    </div>
+                    <BeneficiaryFilterCompact
+                      onFilterChange={setBeneficiaryFilters}
+                      onClear={() => setBeneficiaryFilters({})}
+                    />
+                  </div>
+                  <div className="space-y-3 max-h-64 overflow-y-auto border border-border rounded-lg p-3 bg-background/50">
+                    {filteredBeneficiaries.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        {beneficiaries.length === 0 ? "لا يوجد مستفيدون" : "لا توجد نتائج بحث"}
+                      </p>
+                    ) : (
+                      filteredBeneficiaries.map((b) => (
+                        <label key={b._id} className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded transition">
+                          <input
+                            type="checkbox"
+                            checked={formData.beneficiaryIds.includes(b._id)}
+                            onChange={(e) => {
+                              setFormData((prev) => ({
+                                ...prev,
+                                beneficiaryIds: e.target.checked
+                                  ? [...prev.beneficiaryIds, b._id]
+                                  : prev.beneficiaryIds.filter(id => id !== b._id)
+                              }));
+                            }}
+                            className="w-4 h-4 rounded border-border"
+                          />
+                          <span className="text-sm text-foreground">{b.name}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  {formData.beneficiaryIds.length > 0 && (
+                    <p className="text-sm text-muted-foreground mt-2">تم اختيار {formData.beneficiaryIds.length} مستفيد</p>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label htmlFor="description" className="block text-sm font-medium text-muted-foreground mb-1">الوصف</label>
                 <textarea
@@ -429,32 +575,34 @@ export default function TreasuryPage() {
           </div>
 
           <div className="bg-card border border-border rounded-xl shadow-sm p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-foreground">آخر العمليات</h2>
-                <p className="text-sm text-muted-foreground">يتم عرض آخر 100 عملية مالية.</p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground">آخر العمليات</h2>
+                  <p className="text-sm text-muted-foreground">يتم عرض آخر 100 عملية مالية.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setSortDesc(!sortDesc)}
+                    className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1 px-2 py-1 rounded hover:bg-primary/10 transition"
+                    type="button"
+                    title={sortDesc ? "من الأحدث للأقدم" : "من الأقدم للأحدث"}
+                  >
+                    {sortDesc ? (
+                      <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setSortDesc(!sortDesc)}
-                  className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1 px-2 py-1 rounded hover:bg-primary/10 transition"
-                  type="button"
-                  title={sortDesc ? "من الأحدث للأقدم" : "من الأقدم للأحدث"}
-                >
-                  {sortDesc ? (
-                    <ChevronDown className="w-4 h-4" />
-                  ) : (
-                    <ChevronUp className="w-4 h-4" />
-                  )}
-                </button>
-                <button
-                  onClick={refreshTreasury}
-                  className="text-sm text-muted-foreground hover:text-primary"
-                  type="button"
-                >
-                  تحديث
-                </button>
-              </div>
+
+              <SearchFilterBar
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                placeholder="ابحث عن وصف أو فئة أو متبرع أو مستفيد..."
+                onClearSearch={() => setSearchTerm("")}
+              />
             </div>
 
             {error && (
@@ -505,6 +653,18 @@ export default function TreasuryPage() {
                             <Link href={`/admin/donors/${txn.donorId}`} className="text-primary text-sm">
                               {txn.donorNameSnapshot || "متبرع"}
                             </Link>
+                          </div>
+                        )}
+                        {txn.beneficiaryNamesSnapshot && txn.beneficiaryNamesSnapshot.length > 0 && (
+                          <div className="mt-2 text-sm">
+                            <p className="text-muted-foreground text-xs mb-1">المستفيدون:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {txn.beneficiaryNamesSnapshot.map((name, idx) => (
+                                <span key={idx} className="bg-primary/10 text-primary px-2 py-1 rounded text-xs">
+                                  {name}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import TreasuryTransaction from "@/lib/models/TreasuryTransaction";
 import Donor from "@/lib/models/Donor";
+import Beneficiary from "@/lib/models/Beneficiary";
 import { isValidObjectId } from "mongoose";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +79,7 @@ export async function POST(req: Request) {
       recordedBy,
       donorId,
       donorName,
+      beneficiaryIds,
     } = body;
 
     const normalizedType = type === "expense" ? "expense" : type === "income" ? "income" : null;
@@ -140,6 +142,16 @@ export async function POST(req: Request) {
       recordedBy: recordedBy?.trim(),
       donorId: resolvedDonor?._id,
       donorNameSnapshot: resolvedDonor?.name || trimmedDonorName || undefined,
+      beneficiaryIds: normalizedType === "expense" && Array.isArray(beneficiaryIds) 
+        ? beneficiaryIds.filter(id => isValidObjectId(id))
+        : [],
+      beneficiaryNamesSnapshot: normalizedType === "expense" && Array.isArray(beneficiaryIds) 
+        ? (await Promise.all(
+            beneficiaryIds
+              .filter(id => isValidObjectId(id))
+              .map(id => Beneficiary.findById(id).lean().then(b => b?.name || '').catch(() => ''))
+          )).filter(Boolean)
+        : [],
     });
 
     return NextResponse.json(entry, { status: 201 });

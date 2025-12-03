@@ -11,6 +11,8 @@ export interface ITreasuryTransaction extends Document {
   recordedBy?: string;
   donorId?: Schema.Types.ObjectId;
   donorNameSnapshot?: string;
+  beneficiaryIds?: Schema.Types.ObjectId[];
+  beneficiaryNamesSnapshot?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -62,6 +64,16 @@ const TreasuryTransactionSchema = new Schema<ITreasuryTransaction>(
     donorNameSnapshot: {
       type: String,
       trim: true,
+    },
+    beneficiaryIds: {
+      type: [Schema.Types.ObjectId],
+      ref: "Beneficiary",
+      default: [],
+      index: true,
+    },
+    beneficiaryNamesSnapshot: {
+      type: [String],
+      default: [],
     },
   },
   {
