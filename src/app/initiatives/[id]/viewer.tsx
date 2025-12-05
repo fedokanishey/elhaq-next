@@ -11,11 +11,27 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import SearchFilterBar from "@/components/SearchFilterBar";
+import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
 
 interface BeneficiaryPreview {
   _id: string;
   name: string;
   phone?: string;
+  whatsapp?: string;
+  nationalId?: string;
+  address?: string;
+  healthStatus?: string;
+  housingType?: "owned" | "rented" | "other";
+  employment?: string;
+  priority?: number;
+  children?: Record<string, unknown>[];
+  spouse?: Record<string, unknown>;
+  familyMembers?: number;
+  maritalStatus?: string;
+  income?: number;
+  rentalCost?: number;
+  profileImage?: string;
 }
 
 interface InitiativeDetails {
@@ -48,6 +64,8 @@ export default function InitiativeDetailsClient({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState<BeneficiaryFilterCriteria>({});
 
   useEffect(() => {
     if (!initiativeId) return;
@@ -105,6 +123,59 @@ export default function InitiativeDetailsClient({
   const readableStatus = initiative?.status
     ? statusLabels[initiative.status] || initiative.status
     : undefined;
+
+  // دالة تصفية المستفيدين بناءً على البحث والفلترة
+  const getFilteredBeneficiaries = () => {
+    if (!initiative?.beneficiaries) return [];
+
+    return initiative.beneficiaries.filter((beneficiary) => {
+      // البحث بالاسم أو رقم الهاتف أو العنوان أو رقم المستفيد
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch =
+        !searchTerm ||
+        beneficiary.name.toLowerCase().includes(searchLower) ||
+        (beneficiary.phone && beneficiary.phone.includes(searchTerm)) ||
+        (beneficiary.address && beneficiary.address.toLowerCase().includes(searchLower)) ||
+        (beneficiary.nationalId && beneficiary.nationalId.includes(searchTerm)) ||
+        (beneficiary.whatsapp && beneficiary.whatsapp.includes(searchTerm));
+
+      // الفلترة حسب المدينة/العنوان
+      const matchesCity =
+        !filters.city ||
+        (beneficiary.address && beneficiary.address.toLowerCase().includes(filters.city.toLowerCase()));
+
+      // الفلترة حسب الحالة الصحية
+      const matchesHealth =
+        !filters.healthStatus || beneficiary.healthStatus === filters.healthStatus;
+
+      // الفلترة حسب نوع السكن
+      const matchesHousing =
+        !filters.housingType || beneficiary.housingType === filters.housingType;
+
+      // الفلترة حسب مستوى الأولوية
+      const priority = beneficiary.priority || 0;
+      const matchesPriority =
+        !filters.priorityMin ||
+        !filters.priorityMax ||
+        (priority >= filters.priorityMin && priority <= filters.priorityMax);
+
+      // الفلترة حسب الحالة الوظيفية
+      const matchesEmployment =
+        !filters.employment ||
+        (beneficiary.employment && beneficiary.employment.toLowerCase().includes(filters.employment.toLowerCase()));
+
+      return (
+        matchesSearch &&
+        matchesCity &&
+        matchesHealth &&
+        matchesHousing &&
+        matchesPriority &&
+        matchesEmployment
+      );
+    });
+  };
+
+  const filteredBeneficiaries = getFilteredBeneficiaries();
 
   if (loading) {
     return (
@@ -251,27 +322,63 @@ export default function InitiativeDetailsClient({
 
             {/* Beneficiaries */}
             {initiative.beneficiaries && initiative.beneficiaries.length > 0 && (
-              <div className="bg-card border border-border rounded-2xl p-6 space-y-3 shadow-sm">
+              <div className="bg-card border border-border rounded-2xl p-6 space-y-4 shadow-sm">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-foreground">المستفيدون</h3>
                   <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-medium">
-                    {initiative.beneficiaries.length} أشخاص
+                    {filteredBeneficiaries.length}/{initiative.beneficiaries.length} أشخاص
                   </span>
                 </div>
+                
                 {/* إظهار قائمة المستفيدين فقط للأعضاء والمسؤولين */}
                 {(user?.publicMetadata?.role === "admin" || user?.publicMetadata?.role === "member") && (
-                  <div className="space-y-2 pt-2">
-                    {initiative.beneficiaries.map((beneficiary) => (
-                      <div
-                        key={beneficiary._id}
-                        className="flex items-center justify-between p-2 rounded-lg bg-muted/50 text-sm"
-                      >
-                        <span className="text-foreground font-medium">{beneficiary.name}</span>
-                        {beneficiary.phone && (
-                          <span className="text-muted-foreground text-xs">{beneficiary.phone}</span>
-                        )}
+                  <div className="space-y-4 pt-2">
+                    {/* Search & Filter Bar */}
+                    <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                      <div className="flex-1 min-w-0">
+                        <SearchFilterBar
+                          searchTerm={searchTerm}
+                          onSearchChange={setSearchTerm}
+                          placeholder="ابحث باسم المستفيد أو رقم الهاتف..."
+                          onClearSearch={() => setSearchTerm("")}
+                        />
                       </div>
-                    ))}
+                      <div className="shrink-0">
+                        <BeneficiaryFilterPanel
+                          onFilterChange={setFilters}
+                          variant="dropdown"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Beneficiaries List */}
+                    {filteredBeneficiaries.length > 0 ? (
+                      <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                        {filteredBeneficiaries.map((beneficiary) => (
+                          <Link
+                            key={beneficiary._id}
+                            href={`/admin/beneficiaries/${beneficiary._id}`}
+                            className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted hover:shadow-md transition-all text-sm group"
+                          >
+                            <div className="flex-1">
+                              <span className="text-foreground font-medium group-hover:text-primary transition-colors">
+                                {beneficiary.name}
+                              </span>
+                            </div>
+                            {beneficiary.phone && (
+                              <span className="text-muted-foreground text-xs ml-2">
+                                {beneficiary.phone}
+                              </span>
+                            )}
+                            <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors ml-2" />
+                          </Link>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-muted-foreground">
+                        لا يوجد مستفيدون مطابقون للبحث
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
