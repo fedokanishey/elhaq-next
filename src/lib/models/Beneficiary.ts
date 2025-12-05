@@ -7,6 +7,8 @@ export interface ISpouse extends Document {
   nationalId?: string;
   phone?: string;
   whatsapp?: string;
+  income?: number;
+  healthStatus?: "healthy" | "sick";
 }
 
 const SpouseSchema = new Schema<ISpouse>(
@@ -15,6 +17,12 @@ const SpouseSchema = new Schema<ISpouse>(
     nationalId: String,
     phone: String,
     whatsapp: String,
+    income: Number,
+    healthStatus: {
+      type: String,
+      enum: ["healthy", "sick"],
+      default: "healthy",
+    },
   },
   { _id: false }
 );

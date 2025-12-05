@@ -123,8 +123,8 @@ export default function BeneficiaryCard({
     >
       <div className="flex flex-col gap-4">
         <div className="flex justify-between gap-4 flex-row-reverse">
-          {renderAvatar(profileImage, "صورة الزوج")}
-          {renderAvatar(idImage, "صورة الزوجة", spouseName || "الزوجة")}
+          {renderAvatar(profileImage, "صورة المستفيد")}
+          {renderAvatar(idImage, spouseName ? "صورة الزوج/الزوجة" : undefined, spouseName || undefined)}
         </div>
 
         <div className="space-y-1">

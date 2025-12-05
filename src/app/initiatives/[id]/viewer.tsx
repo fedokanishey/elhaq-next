@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
+import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import {
   Activity,
@@ -42,6 +43,7 @@ interface InitiativeDetailsClientProps {
 export default function InitiativeDetailsClient({
   initiativeId,
 }: InitiativeDetailsClientProps) {
+  const { user } = useUser();
   const [initiative, setInitiative] = useState<InitiativeDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -225,14 +227,17 @@ export default function InitiativeDetailsClient({
                       : "غير محدد"}
                   </span>
                 </div>
-                <div className="flex items-center justify-between pb-3 border-b border-border/50">
-                  <span className="text-muted-foreground flex items-center gap-2">
-                    <Wallet className="w-4 h-4" /> الميزانية
-                  </span>
-                  <span className="font-medium text-foreground text-right">
-                    {initiative.totalAmount ? `${initiative.totalAmount.toLocaleString("ar-EG")} ج.م` : "غير محدد"}
-                  </span>
-                </div>
+                {/* إظهار الميزانية فقط للأعضاء والمسؤولين */}
+                {(user?.publicMetadata?.role === "admin" || user?.publicMetadata?.role === "member") && (
+                  <div className="flex items-center justify-between pb-3 border-b border-border/50">
+                    <span className="text-muted-foreground flex items-center gap-2">
+                      <Wallet className="w-4 h-4" /> الميزانية
+                    </span>
+                    <span className="font-medium text-foreground text-right">
+                      {initiative.totalAmount ? `${initiative.totalAmount.toLocaleString("ar-EG")} ج.م` : "غير محدد"}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground flex items-center gap-2">
                     <Activity className="w-4 h-4" /> الحالة
@@ -253,6 +258,22 @@ export default function InitiativeDetailsClient({
                     {initiative.beneficiaries.length} أشخاص
                   </span>
                 </div>
+                {/* إظهار قائمة المستفيدين فقط للأعضاء والمسؤولين */}
+                {(user?.publicMetadata?.role === "admin" || user?.publicMetadata?.role === "member") && (
+                  <div className="space-y-2 pt-2">
+                    {initiative.beneficiaries.map((beneficiary) => (
+                      <div
+                        key={beneficiary._id}
+                        className="flex items-center justify-between p-2 rounded-lg bg-muted/50 text-sm"
+                      >
+                        <span className="text-foreground font-medium">{beneficiary.name}</span>
+                        {beneficiary.phone && (
+                          <span className="text-muted-foreground text-xs">{beneficiary.phone}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

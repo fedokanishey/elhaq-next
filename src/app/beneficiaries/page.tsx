@@ -147,8 +147,9 @@ export default function BeneficiariesPage() {
                   idImage={beneficiary.idImage}
                   maritalStatus={beneficiary.maritalStatus}
                   spouseName={beneficiary.spouse?.name}
-                  onView={() => router.push(`/admin/beneficiaries/${beneficiary._id}`)}
+                  onView={() => router.push(`/beneficiaries/${beneficiary._id}`)}
                   isReadOnly={!isAdmin}
+                  onEdit={isAdmin ? () => router.push(`/admin/beneficiaries/${beneficiary._id}/edit`) : undefined}
                 />
               </div>
             ))}

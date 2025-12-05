@@ -17,6 +17,7 @@ import {
   Wallet,
   User,
   Users,
+  X,
 } from "lucide-react";
 
 interface Child {
@@ -152,10 +153,11 @@ export default function ViewBeneficiary({
   const [initiatives, setInitiatives] = useState<InitiativeSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("\u062c\u0627\u0631\u064a \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a...");
+  const [healthModalImage, setHealthModalImage] = useState<string | null>(null);
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    if (isLoaded && role !== "admin") {
+    if (isLoaded && role !== "admin" && role !== "member") {
       router.push("/");
     }
   }, [isLoaded, user, router]);
@@ -224,9 +226,11 @@ export default function ViewBeneficiary({
     );
   }
 
+  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
   const spouse = beneficiary.spouse;
   const children = beneficiary.children || [];
   const relationships = beneficiary.relationships || [];
+  const isAdmin = role === "admin";
 
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8 transition-colors">
@@ -245,12 +249,15 @@ export default function ViewBeneficiary({
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
+            {isAdmin && (
             <Link
               href={`/admin/beneficiaries/${beneficiary._id}/edit`}
-              className="inline-flex items-center justify-center px-5 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90 transition-colors shadow-sm hover:shadow-md"
             >
-              ✏️ تعديل البيانات
+              
+              تعديل مستفيد
             </Link>
+          )}
             <Link
               href={`tel:${beneficiary.whatsapp}`}
               className="inline-flex items-center justify-center px-5 py-2 rounded-lg border border-border text-foreground hover:bg-muted"
@@ -347,7 +354,20 @@ export default function ViewBeneficiary({
               <div>
                 <dt className="text-sm text-muted-foreground">الحالة الصحية</dt>
                 <dd className="mt-1 flex items-center gap-2 text-foreground">
-                  {beneficiary.healthStatus === "sick" ? "🏥 مريض/مريضة" : "💚 سليم/سليمة"}
+                  {beneficiary.healthStatus === "sick" ? (
+                    beneficiary.healthCertificationImage ? (
+                      <button
+                        onClick={() => setHealthModalImage(beneficiary.healthCertificationImage || null)}
+                        className="text-destructive hover:text-destructive/80 cursor-pointer underline font-medium"
+                      >
+                        🏥 مريض/مريضة
+                      </button>
+                    ) : (
+                      <span>🏥 مريض/مريضة</span>
+                    )
+                  ) : (
+                    <span>💚 سليم/سليمة</span>
+                  )}
                 </dd>
               </div>
               <div>
@@ -483,6 +503,7 @@ export default function ViewBeneficiary({
                     <th className="px-4 py-3 text-right font-medium">الرقم القومي</th>
                     <th className="px-4 py-3 text-right font-medium">المدرسة</th>
                     <th className="px-4 py-3 text-right font-medium">المرحلة التعليمية</th>
+                    <th className="px-4 py-3 text-right font-medium">الحالة الاجتماعية</th>
                     <th className="px-4 py-3 text-right font-medium">الحالة الصحية</th>
                   </tr>
                 </thead>
@@ -500,14 +521,23 @@ export default function ViewBeneficiary({
                           ? EDUCATION_STAGE_LABELS[child.educationStage] || child.educationStage
                           : "-"}
                       </td>
+                      <td className="px-4 py-3 text-foreground">
+                        {child.maritalStatus
+                          ? MARITAL_STATUS_LABELS[child.maritalStatus] || child.maritalStatus
+                          : "-"}
+                      </td>
                           <td className="px-4 py-3 text-foreground">
                             {child.healthStatus === "sick" ? (
                               <div className="flex items-center gap-2">
-                                <span className="text-destructive">مريض</span>
-                                {child.healthCertificationImage && (
-                                  <a href={child.healthCertificationImage} target="_blank" rel="noreferrer">
-                                    <img src={child.healthCertificationImage} alt={`شهادة ${child.name}`} className="w-10 h-10 rounded-md object-cover border border-border" />
-                                  </a>
+                                {child.healthCertificationImage ? (
+                                  <button
+                                    onClick={() => setHealthModalImage(child.healthCertificationImage || null)}
+                                    className="text-destructive hover:text-destructive/80 cursor-pointer underline font-medium"
+                                  >
+                                    مريض
+                                  </button>
+                                ) : (
+                                  <span className="text-destructive">مريض</span>
                                 )}
                               </div>
                             ) : (
@@ -631,6 +661,29 @@ export default function ViewBeneficiary({
             <p className="whitespace-pre-line text-foreground leading-relaxed">
               {beneficiary.notes}
             </p>
+          </div>
+        )}
+
+        {/* Health Certification Modal */}
+        {healthModalImage && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card rounded-lg max-w-2xl w-full max-h-[80vh] overflow-auto relative">
+              <button
+                onClick={() => setHealthModalImage(null)}
+                title="إغلاق"
+                className="absolute top-4 right-4 p-2 hover:bg-muted rounded-lg transition-colors z-10"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <div className="p-6">
+                <h3 className="text-lg font-semibold mb-4">الشهادة الطبية</h3>
+                <img
+                  src={healthModalImage}
+                  alt="الشهادة الطبية"
+                  className="w-full h-auto rounded-lg border border-border"
+                />
+              </div>
+            </div>
           </div>
         )}
       </div>

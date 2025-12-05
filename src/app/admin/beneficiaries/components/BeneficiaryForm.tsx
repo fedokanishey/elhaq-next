@@ -24,6 +24,8 @@ export interface SpouseDetails {
   nationalId: string;
   phone: string;
   whatsapp: string;
+  income?: number;
+  healthStatus?: "healthy" | "sick";
 }
 
 export interface Child {
@@ -121,6 +123,8 @@ export const createEmptySpouse = (): SpouseDetails => ({
   nationalId: "",
   phone: "",
   whatsapp: "",
+  income: 0,
+  healthStatus: "healthy",
 });
 
 export const createEmptyChild = (): Child => ({
@@ -177,7 +181,7 @@ const cloneFormValues = (values: BeneficiaryFormValues): BeneficiaryFormValues =
 
 const isSpouseEmpty = (spouse?: SpouseDetails) => {
   if (!spouse) return true;
-  return !spouse.name && !spouse.nationalId && !spouse.phone && !spouse.whatsapp;
+  return !spouse.name && !spouse.nationalId && !spouse.phone && !spouse.whatsapp && !spouse.income;
 };
 
 export default function BeneficiaryForm({
@@ -236,10 +240,23 @@ export default function BeneficiaryForm({
   useEffect(() => {
     if (manualPriority) return;
     const monthlyIncome = formData.income === "" ? 0 : Number(formData.income);
+    const spouseIncome = formData.spouse?.income ?? 0;
     const rent = formData.housingType === "rented" ? (formData.rentalCost === "" ? 0 : Number(formData.rentalCost)) : 0;
-    const calc = calculatePriority(monthlyIncome, rent, formData.familyMembers);
+    
+    // Count sick unmarried children only
+    const sickUnmarriedChildrenCount = formData.children.filter(
+      child => child.healthStatus === "sick" && child.maritalStatus !== "married"
+    ).length;
+    
+    const healthStatus = {
+      beneficiaryHealth: formData.healthStatus as "healthy" | "sick",
+      spouseHealth: formData.spouse?.healthStatus as "healthy" | "sick" | undefined,
+      sickUnmarriedChildrenCount: sickUnmarriedChildrenCount,
+    };
+    
+    const calc = calculatePriority(monthlyIncome, rent, formData.familyMembers, spouseIncome, healthStatus, formData.maritalStatus);
     setFormData((prev) => ({ ...prev, priority: calc }));
-  }, [formData.income, formData.rentalCost, formData.familyMembers, formData.housingType, manualPriority]);
+  }, [formData.income, formData.rentalCost, formData.familyMembers, formData.housingType, formData.spouse?.income, formData.spouse?.healthStatus, formData.healthStatus, formData.children, formData.maritalStatus, manualPriority]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -256,7 +273,7 @@ export default function BeneficiaryForm({
     }));
   };
 
-  const handleSpouseChange = (field: keyof SpouseDetails, value: string) => {
+  const handleSpouseChange = (field: keyof SpouseDetails, value: string | number) => {
     setFormData((prev) => ({
       ...prev,
       spouse: {
@@ -580,8 +597,21 @@ export default function BeneficiaryForm({
       .filter((relationship) => relationship.relativeName);
 
     const monthlyIncome = formData.income === "" ? 0 : Number(formData.income);
+    const spouseIncome = formData.spouse?.income ?? 0;
     const rentalCost = formData.rentalCost === "" ? 0 : Number(formData.rentalCost);
-    const calculatedPriority = calculatePriority(monthlyIncome, rentalCost, formData.familyMembers);
+    
+    // Count sick unmarried children only
+    const sickUnmarriedChildrenCount = formData.children.filter(
+      child => child.healthStatus === "sick" && child.maritalStatus !== "married"
+    ).length;
+    
+    const healthStatus = {
+      beneficiaryHealth: formData.healthStatus as "healthy" | "sick",
+      spouseHealth: formData.spouse?.healthStatus as "healthy" | "sick" | undefined,
+      sickUnmarriedChildrenCount: sickUnmarriedChildrenCount,
+    };
+    
+    const calculatedPriority = calculatePriority(monthlyIncome, rentalCost, formData.familyMembers, spouseIncome, healthStatus, formData.maritalStatus);
 
     const payload = {
       ...formData,
@@ -758,7 +788,7 @@ export default function BeneficiaryForm({
               </label>
               <input
                 id="beneficiary-family"
-                type="number"
+                type="text"
                 name="familyMembers"
                 value={formData.familyMembers}
                 onChange={handleChange}
@@ -1022,6 +1052,34 @@ export default function BeneficiaryForm({
                     onChange={(e) => handleSpouseChange("whatsapp", e.target.value)}
                     className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary"
                   />
+                </div>
+                <div>
+                  <label htmlFor="spouse-income" className="block text-sm font-medium text-foreground mb-2">
+                    الدخل الشهري (ج.م)
+                  </label>
+                  <input
+                    id="spouse-income"
+                    type="number"
+                    min="0"
+                    value={formData.spouse.income || ""}
+                    onChange={(e) => handleSpouseChange("income", e.target.value ? Number(e.target.value) : 0)}
+                    className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="spouse-health" className="block text-sm font-medium text-foreground mb-2">
+                    الحالة الصحية
+                  </label>
+                  <select
+                    id="spouse-health"
+                    value={formData.spouse.healthStatus || "healthy"}
+                    onChange={(e) => handleSpouseChange("healthStatus", e.target.value)}
+                    className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+                  >
+                    <option value="healthy">سليم/سليمة</option>
+                    <option value="sick">مريض/مريضة</option>
+                  </select>
                 </div>
               </div>
             </div>
