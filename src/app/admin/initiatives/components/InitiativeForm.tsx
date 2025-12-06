@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { CldUploadWidget } from "next-cloudinary";
+import { ArrowDownUp } from "lucide-react";
 import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
 
 export type InitiativeStatus = "planned" | "active" | "completed" | "cancelled";
@@ -93,6 +94,7 @@ export default function InitiativeForm({
     priorityMax: 10,
     employment: "",
   });
+  const [sortByNationalId, setSortByNationalId] = useState(true);
 
   const cloudinaryPreset =
     process.env.NEXT_PUBLIC_CLOUDINARY_INITIATIVE_PRESET ||
@@ -187,6 +189,11 @@ export default function InitiativeForm({
     if (searchTerm.trim()) {
       const term = searchTerm.trim().toLowerCase();
       result = result.filter((beneficiary) => {
+        // If searchByBeneficiaryId is enabled, only search by nationalId
+        if (beneficiaryFilters.searchByBeneficiaryId) {
+          return (beneficiary.nationalId || "").toLowerCase().includes(term);
+        }
+
         const base = `${beneficiary.name} ${beneficiary.phone || ""} ${beneficiary.nationalId || ""}`.toLowerCase();
         const matchesBase = base.includes(term);
         const matchesChildren = beneficiary.children?.some((child) =>
@@ -233,8 +240,15 @@ export default function InitiativeForm({
       });
     }
 
+    // Sort by nationalId
+    result.sort((a, b) => {
+      const aId = parseInt(a.nationalId || "0", 10);
+      const bId = parseInt(b.nationalId || "0", 10);
+      return sortByNationalId ? aId - bId : bId - aId;
+    });
+
     return result;
-  }, [beneficiaries, searchTerm, beneficiaryFilters]);
+  }, [beneficiaries, searchTerm, beneficiaryFilters, sortByNationalId]);
 
   const toggleBeneficiary = (beneficiary: BeneficiaryOption) => {
     setSelectedBeneficiaries((prev) => {
@@ -471,9 +485,19 @@ export default function InitiativeForm({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-muted-foreground">المستفيدون من المبادرة</label>
-                <span className="text-xs text-muted-foreground">
-                  {selectedBeneficiaries.length} مختار
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {selectedBeneficiaries.length} مختار
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSortByNationalId(!sortByNationalId)}
+                    className="px-3 py-1.5 bg-card border border-border rounded-md text-foreground hover:bg-muted transition-colors inline-flex items-center gap-1"
+                    title={sortByNationalId ? "ترتيب تصاعدي حسب رقم المستفيد" : "ترتيب تنازلي حسب رقم المستفيد"}
+                  >
+                    <ArrowDownUp className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               {/* Search and Filter Bar */}
@@ -481,7 +505,7 @@ export default function InitiativeForm({
                 <div className="flex-1 w-full">
                   <input
                     type="text"
-                    placeholder="ابحث بالاسم أو رقم الهاتف أو اسم الأبناء"
+                    placeholder={beneficiaryFilters.searchByBeneficiaryId ? "ابحث برقم المستفيد..." : "ابحث بالاسم أو رقم الهاتف أو اسم الأبناء"}
                     className="w-full p-3 bg-background border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary/40 focus:border-primary"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -497,7 +521,7 @@ export default function InitiativeForm({
                       key={beneficiary._id}
                       className="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary px-3 py-1 text-sm"
                     >
-                      {beneficiary.name}
+                      {beneficiary.nationalId ? `${beneficiary.nationalId} - ${beneficiary.name}` : beneficiary.name}
                       <button
                         type="button"
                         onClick={() => toggleBeneficiary(beneficiary)}
@@ -526,7 +550,9 @@ export default function InitiativeForm({
                           isSelected ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"
                         }`}
                       >
-                        <span className="font-medium">{beneficiary.name}</span>
+                        <span className="font-medium">
+                          {beneficiary.nationalId ? `${beneficiary.nationalId} - ${beneficiary.name}` : beneficiary.name}
+                        </span>
                         <span className="text-sm text-muted-foreground">
                           {beneficiary.phone || "بدون رقم"}
                           {childNames?.length ? ` • أبناء: ${childNames.join(", ")}` : ""}

@@ -117,6 +117,11 @@ export default function BeneficiariesPage() {
           )
           .join(" ");
 
+        // If searchByBeneficiaryId is enabled, only search by nationalId
+        if (filters.searchByBeneficiaryId) {
+          return normalize(beneficiary.nationalId).includes(query);
+        }
+
         const searchableText = [
           normalize(beneficiary.name),
           normalize(beneficiary.phone),
@@ -239,7 +244,7 @@ export default function BeneficiariesPage() {
               <SearchFilterBar
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
-                placeholder="ابحث بالاسم، الهاتف، العنوان، رقم المستفيد، أو الواتساب"
+                placeholder={filters.searchByBeneficiaryId ? "ابحث برقم المستفيد..." : "ابحث بالاسم، الهاتف، العنوان، رقم المستفيد، أو الواتساب"}
                 onClearSearch={() => setSearchTerm("")}
               />
             </div>

@@ -4,7 +4,7 @@ import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Loader2, PiggyBank, Receipt, Trash2 } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Loader2, PiggyBank, Receipt, Trash2, Edit2 } from "lucide-react";
 import SearchFilterBar from "@/components/SearchFilterBar";
 import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
 
@@ -49,6 +49,7 @@ interface BeneficiarySummary {
   priority?: number;
   acceptsMarriage?: boolean;
   marriageDetails?: string;
+  nationalId?: string;
 }
 
 type TreasuryFormState = {
@@ -92,6 +93,7 @@ export default function TreasuryPage() {
   const [transactions, setTransactions] = useState<TreasuryTransaction[]>([]);
   const [donors, setDonors] = useState<DonorSummary[]>([]);
   const [beneficiaries, setBeneficiaries] = useState<BeneficiarySummary[]>([]);
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
   const isAdmin = role === "admin";
@@ -113,7 +115,7 @@ export default function TreasuryPage() {
       const res = await fetch("/api/beneficiaries?limit=500", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
-      setBeneficiaries(data.beneficiaries?.map((b: any) => ({
+      setBeneficiaries(data.beneficiaries?.map((b: BeneficiarySummary) => ({
         _id: b._id,
         name: b.name,
         phone: b.phone,
@@ -124,6 +126,7 @@ export default function TreasuryPage() {
         priority: b.priority,
         acceptsMarriage: b.acceptsMarriage,
         marriageDetails: b.marriageDetails,
+        nationalId: b.nationalId,
       })) || []);
     } catch (err) {
       console.error(err);
@@ -143,9 +146,17 @@ export default function TreasuryPage() {
     // Apply search filter
     const searchTerm = beneficiarySearchTerm.trim().toLowerCase();
     if (searchTerm) {
-      result = result.filter((b) =>
-        b.name.toLowerCase().includes(searchTerm)
-      );
+      if (beneficiaryFilters.searchByBeneficiaryId) {
+        // Search by beneficiary internal number (nationalId)
+        result = result.filter((b) =>
+          (b.nationalId || "").toLowerCase().includes(searchTerm)
+        );
+      } else {
+        // Search by name
+        result = result.filter((b) =>
+          b.name.toLowerCase().includes(searchTerm)
+        );
+      }
     }
 
     // Apply filter criteria - city/address
@@ -266,22 +277,48 @@ export default function TreasuryPage() {
     setError("");
 
     try {
-      const res = await fetch("/api/treasury", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          amount: amountNumber,
-          recordedBy: user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() : undefined,
-        }),
-      });
+      if (editingTransactionId) {
+        // Update existing transaction
+        const res = await fetch(`/api/treasury/${editingTransactionId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...formData,
+            amount: amountNumber,
+          }),
+        });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "فشل تسجيل العملية");
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "فشل تحديث العملية");
+        }
+
+        setFormData(createDefaultFormState());
+        setEditingTransactionId(null);
+        setBeneficiarySearchTerm("");
+        setBeneficiaryFilters({});
+      } else {
+        // Create new transaction
+        const res = await fetch("/api/treasury", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...formData,
+            amount: amountNumber,
+            recordedBy: user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() : undefined,
+          }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "فشل تسجيل العملية");
+        }
+
+        setFormData(createDefaultFormState());
+        setBeneficiarySearchTerm("");
+        setBeneficiaryFilters({});
       }
 
-      setFormData(createDefaultFormState());
       await refreshTreasury();
     } catch (err) {
       console.error(err);
@@ -328,6 +365,32 @@ export default function TreasuryPage() {
     } finally {
       setDeleting(null);
     }
+  };
+
+  const handleEditTransaction = (transactionId: string) => {
+    const transaction = transactions.find(t => t._id === transactionId);
+    if (!transaction) return;
+
+    setFormData({
+      amount: transaction.amount.toString(),
+      type: transaction.type,
+      description: transaction.description,
+      category: transaction.category || "",
+      reference: transaction.reference || "",
+      transactionDate: transaction.transactionDate?.split("T")[0] || new Date().toISOString().split("T")[0],
+      donorName: transaction.donorNameSnapshot || "",
+      donorId: transaction.donorId,
+      beneficiaryIds: transaction.beneficiaryIds || [],
+    });
+    setEditingTransactionId(transactionId);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleCancelEdit = () => {
+    setFormData(createDefaultFormState());
+    setEditingTransactionId(null);
+    setBeneficiarySearchTerm("");
+    setBeneficiaryFilters({});
   };
 
   const sortedTransactions = useMemo(() => {
@@ -437,8 +500,12 @@ export default function TreasuryPage() {
           {canEdit && (
             <div className="bg-card border border-border rounded-xl shadow-sm p-6 space-y-5">
               <div>
-                <h2 className="text-xl font-semibold text-foreground">تسجيل عملية جديدة</h2>
-                <p className="text-sm text-muted-foreground">أدخل الوارد أو الصادر وسيتم تحديث الرصيد تلقائياً.</p>
+                <h2 className="text-xl font-semibold text-foreground">
+                  {editingTransactionId ? "تعديل العملية" : "تسجيل عملية جديدة"}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {editingTransactionId ? "قم بتعديل بيانات العملية" : "أدخل الوارد أو الصادر وسيتم تحديث الرصيد تلقائياً."}
+                </p>
               </div>
 
               {error && (
@@ -560,7 +627,7 @@ export default function TreasuryPage() {
                       <SearchFilterBar
                         searchTerm={beneficiarySearchTerm}
                         onSearchChange={setBeneficiarySearchTerm}
-                        placeholder="ابحث بالاسم أو الهاتف..."
+                        placeholder={beneficiaryFilters.searchByBeneficiaryId ? "ابحث برقم المستفيد..." : "ابحث بالاسم..."}
                         onClearSearch={() => setBeneficiarySearchTerm("")}
                       />
                     </div>
@@ -624,6 +691,11 @@ export default function TreasuryPage() {
                           >
                             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-1">
                               <span className="font-medium">{b.name}</span>
+                              {b.nationalId && (
+                                <span className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">
+                                  رقم المستفيد: {b.nationalId}
+                                </span>
+                              )}
                               {b.phone && <span className="text-sm text-muted-foreground">📞 {b.phone}</span>}
                               {b.acceptsMarriage && (
                                 <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-full">
@@ -673,10 +745,23 @@ export default function TreasuryPage() {
                     <Loader2 className="w-4 h-4 animate-spin" />
                     جاري الحفظ...
                   </span>
+                ) : editingTransactionId ? (
+                  "تحديث العملية"
                 ) : (
                   "حفظ العملية"
                 )}
               </button>
+
+              {editingTransactionId && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  disabled={submitting}
+                  className="w-full inline-flex items-center justify-center rounded-lg bg-muted px-4 py-3 text-foreground font-semibold hover:bg-muted/80 transition disabled:opacity-60"
+                >
+                  إلغاء التعديل
+                </button>
+              )}
             </form>
             </div>
           )}
@@ -787,19 +872,30 @@ export default function TreasuryPage() {
                         )}
                       </div>
                       {canEdit && (
-                        <button
-                          onClick={() => handleDeleteTransaction(txn._id)}
-                          disabled={deleting === txn._id}
-                          className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 p-2 rounded transition flex items-center gap-1 disabled:opacity-50"
-                          type="button"
-                          title="حذف العملية"
-                        >
-                          {deleting === txn._id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleEditTransaction(txn._id)}
+                            disabled={deleting === txn._id || submitting}
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-2 rounded transition flex items-center gap-1 disabled:opacity-50"
+                            type="button"
+                            title="تعديل العملية"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTransaction(txn._id)}
+                            disabled={deleting === txn._id}
+                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 p-2 rounded transition flex items-center gap-1 disabled:opacity-50"
+                            type="button"
+                            title="حذف العملية"
+                          >
+                            {deleting === txn._id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                       )}
                     </div>
                     {(txn.reference || txn.recordedBy) && (

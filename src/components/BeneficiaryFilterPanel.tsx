@@ -11,6 +11,7 @@ export interface BeneficiaryFilterCriteria {
   priorityMax?: number;
   employment?: string;
   acceptsMarriage?: boolean;
+  searchByBeneficiaryId?: boolean;
 }
 
 interface BeneficiaryFilterPanelProps {
@@ -27,6 +28,7 @@ const defaultFilters: BeneficiaryFilterCriteria = {
   priorityMax: 10,
   employment: "",
   acceptsMarriage: false,
+  searchByBeneficiaryId: false,
 };
 
 export default function BeneficiaryFilterPanel({
@@ -55,7 +57,8 @@ export default function BeneficiaryFilterPanel({
     filters.employment ||
     filters.priorityMin !== 1 ||
     filters.priorityMax !== 10 ||
-    filters.acceptsMarriage;
+    filters.acceptsMarriage ||
+    filters.searchByBeneficiaryId;
 
   const filterContent = (
     <div className="space-y-4">
@@ -189,6 +192,22 @@ export default function BeneficiaryFilterPanel({
         />
         <label htmlFor="filter-accepts-marriage" className="text-sm font-medium text-foreground cursor-pointer">
           مقبل على الزواج فقط
+        </label>
+      </div>
+
+      {/* Search by Beneficiary ID */}
+      <div className="flex items-center gap-3 pt-2">
+        <input
+          id="filter-search-by-id"
+          type="checkbox"
+          checked={filters.searchByBeneficiaryId || false}
+          onChange={(e) => handleChange("searchByBeneficiaryId", e.target.checked ? true : false)}
+          title="تفعيل البحث برقم المستفيد الداخلي"
+          aria-label="تفعيل البحث برقم المستفيد الداخلي"
+          className="w-4 h-4 rounded border-input bg-background cursor-pointer accent-primary"
+        />
+        <label htmlFor="filter-search-by-id" className="text-sm font-medium text-foreground cursor-pointer">
+          بحث برقم المستفيد الداخلي
         </label>
       </div>
 
