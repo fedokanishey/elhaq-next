@@ -117,15 +117,25 @@ export async function DELETE(
 
     await dbConnect();
     const { id } = await params;
+    
+    // Log the deletion attempt
+    console.log("🗑️ Attempting to delete beneficiary:", id);
+    
     const beneficiary = await Beneficiary.findByIdAndDelete(id);
 
     if (!beneficiary) {
+      console.warn("⚠️ Beneficiary not found for deletion:", id);
       return NextResponse.json({ error: "Beneficiary not found" }, { status: 404 });
     }
 
+    console.log("✅ Beneficiary deleted successfully:", {
+      id: beneficiary._id,
+      name: beneficiary.name,
+    });
+
     return NextResponse.json({ message: "Beneficiary deleted successfully" });
   } catch (error) {
-    console.error("Error deleting beneficiary:", error);
+    console.error("❌ Error deleting beneficiary:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

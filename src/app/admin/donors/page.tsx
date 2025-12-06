@@ -22,9 +22,14 @@ export default function DonorsListPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState("");
 
+  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  const isAdmin = role === "admin";
+  const canEdit = isAdmin;
+
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    if (isLoaded && role !== "admin") router.push("/");
+    const canAccess = role === "admin" || role === "member";
+    if (isLoaded && !canAccess) router.push("/");
   }, [isLoaded, user, router]);
 
   useEffect(() => {
@@ -103,19 +108,21 @@ export default function DonorsListPage() {
                   <div className="font-semibold">{d.totalDonated?.toLocaleString("ar-EG") || 0} ج.م</div>
                   <div className="text-sm text-muted-foreground">آخر تبرع: {d.lastDonationDate ? new Date(d.lastDonationDate).toLocaleDateString("ar-EG") : "-"}</div>
                 </div>
-                <button
-                  onClick={() => handleDeleteDonor(d._id, d.name)}
-                  disabled={deleting === d._id}
-                  className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 p-2 rounded transition flex items-center gap-1 disabled:opacity-50 ml-2"
-                  type="button"
-                  title="حذف المتبرع"
-                >
-                  {deleting === d._id ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-4 h-4" />
-                  )}
-                </button>
+                {canEdit && (
+                  <button
+                    onClick={() => handleDeleteDonor(d._id, d.name)}
+                    disabled={deleting === d._id}
+                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 p-2 rounded transition flex items-center gap-1 disabled:opacity-50 ml-2"
+                    type="button"
+                    title="حذف المتبرع"
+                  >
+                    {deleting === d._id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </button>
+                )}
               </div>
             ))}
           </div>

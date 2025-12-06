@@ -16,13 +16,8 @@ export async function GET() {
   try {
     await dbConnect();
 
-    // Get all beneficiaries (paginated)
-    const skip = 0;
-    const limit = 50;
-
+    // Get all beneficiaries without artificial limit
     const beneficiaries = await Beneficiary.find()
-      .skip(skip)
-      .limit(limit)
       .sort({ createdAt: -1 })
       .populate("relationships.relative", "name nationalId phone whatsapp")
       .lean();
@@ -33,7 +28,7 @@ export async function GET() {
       beneficiaries,
       total,
       page: 1,
-      pages: Math.ceil(total / limit),
+      pages: 1,
     });
   } catch (error) {
     console.error("Error fetching beneficiaries:", error);
@@ -82,15 +77,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is admin
-    // You can add role check here if needed
-
     await dbConnect();
 
     const rawBody = await req.json();
     const payload = sanitizeBeneficiaryPayload(rawBody);
     const { relationships, ...rest } = payload;
     const resolvedRelationships = await buildRelationshipReferences(relationships);
+
+    console.log("📝 Creating beneficiary:", {
+      name: rest.name,
+      nationalId: rest.nationalId,
+      phone: rest.phone,
+      relationshipsCount: resolvedRelationships.length
+    });
 
     const beneficiary = new Beneficiary({
       clerkId: userId,
@@ -99,6 +98,12 @@ export async function POST(req: Request) {
     });
 
     await beneficiary.save();
+
+    console.log("✅ Beneficiary saved successfully:", {
+      id: beneficiary._id,
+      name: beneficiary.name,
+      nationalId: beneficiary.nationalId,
+    });
 
     // Create reciprocal relations on referenced beneficiaries
     try {
@@ -109,14 +114,21 @@ export async function POST(req: Request) {
         resolvedRelationships as any
       );
     } catch (e) {
-      // non-fatal
-      // eslint-disable-next-line no-console
-      console.error("Failed to add reciprocal relations after create:", e);
+      console.error("❌ Failed to add reciprocal relations after create:", e);
     }
 
     return NextResponse.json(beneficiary, { status: 201 });
   } catch (error) {
-    console.error("Error creating beneficiary:", error);
+    console.error("❌ Error creating beneficiary:", error);
+    
+    // Check if it's a duplicate nationalId error
+    if (error instanceof Error && error.message.includes("E11000")) {
+      return NextResponse.json(
+        { error: "رقم المستفيد موجود بالفعل" },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to create beneficiary" },
       { status: 500 }

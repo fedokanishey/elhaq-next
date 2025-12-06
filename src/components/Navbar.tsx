@@ -48,6 +48,22 @@ export default function Navbar() {
                     المستفيدين
                   </Link>
                 )}
+                {canViewBeneficiaries && (
+                  <Link
+                    href="/admin/treasury"
+                    className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+                  >
+                    الخزينة
+                  </Link>
+                )}
+                {canViewBeneficiaries && (
+                  <Link
+                    href="/admin/donors"
+                    className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+                  >
+                    المتبرعين
+                  </Link>
+                )}
                 <ThemeToggle />
                 <UserButton afterSignOutUrl="/" />
               </>
@@ -110,6 +126,24 @@ export default function Navbar() {
                     onClick={() => setMenuOpen(false)}
                   >
                     المستفيدين
+                  </Link>
+                )}
+                {canViewBeneficiaries && (
+                  <Link
+                    href="/admin/treasury"
+                    className="block rounded-md px-3 py-2 text-base font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    الخزينة
+                  </Link>
+                )}
+                {canViewBeneficiaries && (
+                  <Link
+                    href="/admin/donors"
+                    className="block rounded-md px-3 py-2 text-base font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    المتبرعين
                   </Link>
                 )}
                 <div className="px-3 py-2">

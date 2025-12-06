@@ -36,7 +36,8 @@ export default function DonorDetailPage() {
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    if (isLoaded && role !== "admin") router.push("/");
+    const canAccess = role === "admin" || role === "member";
+    if (isLoaded && !canAccess) router.push("/");
   }, [isLoaded, user, router]);
 
   useEffect(() => {

@@ -5,7 +5,7 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, use } from "react";
 import { Loader2 } from "lucide-react";
-import ViewBeneficiary from "../../admin/beneficiaries/[id]/page"
+import ViewBeneficiary from "@/app/admin/beneficiaries/[id]/page"
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -42,8 +42,6 @@ export default function Page({ params }: PageProps) {
   }
 
   return (
-    <div>
-      <ViewBeneficiary params={Promise.resolve({ id })} />
-    </div>
+    <ViewBeneficiary params={Promise.resolve({ id })} />
   )
 }

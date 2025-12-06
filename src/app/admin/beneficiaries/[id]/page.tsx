@@ -157,7 +157,8 @@ export default function ViewBeneficiary({
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    if (isLoaded && role !== "admin" && role !== "member") {
+    const canAccess = role === "admin" || role === "member";
+    if (isLoaded && !canAccess) {
       router.push("/");
     }
   }, [isLoaded, user, router]);
@@ -671,7 +672,7 @@ export default function ViewBeneficiary({
               <button
                 onClick={() => setHealthModalImage(null)}
                 title="إغلاق"
-                className="absolute top-4 right-4 p-2 hover:bg-muted rounded-lg transition-colors z-10"
+                className="absolute top-4 left-4 p-2 hover:bg-muted rounded-lg transition-colors z-10"
               >
                 <X className="w-6 h-6" />
               </button>

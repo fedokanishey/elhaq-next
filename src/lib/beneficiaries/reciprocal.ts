@@ -105,13 +105,11 @@ export async function syncReciprocalRelations(
     if (!newMap.has(otherId)) {
       try {
         const inv = inverseRelation(oldRel.relation as RelationshipType);
+        // Remove the reciprocal relationship from the other beneficiary
         await Beneficiary.findByIdAndUpdate(otherId, {
           $pull: {
             relationships: {
-              $or: [
-                { relative: new Types.ObjectId(beneficiaryId) },
-                { relativeNationalId: beneficiaryNationalId },
-              ],
+              relative: new Types.ObjectId(beneficiaryId),
               relation: inv,
             },
           },

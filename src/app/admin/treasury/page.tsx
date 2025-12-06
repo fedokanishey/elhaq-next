@@ -93,6 +93,10 @@ export default function TreasuryPage() {
   const [donors, setDonors] = useState<DonorSummary[]>([]);
   const [beneficiaries, setBeneficiaries] = useState<BeneficiarySummary[]>([]);
 
+  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  const isAdmin = role === "admin";
+  const canEdit = isAdmin;
+
   const loadDonors = useCallback(async () => {
     try {
       const res = await fetch("/api/donors?limit=200", { cache: "no-store" });
@@ -190,7 +194,8 @@ export default function TreasuryPage() {
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    if (isLoaded && role !== "admin") {
+    const canAccess = role === "admin" || role === "member";
+    if (isLoaded && !canAccess) {
       router.push("/");
     }
   }, [isLoaded, user, router]);
@@ -242,6 +247,12 @@ export default function TreasuryPage() {
     e.preventDefault();
     if (!formData.description.trim()) {
       setError("من فضلك أدخل وصف العملية");
+      return;
+    }
+
+    // Check if income and no donor name
+    if (formData.type === "income" && !formData.donorName.trim()) {
+      setError("يجب إدخال اسم المتبرع عند تسجيل إيراد");
       return;
     }
 
@@ -423,19 +434,20 @@ export default function TreasuryPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-card border border-border rounded-xl shadow-sm p-6 space-y-5">
-            <div>
-              <h2 className="text-xl font-semibold text-foreground">تسجيل عملية جديدة</h2>
-              <p className="text-sm text-muted-foreground">أدخل الوارد أو الصادر وسيتم تحديث الرصيد تلقائياً.</p>
-            </div>
-
-            {error && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {error}
+          {canEdit && (
+            <div className="bg-card border border-border rounded-xl shadow-sm p-6 space-y-5">
+              <div>
+                <h2 className="text-xl font-semibold text-foreground">تسجيل عملية جديدة</h2>
+                <p className="text-sm text-muted-foreground">أدخل الوارد أو الصادر وسيتم تحديث الرصيد تلقائياً.</p>
               </div>
-            )}
 
-            <form className="space-y-4" onSubmit={handleSubmit}>
+              {error && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
+              <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="amount" className="block text-sm font-medium text-muted-foreground mb-1">
@@ -499,12 +511,14 @@ export default function TreasuryPage() {
 
               {formData.type === "income" && (
                 <div>
-                  <label htmlFor="donorName" className="block text-sm font-medium text-muted-foreground mb-1">اسم المتبرع (إذا وُجد)</label>
+                  <label htmlFor="donorName" className="block text-sm font-medium text-muted-foreground mb-1">
+                    اسم المتبرع <span className="text-red-500">*</span>
+                  </label>
                   <input
                     id="donorName"
                     name="donorName"
                     type="text"
-                    placeholder="اسم المتبرع أو جهة التبرع"
+                    placeholder="اسم المتبرع أو جهة التبرع (مطلوب)"
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                     value={formData.donorName}
                         onChange={handleInputChange}
@@ -664,7 +678,8 @@ export default function TreasuryPage() {
                 )}
               </button>
             </form>
-          </div>
+            </div>
+          )}
 
           <div className="bg-card border border-border rounded-xl shadow-sm p-6 space-y-4">
             <div className="space-y-4">
@@ -751,28 +766,41 @@ export default function TreasuryPage() {
                           <div className="mt-2 text-sm">
                             <p className="text-muted-foreground text-xs mb-1">المستفيدون:</p>
                             <div className="flex flex-wrap gap-1">
-                              {txn.beneficiaryNamesSnapshot.map((name, idx) => (
-                                <span key={idx} className="bg-primary/10 text-primary px-2 py-1 rounded text-xs">
-                                  {name}
-                                </span>
-                              ))}
+                              {txn.beneficiaryNamesSnapshot.map((name, idx) => {
+                                const beneficiaryId = txn.beneficiaryIds?.[idx];
+                                return beneficiaryId ? (
+                                  <Link
+                                    key={idx}
+                                    href={`/beneficiaries/${beneficiaryId}`}
+                                    className="bg-primary/10 text-primary px-2 py-1 rounded text-xs hover:bg-primary/20 transition-colors cursor-pointer"
+                                  >
+                                    {name}
+                                  </Link>
+                                ) : (
+                                  <span key={idx} className="bg-primary/10 text-primary px-2 py-1 rounded text-xs">
+                                    {name}
+                                  </span>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
                       </div>
-                      <button
-                        onClick={() => handleDeleteTransaction(txn._id)}
-                        disabled={deleting === txn._id}
-                        className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 p-2 rounded transition flex items-center gap-1 disabled:opacity-50"
-                        type="button"
-                        title="حذف العملية"
-                      >
-                        {deleting === txn._id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                      </button>
+                      {canEdit && (
+                        <button
+                          onClick={() => handleDeleteTransaction(txn._id)}
+                          disabled={deleting === txn._id}
+                          className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 p-2 rounded transition flex items-center gap-1 disabled:opacity-50"
+                          type="button"
+                          title="حذف العملية"
+                        >
+                          {deleting === txn._id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
                     </div>
                     {(txn.reference || txn.recordedBy) && (
                       <div className="mt-3 text-sm text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">

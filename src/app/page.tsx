@@ -318,7 +318,7 @@ export default function Home() {
       </div>
 
       {/* Treasury Section for Members/Admin ONLY */}
-      {user && (user.publicMetadata?.role === "admin" || user.publicMetadata?.role === "member") && (
+      {/* {user && (user.publicMetadata?.role === "admin" || user.publicMetadata?.role === "member") && (
         <div className="py-16 px-4 sm:px-6 lg:px-8 bg-linear-to-b from-background to-card/20">
           <div className="max-w-7xl mx-auto space-y-8">
             <div className="flex flex-col gap-3">
@@ -340,7 +340,7 @@ export default function Home() {
             ) : treasury ? (
               <div className="space-y-6">
                 {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
                     <div className="flex items-center justify-between">
                       <div>
@@ -385,7 +385,7 @@ export default function Home() {
                 </div>
 
                 {/* Transactions Table */}
-                {treasury.transactions.length > 0 && (
+                {/* {treasury.transactions.length > 0 && (
                   <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
@@ -453,7 +453,7 @@ export default function Home() {
             ) : null}
           </div>
         </div>
-      )}
+      )} */} 
 
       {/* Features Grid */}
       <div className="bg-muted/30 py-16 px-4 sm:px-6 lg:px-8">
