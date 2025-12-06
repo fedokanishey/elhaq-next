@@ -64,7 +64,7 @@ export async function PUT(
     }
 
     // Prepare beneficiary data
-    let beneficiaryNamesSnapshot = [];
+    let beneficiaryNamesSnapshot: string[] = [];
     if (beneficiaryIds && beneficiaryIds.length > 0) {
       const beneficiaries = await Beneficiary.find({
         _id: { $in: beneficiaryIds },
