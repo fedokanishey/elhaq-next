@@ -88,6 +88,8 @@ export default function TreasuryPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [beneficiarySearchTerm, setBeneficiarySearchTerm] = useState("");
   const [beneficiaryFilters, setBeneficiaryFilters] = useState<BeneficiaryFilterCriteria>({});
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [formData, setFormData] = useState<TreasuryFormState>(createDefaultFormState);
   const [totals, setTotals] = useState<TreasuryTotals>({ incomeTotal: 0, expenseTotal: 0, balance: 0 });
   const [transactions, setTransactions] = useState<TreasuryTransaction[]>([]);
@@ -215,7 +217,7 @@ export default function TreasuryPage() {
     const fetchTreasury = async () => {
       try {
         setLoading(true);
-        const res = await fetch("/api/treasury?limit=100", { cache: "no-store" });
+        const res = await fetch("/api/treasury", { cache: "no-store" });
         if (!res.ok) {
           throw new Error("Failed to fetch treasury data");
         }
@@ -330,7 +332,7 @@ export default function TreasuryPage() {
 
   const refreshTreasury = async () => {
     try {
-      const res = await fetch("/api/treasury?limit=100", { cache: "no-store" });
+      const res = await fetch("/api/treasury", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
       setTotals(data.totals || { incomeTotal: 0, expenseTotal: 0, balance: 0 });
@@ -396,6 +398,25 @@ export default function TreasuryPage() {
   const sortedTransactions = useMemo(() => {
     let result = [...transactions];
 
+    // Apply date filter
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      fromDate.setHours(0, 0, 0, 0);
+      result = result.filter((txn) => {
+        const txnDate = new Date(txn.transactionDate || txn.createdAt);
+        return txnDate >= fromDate;
+      });
+    }
+
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      result = result.filter((txn) => {
+        const txnDate = new Date(txn.transactionDate || txn.createdAt);
+        return txnDate <= toDate;
+      });
+    }
+
     // Apply search filter
     if (debouncedSearch) {
       const normalize = (value?: string | number) =>
@@ -436,7 +457,7 @@ export default function TreasuryPage() {
     });
 
     return result;
-  }, [transactions, debouncedSearch, sortDesc]);
+  }, [transactions, debouncedSearch, sortDesc, dateFrom, dateTo]);
 
   const formattedTotals = useMemo(() => ({
     balance: formatCurrency(totals.balance),
@@ -770,8 +791,8 @@ export default function TreasuryPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold text-foreground">آخر العمليات</h2>
-                  <p className="text-sm text-muted-foreground">يتم عرض آخر 100 عملية مالية.</p>
+                  <h2 className="text-xl font-semibold text-foreground">العمليات المالية</h2>
+                  <p className="text-sm text-muted-foreground">عرض جميع العمليات المسجلة ({sortedTransactions.length} عملية)</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -795,6 +816,46 @@ export default function TreasuryPage() {
                 placeholder="ابحث عن وصف أو فئة أو متبرع أو مستفيد..."
                 onClearSearch={() => setSearchTerm("")}
               />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="dateFrom" className="block text-sm font-medium text-muted-foreground mb-1">
+                    من تاريخ
+                  </label>
+                  <input
+                    id="dateFrom"
+                    type="date"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="dateTo" className="block text-sm font-medium text-muted-foreground mb-1">
+                    إلى تاريخ
+                  </label>
+                  <input
+                    id="dateTo"
+                    type="date"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {(dateFrom || dateTo) && (
+                <button
+                  onClick={() => {
+                    setDateFrom("");
+                    setDateTo("");
+                  }}
+                  className="text-sm text-primary hover:text-primary/80 flex items-center gap-1"
+                  type="button"
+                >
+                  ✕ مسح فلتر التاريخ
+                </button>
+              )}
             </div>
 
             {error && (

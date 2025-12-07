@@ -191,7 +191,7 @@ export default function BeneficiaryFilterPanel({
           className="w-4 h-4 rounded border-input bg-background cursor-pointer accent-primary"
         />
         <label htmlFor="filter-accepts-marriage" className="text-sm font-medium text-foreground cursor-pointer">
-          مقبل على الزواج فقط
+          لديه ابن/ابنه مقبل على الزواج
         </label>
       </div>
 

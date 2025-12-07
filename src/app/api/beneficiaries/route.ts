@@ -88,6 +88,10 @@ export async function POST(req: Request) {
       name: rest.name,
       nationalId: rest.nationalId,
       phone: rest.phone,
+      acceptsMarriage: rest.acceptsMarriage,
+      marriageDetails: rest.marriageDetails,
+      marriageCertificateImage: rest.marriageCertificateImage,
+      hasMarriageCertImage: !!rest.marriageCertificateImage,
       relationshipsCount: resolvedRelationships.length
     });
 

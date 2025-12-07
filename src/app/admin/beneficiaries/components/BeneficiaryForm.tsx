@@ -67,6 +67,7 @@ export interface BeneficiaryFormValues {
   employment: string;
   acceptsMarriage: boolean;
   marriageDetails: string;
+  marriageCertificateImage: string;
   spouse: SpouseDetails;
   children: Child[];
   relationships: RelationshipEntry[];
@@ -164,6 +165,7 @@ const createInitialFormValues = (): BeneficiaryFormValues => ({
   employment: "",
   acceptsMarriage: false,
   marriageDetails: "",
+  marriageCertificateImage: "",
   spouse: createEmptySpouse(),
   children: [],
   relationships: [],
@@ -628,7 +630,15 @@ export default function BeneficiaryForm({
       idImage: formData.maritalStatus === "married" ? formData.idImage : "",
       relationships: sanitizedRelationships,
       healthCertificationImage: formData.healthStatus === "sick" ? formData.healthCertificationImage : "",
+      marriageCertificateImage: formData.acceptsMarriage ? formData.marriageCertificateImage : "",
     };
+
+    console.log("🔍 Payload being sent:", {
+      acceptsMarriage: payload.acceptsMarriage,
+      marriageDetails: payload.marriageDetails,
+      marriageCertificateImage: payload.marriageCertificateImage,
+      hasImage: !!payload.marriageCertificateImage
+    });
 
     const endpoint =
       mode === "edit" && beneficiaryId
@@ -943,29 +953,39 @@ export default function BeneficiaryForm({
                 className="w-4 h-4 rounded border-input bg-background cursor-pointer accent-primary"
               />
               <label htmlFor="accepts-marriage" className="text-sm font-medium text-foreground cursor-pointer">
-                مقبل على الزواج
+                لديه ابن/ابنه مقبل على الزواج
               </label>
             </div>
 
             {formData.acceptsMarriage && (
-              <div>
-                <label htmlFor="marriage-details" className="block text-sm font-medium text-foreground mb-2">
-                  تفاصيل مستلزمات الزواج
-                </label>
-                <textarea
-                  id="marriage-details"
-                  value={formData.marriageDetails}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      marriageDetails: e.target.value,
-                    }))
+              <>
+                <div>
+                  <label htmlFor="marriage-details" className="block text-sm font-medium text-foreground mb-2">
+                    تفاصيل مستلزمات الزواج
+                  </label>
+                  <textarea
+                    id="marriage-details"
+                    value={formData.marriageDetails}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        marriageDetails: e.target.value,
+                      }))
+                    }
+                    placeholder="أضف أي تفاصيل إضافية حول مستلزمات الزواج..."
+                    rows={3}
+                    className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                  />
+                </div>
+
+                <ImageUpload
+                  label="صورة قسيمة الزواج"
+                  onImageUpload={(url) =>
+                    setFormData((prev) => ({ ...prev, marriageCertificateImage: url }))
                   }
-                  placeholder="أضف أي تفاصيل إضافية حول مستلزمات الزواج..."
-                  rows={3}
-                  className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                  currentImage={formData.marriageCertificateImage}
                 />
-              </div>
+              </>
             )}
           </div>
 

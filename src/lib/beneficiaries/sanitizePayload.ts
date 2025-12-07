@@ -61,6 +61,7 @@ export interface SanitizedBeneficiaryPayload {
   employment?: string;
   acceptsMarriage?: boolean;
   marriageDetails?: string;
+  marriageCertificateImage?: string;
   spouse?: SpousePayload;
   children: Array<
     Required<Pick<ChildPayload, "name">> &
@@ -295,6 +296,7 @@ export const sanitizeBeneficiaryPayload = (
   const healthCertificationImage = healthStatus === "sick" ? ((body?.healthCertificationImage as string) || "") : "";
   const acceptsMarriage = Boolean(body?.acceptsMarriage);
   const marriageDetails = acceptsMarriage ? normalizeString(body?.marriageDetails) : undefined;
+  const marriageCertificateImage = acceptsMarriage ? ((body?.marriageCertificateImage as string) || "") : "";
 
   return {
     name: rawName,
@@ -316,6 +318,7 @@ export const sanitizeBeneficiaryPayload = (
     employment,
     acceptsMarriage,
     marriageDetails,
+    marriageCertificateImage,
     spouse,
     children,
     relationships,

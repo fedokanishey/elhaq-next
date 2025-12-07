@@ -124,6 +124,7 @@ export interface IBeneficiary extends Document {
   employment?: string;
   acceptsMarriage?: boolean;
   marriageDetails?: string;
+  marriageCertificateImage?: string;
   children: IChild[];
   spouse?: ISpouse;
   relationships: IRelationship[];
@@ -165,11 +166,12 @@ const BeneficiarySchema = new Schema<IBeneficiary>(
     employment: String,
     acceptsMarriage: { type: Boolean, default: false },
     marriageDetails: String,
+    marriageCertificateImage: { type: String, default: '' },
     children: [ChildSchema],
     spouse: { type: SpouseSchema, default: undefined },
     relationships: { type: [RelationshipSchema], default: [] },
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 
 if (mongoose.models.Beneficiary) {

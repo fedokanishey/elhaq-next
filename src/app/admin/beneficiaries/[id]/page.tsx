@@ -85,6 +85,7 @@ interface Beneficiary {
   employment?: string;
   acceptsMarriage?: boolean;
   marriageDetails?: string;
+  marriageCertificateImage?: string;
   spouse?: SpouseDetails;
   children?: Child[];
   relationships?: RelationshipEntry[];
@@ -396,11 +397,19 @@ export default function ViewBeneficiary({
               )}
               {beneficiary.acceptsMarriage && (
                 <div>
-                  <dt className="text-sm text-muted-foreground">💍 مقبل على الزواج</dt>
+                  <dt className="text-sm text-muted-foreground">💍لديه ابن/ابنه مقبل على الزواج</dt>
                   <dd className="mt-1 flex items-center gap-2 text-foreground">
                     <span className="px-3 py-1 bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-full text-sm">
                       نعم
                     </span>
+                  </dd>
+                </div>
+              )}
+              {beneficiary.acceptsMarriage && beneficiary.marriageDetails && (
+                <div>
+                  <dt className="text-sm text-muted-foreground">تفاصيل مستلزمات الزواج</dt>
+                  <dd className="mt-1 text-foreground">
+                    {beneficiary.marriageDetails}
                   </dd>
                 </div>
               )}
@@ -417,7 +426,7 @@ export default function ViewBeneficiary({
           </div>
         </div>
 
-        {(beneficiary.healthCertificationImage || beneficiary.income || beneficiary.rentalCost) && (
+        {(beneficiary.healthCertificationImage || beneficiary.marriageCertificateImage || beneficiary.income || beneficiary.rentalCost) && (
           <div className="bg-card border border-border rounded-lg p-6">
             <h2 className="text-lg font-semibold text-foreground mb-4">مستندات ومعلومات إضافية</h2>
             <div className="grid gap-6 sm:grid-cols-2">
@@ -426,6 +435,14 @@ export default function ViewBeneficiary({
                   <p className="text-sm text-muted-foreground mb-3">الشهادة الطبية</p>
                   <div className="w-full h-40 rounded-lg overflow-hidden border border-border bg-muted">
                     <img src={beneficiary.healthCertificationImage} alt="الشهادة الطبية" className="w-full h-full object-cover" />
+                  </div>
+                </div>
+              )}
+              {beneficiary.marriageCertificateImage && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-3">💍 صورة قسيمة الزواج</p>
+                  <div className="w-full h-40 rounded-lg overflow-hidden border border-border bg-muted">
+                    <img src={beneficiary.marriageCertificateImage} alt="قسيمة الزواج" className="w-full h-full object-cover" />
                   </div>
                 </div>
               )}
