@@ -33,7 +33,10 @@ export default function AdminInitiatives() {
         const res = await fetch("/api/initiatives");
         const data = await res.json();
         if (res.ok) {
-          setInitiatives(data.initiatives);
+          const sortedInitiatives = data.initiatives.sort((a: Initiative, b: Initiative) => 
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+          setInitiatives(sortedInitiatives);
         }
       } catch (error) {
         console.error("Error fetching initiatives:", error);
