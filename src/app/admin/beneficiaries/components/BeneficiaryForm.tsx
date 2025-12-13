@@ -68,6 +68,12 @@ export interface BeneficiaryFormValues {
   acceptsMarriage: boolean;
   marriageDetails: string;
   marriageCertificateImage: string;
+  status: "active" | "cancelled" | "pending";
+  statusReason: string;
+  statusDate: string;
+  listName: string;
+  receivesMonthlyAllowance: boolean;
+  monthlyAllowanceAmount: string;
   spouse: SpouseDetails;
   children: Child[];
   relationships: RelationshipEntry[];
@@ -166,6 +172,12 @@ const createInitialFormValues = (): BeneficiaryFormValues => ({
   acceptsMarriage: false,
   marriageDetails: "",
   marriageCertificateImage: "",
+  status: "active",
+  statusReason: "",
+  statusDate: new Date().toISOString().split('T')[0],
+  listName: "الكشف العام",
+  receivesMonthlyAllowance: false,
+  monthlyAllowanceAmount: "",
   spouse: createEmptySpouse(),
   children: [],
   relationships: [],
@@ -173,6 +185,11 @@ const createInitialFormValues = (): BeneficiaryFormValues => ({
 
 const cloneFormValues = (values: BeneficiaryFormValues): BeneficiaryFormValues => ({
   ...values,
+  status: values.status || "active",
+  statusDate: values.statusDate || new Date().toISOString().split('T')[0],
+  listName: values.listName || "الكشف العام",
+  receivesMonthlyAllowance: values.receivesMonthlyAllowance || false,
+  monthlyAllowanceAmount: values.monthlyAllowanceAmount || "",
   spouse: { ...values.spouse },
   children: values.children.map((child) => ({
     ...child,
@@ -206,6 +223,8 @@ export default function BeneficiaryForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [manualPriority, setManualPriority] = useState(false);
+  const [listNameSuggestions, setListNameSuggestions] = useState<string[]>([]);
+  const [showListNameSuggestions, setShowListNameSuggestions] = useState(false);
 
   useEffect(() => {
     if (mode === "edit" && initialValues) {
@@ -283,6 +302,31 @@ export default function BeneficiaryForm({
         [field]: value,
       },
     }));
+  };
+
+  const handleListNameChange = async (value: string) => {
+    setFormData((prev) => ({ ...prev, listName: value }));
+    
+    if (value.trim().length >= 2) {
+      try {
+        const res = await fetch(`/api/beneficiaries/list-names?q=${encodeURIComponent(value.trim())}`);
+        if (res.ok) {
+          const data = await res.json();
+          setListNameSuggestions(data.listNames || []);
+          setShowListNameSuggestions(true);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    } else {
+      setListNameSuggestions([]);
+      setShowListNameSuggestions(false);
+    }
+  };
+
+  const handleSelectListName = (name: string) => {
+    setFormData((prev) => ({ ...prev, listName: name }));
+    setShowListNameSuggestions(false);
   };
 
   const handleAddChild = () => {
@@ -631,6 +675,12 @@ export default function BeneficiaryForm({
       relationships: sanitizedRelationships,
       healthCertificationImage: formData.healthStatus === "sick" ? formData.healthCertificationImage : "",
       marriageCertificateImage: formData.acceptsMarriage ? formData.marriageCertificateImage : "",
+      status: formData.status,
+      statusReason: formData.statusReason?.trim() || undefined,
+      statusDate: formData.statusDate ? new Date(formData.statusDate) : undefined,
+      listName: formData.listName?.trim() || "الكشف العام",
+      receivesMonthlyAllowance: formData.receivesMonthlyAllowance,
+      monthlyAllowanceAmount: formData.receivesMonthlyAllowance && formData.monthlyAllowanceAmount ? Number(formData.monthlyAllowanceAmount) : undefined,
     };
 
     console.log("🔍 Payload being sent:", {
@@ -938,7 +988,136 @@ export default function BeneficiaryForm({
                 className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary"
               />
             </div>
+          </div>
 
+          <div className="space-y-4 border-t border-border pt-6">
+            <h3 className="text-lg font-semibold text-foreground">حالة المستفيد</h3>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="beneficiary-status" className="block text-sm font-medium text-foreground mb-2">
+                  الحالة
+                </label>
+                <select
+                  id="beneficiary-status"
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="pending">انتظار</option>
+                  <option value="active">نشط</option>
+                  <option value="cancelled">ملغى</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="beneficiary-status-date" className="block text-sm font-medium text-foreground mb-2">
+                  {formData.status === "active" ? "تاريخ التفعيل" : formData.status === "cancelled" ? "تاريخ الإلغاء" : "تاريخ الإضافة"}
+                </label>
+                <input
+                  id="beneficiary-status-date"
+                  type="date"
+                  value={formData.statusDate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, statusDate: e.target.value }))}
+                  className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="beneficiary-status-reason" className="block text-sm font-medium text-foreground mb-2">
+                  {formData.status === "active" ? "سبب التفعيل" : formData.status === "cancelled" ? "سبب الإلغاء" : "سبب الإضافة"}
+                </label>
+                <textarea
+                  id="beneficiary-status-reason"
+                  value={formData.statusReason}
+                  onChange={(e) => setFormData(prev => ({ ...prev, statusReason: e.target.value }))}
+                  rows={3}
+                  placeholder={`أدخل ${formData.status === "active" ? "سبب التفعيل" : formData.status === "cancelled" ? "سبب الإلغاء" : "سبب الإضافة"}...`}
+                  className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="beneficiary-list-name" className="block text-sm font-medium text-foreground mb-2">
+                  اسم الكشف
+                </label>
+                <div className="relative">
+                  <input
+                    id="beneficiary-list-name"
+                    type="text"
+                    value={formData.listName}
+                    onChange={(e) => handleListNameChange(e.target.value)}
+                    onFocus={() => formData.listName.length >= 2 && setShowListNameSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowListNameSuggestions(false), 200)}
+                    placeholder="الكشف العام"
+                    className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+                  />
+                  {showListNameSuggestions && listNameSuggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
+                      {listNameSuggestions.map((name, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleSelectListName(name)}
+                          className="w-full px-4 py-2 text-right hover:bg-muted transition text-foreground"
+                        >
+                          {name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">ابحث عن كشف موجود أو أضف اسم كشف جديد</p>
+              </div>
+
+              <div className="sm:col-span-2">
+                <div className="flex items-center gap-3 pt-2">
+                  <input
+                    id="receives-monthly-allowance"
+                    type="checkbox"
+                    checked={formData.receivesMonthlyAllowance}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        receivesMonthlyAllowance: e.target.checked,
+                      }))
+                    }
+                    className="w-4 h-4 rounded border-input bg-background cursor-pointer accent-primary"
+                  />
+                  <label htmlFor="receives-monthly-allowance" className="text-sm font-medium text-foreground cursor-pointer">
+                    يتقاضى شهرية؟
+                  </label>
+                </div>
+              </div>
+
+              {formData.receivesMonthlyAllowance && (
+                <div className="sm:col-span-2">
+                  <label htmlFor="monthly-allowance-amount" className="block text-sm font-medium text-foreground mb-2">
+                    قيمة الشهرية (ج.م)
+                  </label>
+                  <input
+                    id="monthly-allowance-amount"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={formData.monthlyAllowanceAmount || ""}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9]/g, '');
+                      setFormData((prev) => ({
+                        ...prev,
+                        monthlyAllowanceAmount: value,
+                      }));
+                    }}
+                    placeholder="أدخل قيمة الشهرية"
+                    className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex items-center gap-3 pt-2">
               <input
                 id="accepts-marriage"
@@ -956,9 +1135,10 @@ export default function BeneficiaryForm({
                 لديه ابن/ابنه مقبل على الزواج
               </label>
             </div>
+          </div>
 
-            {formData.acceptsMarriage && (
-              <>
+          {formData.acceptsMarriage && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="marriage-details" className="block text-sm font-medium text-foreground mb-2">
                     تفاصيل مستلزمات الزواج
@@ -985,9 +1165,8 @@ export default function BeneficiaryForm({
                   }
                   currentImage={formData.marriageCertificateImage}
                 />
-              </>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="space-y-4 border-t border-border pt-6">
             <h3 className="text-lg font-semibold text-foreground">الصور</h3>

@@ -62,6 +62,12 @@ export interface SanitizedBeneficiaryPayload {
   acceptsMarriage?: boolean;
   marriageDetails?: string;
   marriageCertificateImage?: string;
+  status?: "active" | "cancelled" | "pending";
+  statusReason?: string;
+  statusDate?: Date;
+  listName?: string;
+  receivesMonthlyAllowance?: boolean;
+  monthlyAllowanceAmount?: number;
   spouse?: SpousePayload;
   children: Array<
     Required<Pick<ChildPayload, "name">> &
@@ -297,6 +303,23 @@ export const sanitizeBeneficiaryPayload = (
   const acceptsMarriage = Boolean(body?.acceptsMarriage);
   const marriageDetails = acceptsMarriage ? normalizeString(body?.marriageDetails) : undefined;
   const marriageCertificateImage = acceptsMarriage ? ((body?.marriageCertificateImage as string) || "") : "";
+  
+  // Status fields
+  const allowedStatuses = ["active", "cancelled", "pending"];
+  const status = allowedStatuses.includes(body?.status as string)
+    ? (body?.status as "active" | "cancelled" | "pending")
+    : "active";
+  const statusReason = normalizeString(body?.statusReason);
+  const statusDate = body?.statusDate instanceof Date 
+    ? body.statusDate 
+    : typeof body?.statusDate === "string" && body.statusDate
+    ? new Date(body.statusDate)
+    : undefined;
+  const listName = normalizeString(body?.listName) || "الكشف العام";
+  
+  // Monthly allowance fields
+  const receivesMonthlyAllowance = Boolean(body?.receivesMonthlyAllowance);
+  const monthlyAllowanceAmount = receivesMonthlyAllowance ? normalizeNumber(body?.monthlyAllowanceAmount) : undefined;
 
   return {
     name: rawName,
@@ -319,6 +342,12 @@ export const sanitizeBeneficiaryPayload = (
     acceptsMarriage,
     marriageDetails,
     marriageCertificateImage,
+    status,
+    statusReason,
+    statusDate,
+    listName,
+    receivesMonthlyAllowance,
+    monthlyAllowanceAmount,
     spouse,
     children,
     relationships,

@@ -125,6 +125,13 @@ export interface IBeneficiary extends Document {
   acceptsMarriage?: boolean;
   marriageDetails?: string;
   marriageCertificateImage?: string;
+  // Status fields
+  status?: 'active' | 'cancelled' | 'pending';
+  statusReason?: string;
+  statusDate?: Date;
+  listName?: string;
+  receivesMonthlyAllowance?: boolean;
+  monthlyAllowanceAmount?: number;
   children: IChild[];
   spouse?: ISpouse;
   relationships: IRelationship[];
@@ -167,6 +174,17 @@ const BeneficiarySchema = new Schema<IBeneficiary>(
     acceptsMarriage: { type: Boolean, default: false },
     marriageDetails: String,
     marriageCertificateImage: { type: String, default: '' },
+    // Status fields
+    status: {
+      type: String,
+      enum: ['active', 'cancelled', 'pending'],
+      default: 'active',
+    },
+    statusReason: String,
+    statusDate: Date,
+    listName: { type: String, default: 'الكشف العام' },
+    receivesMonthlyAllowance: { type: Boolean, default: false },
+    monthlyAllowanceAmount: Number,
     children: [ChildSchema],
     spouse: { type: SpouseSchema, default: undefined },
     relationships: { type: [RelationshipSchema], default: [] },

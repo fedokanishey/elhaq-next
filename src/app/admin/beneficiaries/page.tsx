@@ -27,6 +27,12 @@ interface Beneficiary {
   employment?: string;
   acceptsMarriage?: boolean;
   marriageDetails?: string;
+  status?: "active" | "cancelled" | "pending";
+  statusDate?: string;
+  createdAt?: string;
+  listName?: string;
+  receivesMonthlyAllowance?: boolean;
+  monthlyAllowanceAmount?: number;
   spouse?: {
     name?: string;
     nationalId?: string;
@@ -170,12 +176,36 @@ export default function AdminBeneficiaries() {
       result = result.filter((b) => b.acceptsMarriage === true);
     }
 
-    // Sort by nationalId
-    result.sort((a, b) => {
-      const aId = parseInt(a.nationalId || "0", 10);
-      const bId = parseInt(b.nationalId || "0", 10);
-      return sortByNationalId ? aId - bId : bId - aId;
-    });
+    if (filters.receivesMonthlyAllowance) {
+      result = result.filter((b) => b.receivesMonthlyAllowance === true);
+    }
+
+    if (filters.status) {
+      result = result.filter((b) => (b.status || "active") === filters.status);
+    }
+
+    if (filters.listName) {
+      const normalizedListName = filters.listName.toLowerCase().trim();
+      result = result.filter((b) =>
+        (b.listName || "الكشف العام").toLowerCase().includes(normalizedListName)
+      );
+    }
+
+    // Sort by date (oldest first) if filtering by pending status, otherwise sort by nationalId
+    if (filters.status === "pending") {
+      result.sort((a, b) => {
+        const dateA = new Date(a.statusDate || a.createdAt || 0).getTime();
+        const dateB = new Date(b.statusDate || b.createdAt || 0).getTime();
+        return dateA - dateB; // Oldest first
+      });
+    } else {
+      // Sort by nationalId
+      result.sort((a, b) => {
+        const aId = parseInt(a.nationalId || "0", 10);
+        const bId = parseInt(b.nationalId || "0", 10);
+        return sortByNationalId ? aId - bId : bId - aId;
+      });
+    }
 
     return result;
   }, [beneficiaries, debouncedSearch, filters, sortByNationalId]);

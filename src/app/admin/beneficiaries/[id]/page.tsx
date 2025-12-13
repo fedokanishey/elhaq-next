@@ -86,6 +86,10 @@ interface Beneficiary {
   acceptsMarriage?: boolean;
   marriageDetails?: string;
   marriageCertificateImage?: string;
+  status?: "active" | "cancelled" | "pending";
+  statusReason?: string;
+  statusDate?: string;
+  listName?: string;
   spouse?: SpouseDetails;
   children?: Child[];
   relationships?: RelationshipEntry[];
@@ -113,6 +117,18 @@ const MARITAL_STATUS_LABELS: Record<string, string> = {
   married: "متزوج",
   divorced: "مطلق",
   widowed: "أرمل",
+};
+
+const BENEFICIARY_STATUS_LABELS: Record<string, string> = {
+  active: "نشط",
+  cancelled: "ملغى",
+  pending: "انتظار",
+};
+
+const BENEFICIARY_STATUS_STYLES: Record<string, string> = {
+  active: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-200",
+  cancelled: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-200",
+  pending: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-200",
 };
 
 const INITIATIVE_STATUS_LABELS: Record<string, string> = {
@@ -354,6 +370,16 @@ export default function ViewBeneficiary({
                 </dd>
               </div>
               <div>
+                <dt className="text-sm text-muted-foreground">حالة المستفيد</dt>
+                <dd className="mt-1 flex items-center gap-2">
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    BENEFICIARY_STATUS_STYLES[beneficiary.status || "pending"]
+                  }`}>
+                    {BENEFICIARY_STATUS_LABELS[beneficiary.status || "pending"]}
+                  </span>
+                </dd>
+              </div>
+              <div>
                 <dt className="text-sm text-muted-foreground">الحالة الصحية</dt>
                 <dd className="mt-1 flex items-center gap-2 text-foreground">
                   {beneficiary.healthStatus === "sick" ? (
@@ -419,6 +445,53 @@ export default function ViewBeneficiary({
                   <dd className="mt-1 flex items-center gap-2 text-foreground">
                     <Wallet className="w-4 h-4" />
                     {beneficiary.income} ج.م
+                  </dd>
+                </div>
+              )}
+              {beneficiary.statusDate && (
+                <div>
+                  <dt className="text-sm text-muted-foreground">
+                    {beneficiary.status === "active" ? "تاريخ التفعيل" : beneficiary.status === "cancelled" ? "تاريخ الإلغاء" : "تاريخ الإضافة"}
+                  </dt>
+                  <dd className="mt-1 flex items-center gap-2 text-foreground">
+                    <CalendarCheck className="w-4 h-4" />
+                    {new Date(beneficiary.statusDate).toLocaleDateString("ar-EG")}
+                  </dd>
+                </div>
+              )}
+              {beneficiary.statusReason && (
+                <div className="sm:col-span-2">
+                  <dt className="text-sm text-muted-foreground">
+                    {beneficiary.status === "active" ? "سبب التفعيل" : beneficiary.status === "cancelled" ? "سبب الإلغاء" : "سبب الإضافة"}
+                  </dt>
+                  <dd className="mt-1 text-foreground">
+                    {beneficiary.statusReason}
+                  </dd>
+                </div>
+              )}
+              <div>
+                <dt className="text-sm text-muted-foreground">اسم الكشف</dt>
+                <dd className="mt-1 flex items-center gap-2 text-foreground">
+                  <NotebookPen className="w-4 h-4" />
+                  {beneficiary.listName || "الكشف العام"}
+                </dd>
+              </div>
+              {beneficiary.receivesMonthlyAllowance && (
+                <div>
+                  <dt className="text-sm text-muted-foreground">يتقاضى شهرية</dt>
+                  <dd className="mt-1 flex items-center gap-2">
+                    <span className="px-3 py-1 bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-full text-sm">
+                      نعم
+                    </span>
+                  </dd>
+                </div>
+              )}
+              {beneficiary.receivesMonthlyAllowance && beneficiary.monthlyAllowanceAmount && (
+                <div>
+                  <dt className="text-sm text-muted-foreground">قيمة الشهرية</dt>
+                  <dd className="mt-1 flex items-center gap-2 text-foreground">
+                    <Wallet className="w-4 h-4" />
+                    {beneficiary.monthlyAllowanceAmount} ج.م
                   </dd>
                 </div>
               )}
