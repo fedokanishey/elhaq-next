@@ -41,15 +41,16 @@ export default function Navbar() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2 m-5">
               <Image 
-                src={isDark ? require("@/logos/3-04-white.png") : require("@/logos/3-04.png")} 
+                src={isDark ? "/logos/3-04-white.png" : "/logos/3-04.png"} 
                 alt="دعوة الحق" 
-                width={70} 
-                height={70}
+                width={90} 
+                height={90}
                 quality={100}
                 priority
-                className="object-contain"
+                unoptimized
+                className="object-contain w-20 h-20"
               />
             </Link>
           </div>

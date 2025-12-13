@@ -174,7 +174,7 @@ export default function Home() {
         <div className="space-y-6 max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-foreground">
             <Image 
-              src={isDark ? require("@/logos/3-01-dark.png") : require("@/logos/3-01-white.png")} 
+              src={isDark ? "/logos/3-01-white.png" : "/logos/3-01.png"} 
               alt="دعوة الحق" 
               width={500} 
               height={200}
