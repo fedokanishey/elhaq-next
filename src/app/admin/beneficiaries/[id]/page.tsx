@@ -90,6 +90,8 @@ interface Beneficiary {
   statusReason?: string;
   statusDate?: string;
   listName?: string;
+  receivesMonthlyAllowance?: boolean;
+  monthlyAllowanceAmount?: number;
   spouse?: SpouseDetails;
   children?: Child[];
   relationships?: RelationshipEntry[];
