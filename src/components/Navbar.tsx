@@ -38,10 +38,10 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
+        <div className="flex h-16 items-center justify-between md:flex-row flex-row-reverse">
           {/* Logo */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center gap-2 m-5">
+            <Link href="/" className="flex items-center gap-2 ">
               <Image 
                 src={isDark ? "/logos/3-04-white.png" : "/logos/3-04.png"} 
                 alt="دعوة الحق" 
@@ -114,19 +114,24 @@ export default function Navbar() {
           </div>
 
           {/* Mobile Menu Button */}
-          <div className="flex md:hidden items-center gap-4">
-            <ThemeToggle />
-            <button
-              onClick={toggleMenu}
-              className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
-            >
-              <span className="sr-only">Open main menu</span>
-              {menuOpen ? (
-                <X className="block h-6 w-6" aria-hidden="true" />
-              ) : (
-                <Menu className="block h-6 w-6" aria-hidden="true" />
+          <div className="flex md:hidden items-center gap-2">
+            
+            <div className="flex items-center gap-2 bg-blue-500 rounded-3xl pr-1">
+              {isLoaded && user && (
+                <UserButton afterSignOutUrl="/" />
               )}
-            </button>
+              <button
+                onClick={toggleMenu}
+                className="inline-flex items-center justify-center rounded-md p-2 text-amber-50 hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
+              >
+                <span className="sr-only">Open main menu</span>
+                {menuOpen ? (
+                  <X className="block h-6 w-6" aria-hidden="true" />
+                ) : (
+                  <Menu className="block h-6 w-6" aria-hidden="true" />
+                )}
+              </button>
+            </div><ThemeToggle />
           </div>
         </div>
       </div>
@@ -173,9 +178,6 @@ export default function Navbar() {
                     المتبرعين
                   </Link>
                 )}
-                <div className="px-3 py-2">
-                  <UserButton afterSignOutUrl="/" />
-                </div>
               </>
             ) : (
               <>
