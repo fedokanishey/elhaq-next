@@ -2,13 +2,31 @@
 
 import { UserButton, useUser } from "@clerk/nextjs";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
+import Image from "next/image";
 
 export default function Navbar() {
   const { user, isLoaded } = useUser();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const checkTheme = () => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    };
+    
+    checkTheme();
+    
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
   const isAdmin = role === "admin";
@@ -24,7 +42,15 @@ export default function Navbar() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-primary">دعوة الحق</span>
+              <Image 
+                src={isDark ? require("@/logos/3-04-white.png") : require("@/logos/3-04.png")} 
+                alt="دعوة الحق" 
+                width={70} 
+                height={70}
+                quality={100}
+                priority
+                className="object-contain"
+              />
             </Link>
           </div>
 

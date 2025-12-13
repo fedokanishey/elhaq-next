@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { ArrowRight, Heart, Shield, Users, LayoutDashboard, UserCircle, Image as ImageIcon, Wallet } from "lucide-react";
@@ -61,6 +62,23 @@ export default function Home() {
   const [treasury, setTreasury] = useState<TreasurySummary | null>(null);
   const [treasuryLoading, setTreasuryLoading] = useState(true);
   const [treasuryError, setTreasuryError] = useState<string | null>(null);
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const checkTheme = () => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    };
+    
+    checkTheme();
+    
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const fetchInitiatives = async () => {
@@ -154,12 +172,16 @@ export default function Home() {
       {/* Hero Section */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-16 sm:py-24 text-center">
         <div className="space-y-6 max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="inline-flex items-center justify-center p-2 bg-primary/10 rounded-full mb-4">
-            <Heart className="w-6 h-6 text-primary animate-pulse" />
-          </div>
-          
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-foreground">
-            دعوة <span className="text-primary">الحق</span>
+            <Image 
+              src={isDark ? require("@/logos/3-01-dark.png") : require("@/logos/3-01-white.png")} 
+              alt="دعوة الحق" 
+              width={500} 
+              height={200}
+              quality={100}
+              priority
+              className="mx-auto object-contain"
+            />
           </h1>
           
           <p className="text-xl sm:text-2xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
