@@ -122,7 +122,7 @@ export default function Navbar() {
               )}
               <button
                 onClick={toggleMenu}
-                className="inline-flex items-center justify-center rounded-md p-2 text-amber-50 hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
+                className="inline-flex items-center justify-center rounded-md p-2 text-amber-50"
               >
                 <span className="sr-only">Open main menu</span>
                 {menuOpen ? (
