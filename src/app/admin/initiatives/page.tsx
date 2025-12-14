@@ -91,7 +91,7 @@ export default function AdminInitiatives() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {initiatives.map((initiative) => (
+            {initiatives.map((initiative: Initiative) => (
               <div key={initiative._id} className="bg-card border border-border rounded-lg shadow-sm p-6">
                 <div className="flex justify-between items-start mb-4">
                   <h3 className="text-xl font-bold text-foreground">{initiative.name}</h3>
