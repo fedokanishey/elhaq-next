@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { Loader2, Trash2 } from "lucide-react";
 
 interface DonorSummary {
@@ -17,37 +19,26 @@ interface DonorSummary {
 export default function DonorsListPage() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
-  const [donors, setDonors] = useState<DonorSummary[]>([]);
-  const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
   const isAdmin = role === "admin";
   const canEdit = isAdmin;
+  const canAccess = role === "admin" || role === "member";
+
+  const { data, isLoading, mutate } = useSWR(
+    isLoaded && canAccess ? "/api/donors?limit=200" : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const donors = data?.donors || [];
+  const loading = isLoading;
 
   useEffect(() => {
-    const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    const canAccess = role === "admin" || role === "member";
     if (isLoaded && !canAccess) router.push("/");
-  }, [isLoaded, user, router]);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch("/api/donors?limit=200", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        setDonors(data.donors || []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (isLoaded) load();
-  }, [isLoaded]);
+  }, [isLoaded, canAccess, router]);
 
   const handleDeleteDonor = async (donorId: string, donorName: string) => {
     if (!confirm(`هل أنت متأكد من حذف المتبرع "${donorName}"؟\nسيتم حذف جميع بيانات التبرعات المرتبطة به.\nلا يمكن التراجع عن هذا الإجراء.`)) {
@@ -67,7 +58,7 @@ export default function DonorsListPage() {
       }
 
       setError("");
-      setDonors((prev) => prev.filter((d) => d._id !== donorId));
+      mutate();
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "حدث خطأ أثناء حذف المتبرع");

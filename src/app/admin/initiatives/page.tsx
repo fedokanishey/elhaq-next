@@ -2,7 +2,9 @@
 
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
 
 interface Initiative {
@@ -17,8 +19,17 @@ interface Initiative {
 export default function AdminInitiatives() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
-  const [initiatives, setInitiatives] = useState<Initiative[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const { data, isLoading, mutate } = useSWR(
+    isLoaded ? "/api/initiatives" : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const initiatives = (data?.initiatives || []).sort((a: Initiative, b: Initiative) => 
+    new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+  const loading = isLoading;
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
@@ -26,29 +37,6 @@ export default function AdminInitiatives() {
       router.push("/");
     }
   }, [isLoaded, user, router]);
-
-  useEffect(() => {
-    const fetchInitiatives = async () => {
-      try {
-        const res = await fetch("/api/initiatives");
-        const data = await res.json();
-        if (res.ok) {
-          const sortedInitiatives = data.initiatives.sort((a: Initiative, b: Initiative) => 
-            new Date(b.date).getTime() - new Date(a.date).getTime()
-          );
-          setInitiatives(sortedInitiatives);
-        }
-      } catch (error) {
-        console.error("Error fetching initiatives:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (isLoaded) {
-      fetchInitiatives();
-    }
-  }, [isLoaded]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("هل أنت متأكد من حذف هذه المبادرة؟")) return;
@@ -59,7 +47,7 @@ export default function AdminInitiatives() {
       });
 
       if (res.ok) {
-        setInitiatives((prev) => prev.filter((i) => i._id !== id));
+        mutate();
       } else {
         alert("فشل حذف المبادرة");
       }

@@ -1,9 +1,12 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Loader2, PiggyBank, Receipt, Trash2, Edit2 } from "lucide-react";
 import SearchFilterBar from "@/components/SearchFilterBar";
 import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
@@ -79,7 +82,6 @@ const createDefaultFormState = (): TreasuryFormState => ({
 export default function TreasuryPage() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -91,55 +93,53 @@ export default function TreasuryPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [formData, setFormData] = useState<TreasuryFormState>(createDefaultFormState);
-  const [totals, setTotals] = useState<TreasuryTotals>({ incomeTotal: 0, expenseTotal: 0, balance: 0 });
-  const [transactions, setTransactions] = useState<TreasuryTransaction[]>([]);
-  const [donors, setDonors] = useState<DonorSummary[]>([]);
-  const [beneficiaries, setBeneficiaries] = useState<BeneficiarySummary[]>([]);
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
   const isAdmin = role === "admin";
   const canEdit = isAdmin;
+  const canAccess = role === "admin" || role === "member";
 
-  const loadDonors = useCallback(async () => {
-    try {
-      const res = await fetch("/api/donors?limit=200", { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json();
-      setDonors(data.donors || []);
-    } catch (err) {
-      console.error(err);
-    }
-  }, []);
+  const { data: treasuryData, isLoading: treasuryLoading, mutate: mutateTreasury } = useSWR(
+    isLoaded && canAccess ? "/api/treasury" : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
 
-  const loadBeneficiaries = useCallback(async () => {
-    try {
-      const res = await fetch("/api/beneficiaries?limit=500", { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json();
-      setBeneficiaries(data.beneficiaries?.map((b: BeneficiarySummary) => ({
-        _id: b._id,
-        name: b.name,
-        phone: b.phone,
-        address: b.address,
-        healthStatus: b.healthStatus,
-        housingType: b.housingType,
-        employment: b.employment,
-        priority: b.priority,
-        acceptsMarriage: b.acceptsMarriage,
-        marriageDetails: b.marriageDetails,
-        nationalId: b.nationalId,
-      })) || []);
-    } catch (err) {
-      console.error(err);
-    }
-  }, []);
+  const { data: donorsData } = useSWR(
+    isLoaded && canAccess ? "/api/donors?limit=200" : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const { data: beneficiariesData } = useSWR(
+    isLoaded && canAccess ? "/api/beneficiaries?limit=500" : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const totals = useMemo(() => treasuryData?.totals || { incomeTotal: 0, expenseTotal: 0, balance: 0 }, [treasuryData]);
+  const donors = useMemo(() => donorsData?.donors || [], [donorsData]);
+  const beneficiaries = useMemo(() => (beneficiariesData?.beneficiaries || []).map((b: BeneficiarySummary) => ({
+    _id: b._id,
+    name: b.name,
+    phone: b.phone,
+    address: b.address,
+    healthStatus: b.healthStatus,
+    housingType: b.housingType,
+    employment: b.employment,
+    priority: b.priority,
+    acceptsMarriage: b.acceptsMarriage,
+    marriageDetails: b.marriageDetails,
+    nationalId: b.nationalId,
+  })), [beneficiariesData]);
+  const loading = treasuryLoading;
 
   const [showDonorSuggestions, setShowDonorSuggestions] = useState(false);
   const filteredDonors = useMemo(() => {
     const term = (formData.donorName || "").trim().toLowerCase();
     if (!term) return donors.slice(0, 6);
-    return donors.filter((d) => d.name.toLowerCase().includes(term)).slice(0, 6);
+    return donors.filter((d: DonorSummary) => d.name.toLowerCase().includes(term)).slice(0, 6);
   }, [donors, formData.donorName]);
 
   const filteredBeneficiaries = useMemo(() => {
@@ -150,12 +150,12 @@ export default function TreasuryPage() {
     if (searchTerm) {
       if (beneficiaryFilters.searchByBeneficiaryId) {
         // Search by beneficiary internal number (nationalId)
-        result = result.filter((b) =>
+        result = result.filter((b: BeneficiarySummary) =>
           (b.nationalId || "").toLowerCase().includes(searchTerm)
         );
       } else {
         // Search by name
-        result = result.filter((b) =>
+        result = result.filter((b: BeneficiarySummary) =>
           b.name.toLowerCase().includes(searchTerm)
         );
       }
@@ -164,25 +164,25 @@ export default function TreasuryPage() {
     // Apply filter criteria - city/address
     if (beneficiaryFilters.city?.trim()) {
       const cityTerm = beneficiaryFilters.city.toLowerCase();
-      result = result.filter((b) =>
+      result = result.filter((b: BeneficiarySummary) =>
         (b.address || "").toLowerCase().includes(cityTerm)
       );
     }
 
     // Apply filter criteria - health status
     if (beneficiaryFilters.healthStatus) {
-      result = result.filter((b) => b.healthStatus === beneficiaryFilters.healthStatus);
+      result = result.filter((b: BeneficiarySummary) => b.healthStatus === beneficiaryFilters.healthStatus);
     }
 
     // Apply filter criteria - housing type
     if (beneficiaryFilters.housingType) {
-      result = result.filter((b) => b.housingType === beneficiaryFilters.housingType);
+      result = result.filter((b: BeneficiarySummary) => b.housingType === beneficiaryFilters.housingType);
     }
 
     // Apply filter criteria - employment
     if (beneficiaryFilters.employment?.trim()) {
       const empTerm = beneficiaryFilters.employment.toLowerCase();
-      result = result.filter((b) =>
+      result = result.filter((b: BeneficiarySummary) =>
         (b.employment || "").toLowerCase().includes(empTerm)
       );
     }
@@ -191,7 +191,7 @@ export default function TreasuryPage() {
     if (beneficiaryFilters.priorityMin !== undefined || beneficiaryFilters.priorityMax !== undefined) {
       const minPriority = beneficiaryFilters.priorityMin ?? 1;
       const maxPriority = beneficiaryFilters.priorityMax ?? 10;
-      result = result.filter((b) => {
+      result = result.filter((b: BeneficiarySummary) => {
         const priority = b.priority ?? 5;
         return priority >= minPriority && priority <= maxPriority;
       });
@@ -199,46 +199,17 @@ export default function TreasuryPage() {
 
     // Apply filter criteria - accepts marriage
     if (beneficiaryFilters.acceptsMarriage) {
-      result = result.filter((b) => b.acceptsMarriage === true);
+      result = result.filter((b: BeneficiarySummary) => b.acceptsMarriage === true);
     }
 
     return result;
   }, [beneficiaries, beneficiarySearchTerm, beneficiaryFilters]);
 
   useEffect(() => {
-    const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    const canAccess = role === "admin" || role === "member";
     if (isLoaded && !canAccess) {
       router.push("/");
     }
-  }, [isLoaded, user, router]);
-
-  useEffect(() => {
-    const fetchTreasury = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch("/api/treasury", { cache: "no-store" });
-        if (!res.ok) {
-          throw new Error("Failed to fetch treasury data");
-        }
-        const data = await res.json();
-        setTotals(data.totals || { incomeTotal: 0, expenseTotal: 0, balance: 0 });
-        setTransactions(data.transactions || []);
-        setError("");
-      } catch (err) {
-        console.error(err);
-        setError("فشل تحميل بيانات الخزينة");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (isLoaded) {
-      fetchTreasury();
-      loadDonors();
-      loadBeneficiaries();
-    }
-  }, [isLoaded, loadDonors, loadBeneficiaries]);
+  }, [isLoaded, canAccess, router]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -298,6 +269,7 @@ export default function TreasuryPage() {
         setFormData(createDefaultFormState());
         setEditingTransactionId(null);
         setBeneficiarySearchTerm("");
+        mutateTreasury();
         setBeneficiaryFilters({});
       } else {
         // Create new transaction
@@ -332,11 +304,7 @@ export default function TreasuryPage() {
 
   const refreshTreasury = async () => {
     try {
-      const res = await fetch("/api/treasury", { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json();
-      setTotals(data.totals || { incomeTotal: 0, expenseTotal: 0, balance: 0 });
-      setTransactions(data.transactions || []);
+      await mutateTreasury();
     } catch (err) {
       console.error(err);
     }
@@ -370,7 +338,7 @@ export default function TreasuryPage() {
   };
 
   const handleEditTransaction = (transactionId: string) => {
-    const transaction = transactions.find(t => t._id === transactionId);
+    const transaction = (treasuryData?.transactions || []).find((t: TreasuryTransaction) => t._id === transactionId);
     if (!transaction) return;
 
     setFormData({
@@ -396,7 +364,7 @@ export default function TreasuryPage() {
   };
 
   const sortedTransactions = useMemo(() => {
-    let result = [...transactions];
+    let result = [...(treasuryData?.transactions || [])];
 
     // Apply date filter
     if (dateFrom) {
@@ -439,7 +407,7 @@ export default function TreasuryPage() {
           normalize(txn.donorNameSnapshot),
           normalize(txn.type),
           (txn.beneficiaryNamesSnapshot || [])
-            .map(name => normalize(name))
+            .map((name: string) => normalize(name))
             .join(" ")
         ]
           .filter(Boolean)
@@ -449,15 +417,15 @@ export default function TreasuryPage() {
       });
     }
 
-    // Sort by date
-    result.sort((a, b) => {
+    // Sort by date - create new array to ensure React detects the change
+    const sorted = [...result].sort((a, b) => {
       const dateA = new Date(a.transactionDate || a.createdAt).getTime();
       const dateB = new Date(b.transactionDate || b.createdAt).getTime();
       return sortDesc ? dateB - dateA : dateA - dateB;
     });
 
-    return result;
-  }, [transactions, debouncedSearch, sortDesc, dateFrom, dateTo]);
+    return sorted;
+  }, [treasuryData?.transactions, debouncedSearch, sortDesc, dateFrom, dateTo]);
 
   const formattedTotals = useMemo(() => ({
     balance: formatCurrency(totals.balance),
@@ -615,7 +583,7 @@ export default function TreasuryPage() {
                   />
                       {showDonorSuggestions && filteredDonors.length > 0 && (
                         <div className="border border-border rounded-md mt-2 bg-card max-h-40 overflow-auto z-50">
-                          {filteredDonors.map((d) => (
+                          {filteredDonors.map((d: DonorSummary) => (
                             <button
                               key={d._id}
                               type="button"
@@ -661,7 +629,7 @@ export default function TreasuryPage() {
                   {formData.beneficiaryIds.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-3">
                       {formData.beneficiaryIds.map((beneficiaryId) => {
-                        const beneficiary = beneficiaries.find(b => b._id === beneficiaryId);
+                        const beneficiary = beneficiaries.find((b: BeneficiarySummary) => b._id === beneficiaryId);
                         return beneficiary ? (
                           <span
                             key={beneficiaryId}
@@ -692,7 +660,7 @@ export default function TreasuryPage() {
                         {beneficiaries.length === 0 ? "لا يوجد مستفيدون" : "لا توجد نتائج بحث"}
                       </p>
                     ) : (
-                      filteredBeneficiaries.map((b) => {
+                      filteredBeneficiaries.map((b: BeneficiarySummary) => {
                         const isSelected = formData.beneficiaryIds.includes(b._id);
                         return (
                           <button
@@ -796,16 +764,19 @@ export default function TreasuryPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setSortDesc(!sortDesc)}
-                    className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1 px-2 py-1 rounded hover:bg-primary/10 transition"
+                    onClick={() => {
+                      setSortDesc(!sortDesc);
+                    }}
+                    className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1 px-3 py-2 rounded-md border border-border hover:bg-primary/10 transition"
                     type="button"
-                    title={sortDesc ? "من الأحدث للأقدم" : "من الأقدم للأحدث"}
+                    title={sortDesc ? "من الأحدث للأقدم - انقر للتبديل" : "من الأقدم للأحدث - انقر للتبديل"}
                   >
                     {sortDesc ? (
                       <ChevronDown className="w-4 h-4" />
                     ) : (
                       <ChevronUp className="w-4 h-4" />
                     )}
+                    <span className="text-xs font-medium">التاريخ {sortDesc ? "↓" : "↑"}</span>
                   </button>
                 </div>
               </div>
@@ -912,7 +883,7 @@ export default function TreasuryPage() {
                           <div className="mt-2 text-sm">
                             <p className="text-muted-foreground text-xs mb-1">المستفيدون:</p>
                             <div className="flex flex-wrap gap-1">
-                              {txn.beneficiaryNamesSnapshot.map((name, idx) => {
+                              {txn.beneficiaryNamesSnapshot.map((name: string, idx: number) => {
                                 const beneficiaryId = txn.beneficiaryIds?.[idx];
                                 return beneficiaryId ? (
                                   <Link

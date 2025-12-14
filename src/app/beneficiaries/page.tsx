@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useUser } from "@clerk/nextjs";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
 import BeneficiaryCard from "@/components/BeneficiaryCard";
 import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
@@ -39,9 +41,6 @@ interface Beneficiary {
 export default function BeneficiariesPage() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
-  const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filters, setFilters] = useState<BeneficiaryFilterCriteria>({});
@@ -50,6 +49,15 @@ export default function BeneficiariesPage() {
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
   const canAccessBeneficiaries = role === "admin" || role === "member";
   const isAdmin = role === "admin";
+
+  const { data, error: swrError, isLoading } = useSWR(
+    isLoaded && canAccessBeneficiaries ? "/api/beneficiaries" : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const loading = isLoading;
+  const error = swrError ? "فشل تحميل البيانات" : "";
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -66,35 +74,10 @@ export default function BeneficiariesPage() {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  useEffect(() => {
-    if (!isLoaded || !canAccessBeneficiaries) {
-      return;
-    }
 
-    const fetchBeneficiaries = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch("/api/beneficiaries", { cache: "no-store" });
-        const data = await res.json();
-
-        if (res.ok) {
-          setBeneficiaries(data.beneficiaries);
-        } else {
-          setError(data.error || "حدث خطأ");
-        }
-      } catch (err) {
-        console.error(err);
-        setError("فشل تحميل البيانات");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchBeneficiaries();
-  }, [isLoaded, canAccessBeneficiaries]);
 
   const filteredBeneficiaries = useMemo(() => {
-    let result = beneficiaries;
+    let result = data?.beneficiaries || [];
 
     // Apply text search filter
     if (debouncedSearch) {
@@ -109,10 +92,10 @@ export default function BeneficiariesPage() {
 
       const query = normalize(debouncedSearch);
 
-      result = result.filter((beneficiary) => {
+      result = result.filter((beneficiary: Beneficiary) => {
         const spouseName = normalize(beneficiary.spouse?.name);
         const childrenText = (beneficiary.children ?? [])
-          .map((child) =>
+          .map((child: { name?: string; nationalId?: string; school?: string }) =>
             normalize(`${child.name ?? ""} ${child.nationalId ?? ""} ${child.school ?? ""}`)
           )
           .join(" ");
@@ -147,28 +130,28 @@ export default function BeneficiariesPage() {
     // Apply filter criteria
     if (filters.city) {
       const normalizedCity = filters.city.toLowerCase().trim();
-      result = result.filter((b) =>
+      result = result.filter((b: Beneficiary) =>
         b.address?.toLowerCase().includes(normalizedCity)
       );
     }
 
     if (filters.healthStatus) {
-      result = result.filter((b) => b.healthStatus === filters.healthStatus);
+      result = result.filter((b: Beneficiary) => b.healthStatus === filters.healthStatus);
     }
 
     if (filters.housingType) {
-      result = result.filter((b) => b.housingType === filters.housingType);
+      result = result.filter((b: Beneficiary) => b.housingType === filters.housingType);
     }
 
     if (filters.employment) {
       const normalizedEmployment = filters.employment.toLowerCase().trim();
-      result = result.filter((b) =>
+      result = result.filter((b: Beneficiary) =>
         b.employment?.toLowerCase().includes(normalizedEmployment)
       );
     }
 
     if (filters.priorityMin !== undefined || filters.priorityMax !== undefined) {
-      result = result.filter((b) => {
+      result = result.filter((b: Beneficiary) => {
         const min = filters.priorityMin ?? 1;
         const max = filters.priorityMax ?? 10;
         return b.priority >= min && b.priority <= max;
@@ -176,18 +159,18 @@ export default function BeneficiariesPage() {
     }
 
     if (filters.acceptsMarriage) {
-      result = result.filter((b) => b.acceptsMarriage === true);
+      result = result.filter((b: Beneficiary) => b.acceptsMarriage === true);
     }
 
     // Sort by nationalId
-    result.sort((a, b) => {
+    result = [...result].sort((a: Beneficiary, b: Beneficiary) => {
       const aId = parseInt(a.nationalId || "0", 10);
       const bId = parseInt(b.nationalId || "0", 10);
       return sortByNationalId ? aId - bId : bId - aId;
     });
 
     return result;
-  }, [beneficiaries, debouncedSearch, filters, sortByNationalId]);
+  }, [data?.beneficiaries, debouncedSearch, filters, sortByNationalId]);
 
   if (!isLoaded) {
     return (
@@ -216,7 +199,7 @@ export default function BeneficiariesPage() {
               المستفيدين
             </h1>
             <p className="mt-2 text-muted-foreground">
-              إجمالي المستفيدين: {filteredBeneficiaries.length} {debouncedSearch || Object.keys(filters).length > 0 ? `من ${beneficiaries.length}` : ""}
+              إجمالي المستفيدين: {filteredBeneficiaries.length} {debouncedSearch || Object.keys(filters).length > 0 ? `من ${(data?.beneficiaries || []).length}` : ""}
             </p>
           </div>
 
@@ -278,7 +261,7 @@ export default function BeneficiariesPage() {
         {/* Beneficiaries Grid */}
         {!loading && filteredBeneficiaries.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {filteredBeneficiaries.map((beneficiary) => (
+            {filteredBeneficiaries.map((beneficiary: Beneficiary) => (
               <div key={beneficiary._id} className="h-full">
                 <BeneficiaryCard
                   id={beneficiary._id}
@@ -303,7 +286,7 @@ export default function BeneficiariesPage() {
         )}
 
         {/* No Results State */}
-        {!loading && filteredBeneficiaries.length === 0 && beneficiaries.length > 0 && (
+        {!loading && filteredBeneficiaries.length === 0 && (data?.beneficiaries || []).length > 0 && (
           <div className="bg-card border border-border rounded-lg p-12 text-center shadow-sm">
             <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium text-foreground">لم يتم العثور على نتائج</h3>
@@ -314,7 +297,7 @@ export default function BeneficiariesPage() {
         )}
 
         {/* Empty State */}
-        {!loading && beneficiaries.length === 0 && (
+        {!loading && (data?.beneficiaries || []).length === 0 && (
           <div className="bg-card border border-border rounded-lg p-12 text-center shadow-sm">
             <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium text-foreground">لا توجد بيانات حالياً</h3>

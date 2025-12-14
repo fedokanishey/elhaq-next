@@ -32,9 +32,9 @@ const defaultFilters: BeneficiaryFilterCriteria = {
   priorityMin: 1,
   priorityMax: 10,
   employment: "",
-  acceptsMarriage: false,
-  receivesMonthlyAllowance: false,
-  searchByBeneficiaryId: false,
+  acceptsMarriage: undefined,
+  receivesMonthlyAllowance: undefined,
+  searchByBeneficiaryId: undefined,
 };
 
 export default function BeneficiaryFilterPanel({
@@ -47,7 +47,7 @@ export default function BeneficiaryFilterPanel({
   const [listNameSuggestions, setListNameSuggestions] = useState<string[]>([]);
   const [showListNameSuggestions, setShowListNameSuggestions] = useState(false);
 
-  const handleChange = (field: keyof BeneficiaryFilterCriteria, value: string | number | boolean) => {
+  const handleChange = (field: keyof BeneficiaryFilterCriteria, value: string | number | boolean | undefined) => {
     const updated = { ...filters, [field]: value };
     setFilters(updated);
     onFilterChange(updated);
@@ -95,6 +95,7 @@ export default function BeneficiaryFilterPanel({
     filters.priorityMin !== 1 ||
     filters.priorityMax !== 10 ||
     filters.acceptsMarriage ||
+    filters.receivesMonthlyAllowance ||
     filters.searchByBeneficiaryId;
 
   const filterContent = (
@@ -279,8 +280,8 @@ export default function BeneficiaryFilterPanel({
         <input
           id="filter-accepts-marriage"
           type="checkbox"
-          checked={filters.acceptsMarriage || false}
-          onChange={(e) => handleChange("acceptsMarriage", e.target.checked ? true : false)}
+          checked={!!filters.acceptsMarriage}
+          onChange={(e) => handleChange("acceptsMarriage", e.target.checked || undefined)}
           title="فلترة المقبولين على الزواج"
           aria-label="فلترة المقبولين على الزواج"
           className="w-4 h-4 rounded border-input bg-background cursor-pointer accent-primary"
@@ -295,8 +296,8 @@ export default function BeneficiaryFilterPanel({
         <input
           id="filter-receives-allowance"
           type="checkbox"
-          checked={filters.receivesMonthlyAllowance || false}
-          onChange={(e) => handleChange("receivesMonthlyAllowance", e.target.checked ? true : false)}
+          checked={!!filters.receivesMonthlyAllowance}
+          onChange={(e) => handleChange("receivesMonthlyAllowance", e.target.checked || undefined)}
           title="فلترة من يتقاضى شهرية"
           aria-label="فلترة من يتقاضى شهرية"
           className="w-4 h-4 rounded border-input bg-background cursor-pointer accent-primary"
@@ -311,8 +312,8 @@ export default function BeneficiaryFilterPanel({
         <input
           id="filter-search-by-id"
           type="checkbox"
-          checked={filters.searchByBeneficiaryId || false}
-          onChange={(e) => handleChange("searchByBeneficiaryId", e.target.checked ? true : false)}
+          checked={!!filters.searchByBeneficiaryId}
+          onChange={(e) => handleChange("searchByBeneficiaryId", e.target.checked || undefined)}
           title="تفعيل البحث برقم المستفيد الداخلي"
           aria-label="تفعيل البحث برقم المستفيد الداخلي"
           className="w-4 h-4 rounded border-input bg-background cursor-pointer accent-primary"

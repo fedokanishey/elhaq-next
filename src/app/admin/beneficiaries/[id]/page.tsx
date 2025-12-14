@@ -19,6 +19,8 @@ import {
   Users,
   X,
 } from "lucide-react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 
 interface Child {
   _id?: string;
@@ -168,11 +170,17 @@ export default function ViewBeneficiary({
   const { id } = use(params);
   const { user, isLoaded } = useUser();
   const router = useRouter();
-  const [beneficiary, setBeneficiary] = useState<Beneficiary | null>(null);
-  const [initiatives, setInitiatives] = useState<InitiativeSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("\u062c\u0627\u0631\u064a \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a...");
   const [healthModalImage, setHealthModalImage] = useState<string | null>(null);
+
+  const { data, error: swrError, isLoading } = useSWR(
+    id ? `/api/beneficiaries/${id}` : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const beneficiary = data?.beneficiary || data || null;
+  const initiatives = data?.initiatives || [];
+  const error = swrError ? "فشل تحميل بيانات المستفيد" : "";
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
@@ -182,34 +190,7 @@ export default function ViewBeneficiary({
     }
   }, [isLoaded, user, router]);
 
-  useEffect(() => {
-    const fetchBeneficiary = async () => {
-      try {
-        const res = await fetch(`/api/beneficiaries/${id}`, { cache: "no-store" });
-        if (!res.ok) {
-          throw new Error("فشل تحميل بيانات المستفيد");
-        }
-        const data = await res.json();
-        if (data?.beneficiary) {
-          setBeneficiary(data.beneficiary);
-          setInitiatives(data.initiatives || []);
-        } else {
-          setBeneficiary(data);
-          setInitiatives([]);
-        }
-        setError("");
-      } catch (err) {
-        console.error(err);
-        setError("فشل تحميل بيانات المستفيد");
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    if (id) {
-      fetchBeneficiary();
-    }
-  }, [id]);
 
   const whatsappLink = useMemo(() => {
     const normalized = beneficiary?.whatsapp?.replace(/\D/g, "");
@@ -221,10 +202,18 @@ export default function ViewBeneficiary({
     
   }, [beneficiary?.whatsapp]);
 
-  if (!isLoaded || loading) {
+  if (!isLoaded || isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-background text-muted-foreground">
-        <p>{error}</p>
+        <p>جاري تحميل البيانات...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-background text-destructive">
+        <p>فشل تحميل بيانات المستفيد</p>
       </div>
     );
   }
@@ -375,9 +364,9 @@ export default function ViewBeneficiary({
                 <dt className="text-sm text-muted-foreground">حالة المستفيد</dt>
                 <dd className="mt-1 flex items-center gap-2">
                   <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    BENEFICIARY_STATUS_STYLES[beneficiary.status || "pending"]
+                    BENEFICIARY_STATUS_STYLES[beneficiary.status || "active"]
                   }`}>
-                    {BENEFICIARY_STATUS_LABELS[beneficiary.status || "pending"]}
+                    {BENEFICIARY_STATUS_LABELS[beneficiary.status || "active"]}
                   </span>
                 </dd>
               </div>
@@ -601,7 +590,7 @@ export default function ViewBeneficiary({
                   </tr>
                 </thead>
                 <tbody>
-                  {children.map((child, index) => (
+                  {children.map((child: Child, index: number) => (
                     <tr
                       key={child._id || `${child.name}-${child.nationalId}`}
                       className={`${index % 2 === 0 ? "bg-background" : "bg-muted/10"} border-t border-border/60`}
@@ -664,7 +653,7 @@ export default function ViewBeneficiary({
                   </tr>
                 </thead>
                 <tbody>
-                  {relationships.map((relationship, index) => (
+                  {relationships.map((relationship: RelationshipEntry, index: number) => (
                     <tr
                       key=
                         {relationship.relative?. _id || relationship.relativeNationalId || `${relationship.relativeName}-${index}`}
@@ -708,7 +697,7 @@ export default function ViewBeneficiary({
           </h2>
           {initiatives.length > 0 ? (
             <ul className="space-y-3">
-              {initiatives.map((initiative) => (
+              {initiatives.map((initiative: InitiativeSummary) => (
                 <li
                   key={initiative._id}
                   className="border border-border/60 rounded-lg p-4 bg-background/80"

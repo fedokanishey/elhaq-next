@@ -3,6 +3,8 @@
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import BeneficiaryForm, {
   BeneficiaryFormValues,
   RelationshipEntry,
@@ -123,9 +125,59 @@ export default function EditBeneficiaryPage() {
     return Array.isArray(params.id) ? params.id[0] : params.id;
   }, [params]);
 
-  const [initialValues, setInitialValues] = useState<BeneficiaryFormValues>();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data, error: swrError, isLoading } = useSWR(
+    beneficiaryId ? `/api/beneficiaries/${beneficiaryId}` : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const record = data?.beneficiary ?? data;
+  const error = swrError ? "فشل تحميل بيانات المستفيد" : !beneficiaryId ? "لم يتم العثور على معرف المستفيد" : "";
+  const loading = isLoading;
+
+  const initialValues = useMemo(() => {
+    if (!record) return undefined;
+
+    return {
+      ...createBlankFormValues(),
+      name: record?.name || "",
+      nationalId: record?.nationalId || "",
+      phone: record?.phone || "",
+      whatsapp: record?.whatsapp || "",
+      address: record?.address || "",
+      familyMembers: record?.familyMembers || 1,
+      maritalStatus: record?.maritalStatus || "single",
+      income: record?.income?.toString?.() || "",
+      priority: record?.priority || 5,
+      profileImage: record?.profileImage || "",
+      idImage: record?.idImage || "",
+      notes: record?.notes || "",
+      healthStatus: record?.healthStatus || "healthy",
+      healthCertificationImage: record?.healthCertificationImage || "",
+      housingType: record?.housingType || "owned",
+      rentalCost: record?.rentalCost?.toString?.() || "",
+      employment: record?.employment || "",
+      acceptsMarriage: record?.acceptsMarriage || false,
+      marriageDetails: record?.marriageDetails || "",
+      marriageCertificateImage: record?.marriageCertificateImage || "",
+      status: record?.status || "active",
+      statusReason: record?.statusReason || "",
+      statusDate: record?.statusDate ? new Date(record.statusDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      listName: record?.listName || "الكشف العام",
+      receivesMonthlyAllowance: record?.receivesMonthlyAllowance || false,
+      monthlyAllowanceAmount: record?.monthlyAllowanceAmount?.toString?.() || "",
+      spouse: record?.spouse
+        ? {
+            name: record.spouse.name || "",
+            nationalId: record.spouse.nationalId || "",
+            phone: record.spouse.phone || "",
+            whatsapp: record.spouse.whatsapp || "",
+          }
+        : createEmptySpouse(),
+      children: mapChildren(record?.children),
+      relationships: mapRelationships(record?.relationships),
+    };
+  }, [record]);
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
@@ -133,76 +185,6 @@ export default function EditBeneficiaryPage() {
       router.push("/");
     }
   }, [isLoaded, user, router]);
-
-  useEffect(() => {
-    if (!beneficiaryId) {
-      setLoading(false);
-      setError("لم يتم العثور على معرف المستفيد");
-      return;
-    }
-
-    const fetchBeneficiary = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/beneficiaries/${beneficiaryId}`, { cache: "no-store" });
-        if (!res.ok) {
-          throw new Error("Failed to fetch beneficiary");
-        }
-        const data = await res.json();
-        const record = data?.beneficiary ?? data;
-
-        const normalized: BeneficiaryFormValues = {
-          ...createBlankFormValues(),
-          name: record?.name || "",
-          nationalId: record?.nationalId || "",
-          phone: record?.phone || "",
-          whatsapp: record?.whatsapp || "",
-          address: record?.address || "",
-          familyMembers: record?.familyMembers || 1,
-          maritalStatus: record?.maritalStatus || "single",
-          income: record?.income?.toString?.() || "",
-          priority: record?.priority || 5,
-          profileImage: record?.profileImage || "",
-          idImage: record?.idImage || "",
-          notes: record?.notes || "",
-          healthStatus: record?.healthStatus || "healthy",
-          healthCertificationImage: record?.healthCertificationImage || "",
-          housingType: record?.housingType || "owned",
-          rentalCost: record?.rentalCost?.toString?.() || "",
-          employment: record?.employment || "",
-          acceptsMarriage: record?.acceptsMarriage || false,
-          marriageDetails: record?.marriageDetails || "",
-          marriageCertificateImage: record?.marriageCertificateImage || "",
-          status: record?.status || "active",
-          statusReason: record?.statusReason || "",
-          statusDate: record?.statusDate ? new Date(record.statusDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-          listName: record?.listName || "الكشف العام",
-          receivesMonthlyAllowance: record?.receivesMonthlyAllowance || false,
-          monthlyAllowanceAmount: record?.monthlyAllowanceAmount?.toString?.() || "",
-          spouse: record?.spouse
-            ? {
-                name: record.spouse.name || "",
-                nationalId: record.spouse.nationalId || "",
-                phone: record.spouse.phone || "",
-                whatsapp: record.spouse.whatsapp || "",
-              }
-            : createEmptySpouse(),
-          children: mapChildren(record?.children),
-          relationships: mapRelationships(record?.relationships),
-        };
-
-        setInitialValues(normalized);
-        setError("");
-      } catch (err) {
-        console.error(err);
-        setError("فشل تحميل بيانات المستفيد");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchBeneficiary();
-  }, [beneficiaryId]);
 
   if (!isLoaded || loading) {
     return (

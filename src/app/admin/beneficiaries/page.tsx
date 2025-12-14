@@ -9,6 +9,8 @@ import SearchFilterBar from "@/components/SearchFilterBar";
 import { useEffect, useMemo, useState } from "react";
 import { Search, ArrowDownUp, Download } from "lucide-react";
 import BeneficiariesPrintModal from "@/components/BeneficiariesPrintModal";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 
 interface Beneficiary {
   _id: string;
@@ -46,41 +48,30 @@ interface Beneficiary {
 export default function AdminBeneficiaries() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
-  const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filters, setFilters] = useState<BeneficiaryFilterCriteria>({});
   const [sortByNationalId, setSortByNationalId] = useState(true);
   const [showPrintModal, setShowPrintModal] = useState(false);
 
+  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  const isAdmin = role === "admin";
+
+  // Fetch beneficiaries with SWR
+  const { data, error, isLoading } = useSWR<{ beneficiaries: Beneficiary[] }>(
+    isLoaded && isAdmin ? "/api/beneficiaries" : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+    }
+  );
+
   useEffect(() => {
-    const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    if (isLoaded && role !== "admin") {
+    if (isLoaded && !isAdmin) {
       router.push("/");
     }
-  }, [isLoaded, user, router]);
-
-  useEffect(() => {
-    const fetchBeneficiaries = async () => {
-      try {
-        const res = await fetch("/api/beneficiaries", { cache: "no-store" });
-        const data = await res.json();
-        if (res.ok) {
-          setBeneficiaries(data.beneficiaries);
-        }
-      } catch (error) {
-        console.error("Error fetching beneficiaries:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    if (isLoaded && role === "admin") {
-      fetchBeneficiaries();
-    }
-  }, [isLoaded, user]);
+  }, [isLoaded, isAdmin, router]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -91,7 +82,7 @@ export default function AdminBeneficiaries() {
   }, [searchTerm]);
 
   const filteredBeneficiaries = useMemo(() => {
-    let result = beneficiaries;
+    let result = data?.beneficiaries || [];
 
     // Apply text search filter
     if (debouncedSearch) {
@@ -193,14 +184,14 @@ export default function AdminBeneficiaries() {
 
     // Sort by date (oldest first) if filtering by pending status, otherwise sort by nationalId
     if (filters.status === "pending") {
-      result.sort((a, b) => {
+      result = [...result].sort((a, b) => {
         const dateA = new Date(a.statusDate || a.createdAt || 0).getTime();
         const dateB = new Date(b.statusDate || b.createdAt || 0).getTime();
         return dateA - dateB; // Oldest first
       });
     } else {
       // Sort by nationalId
-      result.sort((a, b) => {
+      result = [...result].sort((a, b) => {
         const aId = parseInt(a.nationalId || "0", 10);
         const bId = parseInt(b.nationalId || "0", 10);
         return sortByNationalId ? aId - bId : bId - aId;
@@ -208,7 +199,7 @@ export default function AdminBeneficiaries() {
     }
 
     return result;
-  }, [beneficiaries, debouncedSearch, filters, sortByNationalId]);
+  }, [data?.beneficiaries, debouncedSearch, filters, sortByNationalId]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("هل أنت متأكد من حذف هذا المستفيد؟")) return;
@@ -219,7 +210,8 @@ export default function AdminBeneficiaries() {
       });
 
       if (res.ok) {
-        setBeneficiaries((prev) => prev.filter((b) => b._id !== id));
+        // Trigger revalidation after delete
+        window.location.reload();
       } else {
         alert("فشل حذف المستفيد");
       }
@@ -229,10 +221,18 @@ export default function AdminBeneficiaries() {
     }
   };
 
-  if (!isLoaded) {
+  if (!isLoaded || isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-background text-muted-foreground">
         <p>جاري التحميل...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-background text-destructive">
+        <p>حدث خطأ أثناء تحميل البيانات</p>
       </div>
     );
   }
@@ -284,9 +284,9 @@ export default function AdminBeneficiaries() {
               onClick={() => setSortByNationalId(!sortByNationalId)}
               className="px-4 py-3 bg-card border border-border rounded-lg text-foreground hover:bg-muted transition-colors inline-flex items-center gap-2"
               type="button"
-              title={sortByNationalId ? "ترتيب تنازلي" : "ترتيب تصاعدي"}
+              title={sortByNationalId ? "ترتيب تصاعدي - انقر للتبديل إلى تنازلي" : "ترتيب تنازلي - انقر للتبديل إلى تصاعدي"}
             >
-              <ArrowDownUp className="w-4 h-4" />
+              <span className="text-sm">{sortByNationalId ? "↑" : "↓"}</span>
               رقم المستفيد
             </button>
             <button
@@ -307,7 +307,7 @@ export default function AdminBeneficiaries() {
         </div>
 
         {/* Beneficiaries Grid */}
-        {loading ? (
+        {isLoading ? (
           <div className="flex justify-center py-12 text-muted-foreground">
             <p>جاري التحميل...</p>
           </div>
@@ -338,7 +338,7 @@ export default function AdminBeneficiaries() {
               </div>
             ))}
           </div>
-        ) : beneficiaries.length > 0 ? (
+        ) : (data?.beneficiaries || []).length > 0 ? (
           <div className="bg-card border border-border rounded-lg shadow-sm p-8 text-center">
             <p className="text-muted-foreground text-lg">
               لا توجد نتائج مطابقة للبحث الحالي

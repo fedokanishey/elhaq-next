@@ -3,7 +3,9 @@
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { 
   Users, 
   Activity, 
@@ -32,7 +34,14 @@ interface DashboardStats {
 export default function AdminDashboard() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+
+  const { data } = useSWR(
+    isLoaded ? "/api/reports" : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const stats = data?.stats || null;
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
@@ -40,24 +49,6 @@ export default function AdminDashboard() {
       router.push("/");
     }
   }, [isLoaded, user, router]);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await fetch("/api/reports");
-        if (res.ok) {
-          const data = await res.json();
-          setStats(data.stats);
-        }
-      } catch (error) {
-        console.error("Error fetching stats:", error);
-      }
-    };
-
-    if (isLoaded) {
-      fetchStats();
-    }
-  }, [isLoaded]);
 
   if (!isLoaded) {
     return (
