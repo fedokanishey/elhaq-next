@@ -89,7 +89,7 @@ export default function DonorsListPage() {
           <div className="bg-card border border-border rounded-lg p-6 text-center">لا توجد متبرعون بعد</div>
         ) : (
           <div className="grid gap-3">
-            {donors.map((d) => (
+            {donors.map((d: DonorSummary) => (
               <div key={d._id} className="border border-border rounded-lg p-4 flex justify-between items-center hover:bg-muted/50 transition">
                 <Link href={`/admin/donors/${d._id}`} className="flex-1">
                   <div className="font-medium">{d.name}</div>
