@@ -81,23 +81,6 @@ export default function ViewInitiativePage() {
   const [error, setError] = useState("جاري تحميل بيانات المبادرة...");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [exportColumns, setExportColumns] = useState({
-    name: true,
-    phone: true,
-    whatsapp: false,
-    address: false,
-    healthStatus: false,
-    housingType: false,
-    employment: false,
-    priority: false,
-    spouse: false,
-    familyMembers: false,
-    maritalStatus: false,
-    income: false,
-    rentalCost: false,
-    notes: false,
-  });
 
   // Check authorization
   useEffect(() => {
@@ -148,7 +131,7 @@ export default function ViewInitiativePage() {
     fetchInitiative();
   }, [initiativeId]);
 
-  const exportToPDF = async () => {
+  const exportToWord = async () => {
     if (!initiative || !initiative.beneficiaries || initiative.beneficiaries.length === 0) {
       alert("لا يوجد مستفيدون للتصدير");
       return;
@@ -156,203 +139,233 @@ export default function ViewInitiativePage() {
 
     setExporting(true);
     try {
-      const html2pdf = (await import("html2pdf.js")).default;
+      const { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, TextRun } = await import("docx");
+      const { saveAs } = await import("file-saver");
 
-      // Prepare table headers - add index/row number column first
-      const columnHeaders: Array<{ key: string; label: string }> = [
-        { key: "index", label: "#" }
-      ];
-      if (exportColumns.name) columnHeaders.push({ key: "name", label: "الاسم" });
-      if (exportColumns.phone) columnHeaders.push({ key: "phone", label: "الرقم القومى" });
-      if (exportColumns.whatsapp) columnHeaders.push({ key: "whatsapp", label: "الهاتف" });
-      if (exportColumns.address) columnHeaders.push({ key: "address", label: "العنوان" });
-      if (exportColumns.healthStatus) columnHeaders.push({ key: "healthStatus", label: "الصحة" });
-      if (exportColumns.housingType) columnHeaders.push({ key: "housingType", label: "السكن" });
-      if (exportColumns.employment) columnHeaders.push({ key: "employment", label: "التوظيف" });
-      if (exportColumns.priority) columnHeaders.push({ key: "priority", label: "الأولوية" });
-      if (exportColumns.spouse) columnHeaders.push({ key: "spouse", label: "الزوج/الزوجة" });
-      if (exportColumns.familyMembers) columnHeaders.push({ key: "familyMembers", label: "الأسرة" });
-      if (exportColumns.maritalStatus) columnHeaders.push({ key: "maritalStatus", label: "الحالة" });
-      if (exportColumns.income) columnHeaders.push({ key: "income", label: "الدخل" });
-      if (exportColumns.rentalCost) columnHeaders.push({ key: "rentalCost", label: "الإيجار" });
-      if (exportColumns.notes) columnHeaders.push({ key: "notes", label: "ملاحظات" });
+      // تقسيم المستفيدين إلى صفحات - 25 مستفيد في كل صفحة
+      const BENEFICIARIES_PER_PAGE = 25;
+      const totalBeneficiaries = initiative.beneficiaries.length;
+      const totalPages = Math.ceil(totalBeneficiaries / BENEFICIARIES_PER_PAGE);
 
-      const formattedDate = initiative.date
-        ? new Date(initiative.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
-        : "Not specified";
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sections: any[] = [];
 
-      // Build table rows HTML
-      let tableRows = "";
-      initiative.beneficiaries.forEach((beneficiary, index) => {
-        let rowHtml = "<tr>";
-        columnHeaders.forEach((col) => {
-          let cellValue = "-";
-          if (col.key === "index") {
-            cellValue = String(index + 1);
-          } else if (col.key === "spouse") {
-            cellValue = beneficiary.spouse?.name || "-";
-          } else if (col.key === "income" || col.key === "rentalCost") {
-            const value = beneficiary[col.key as keyof BeneficiarySummary];
-            cellValue = value ? String(value) : "-";
-          } else {
-            const value = beneficiary[col.key as keyof BeneficiarySummary];
-            cellValue = String(value || "-");
-          }
-          const isIndex = col.key === "index" ? 'class="row-index"' : "";
-          rowHtml += `<td ${isIndex}>${cellValue}</td>`;
+      for (let pageNum = 0; pageNum < totalPages; pageNum++) {
+        const startIndex = pageNum * BENEFICIARIES_PER_PAGE;
+        const endIndex = Math.min(startIndex + BENEFICIARIES_PER_PAGE, totalBeneficiaries);
+        const pageBeneficiaries = initiative.beneficiaries.slice(startIndex, endIndex);
+
+        // إنشاء صفوف الجدول
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const tableRows: any[] = [];
+
+        // Header row
+        tableRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ 
+                children: [new Paragraph({ text: "التوقيع باستلام", alignment: AlignmentType.CENTER, bidirectional: true })], 
+                width: { size: 1900, type: WidthType.DXA },
+                shading: { fill: "d0d0d0" },
+                verticalAlign: AlignmentType.CENTER
+              }),
+              new TableCell({ 
+                children: [new Paragraph({ text: "النسبة", alignment: AlignmentType.CENTER, bidirectional: true })], 
+                width: { size: 1425, type: WidthType.DXA },
+                shading: { fill: "d0d0d0" },
+                verticalAlign: AlignmentType.CENTER
+              }),
+              new TableCell({ 
+                children: [new Paragraph({ text: "المستحقات", alignment: AlignmentType.CENTER, bidirectional: true })], 
+                width: { size: 1425, type: WidthType.DXA },
+                shading: { fill: "d0d0d0" },
+                verticalAlign: AlignmentType.CENTER
+              }),
+              new TableCell({ 
+                children: [new Paragraph({ text: "عدد مرفقات", alignment: AlignmentType.CENTER, bidirectional: true })], 
+                width: { size: 1425, type: WidthType.DXA },
+                shading: { fill: "d0d0d0" },
+                verticalAlign: AlignmentType.CENTER
+              }),
+              new TableCell({ 
+                children: [new Paragraph({ text: "اسم المستفيد", alignment: AlignmentType.CENTER, bidirectional: true })], 
+                width: { size: 2660, type: WidthType.DXA },
+                shading: { fill: "d0d0d0" },
+                verticalAlign: AlignmentType.CENTER
+              }),
+              new TableCell({ 
+                children: [new Paragraph({ text: "م", alignment: AlignmentType.CENTER, bidirectional: true })], 
+                width: { size: 665, type: WidthType.DXA },
+                shading: { fill: "d0d0d0" },
+                verticalAlign: AlignmentType.CENTER
+              }),
+            ],
+          })
+        );
+
+        // Data rows
+        pageBeneficiaries.forEach((beneficiary, index) => {
+          const globalIndex = startIndex + index + 1;
+          tableRows.push(
+            new TableRow({
+              children: [
+                new TableCell({ 
+                  children: [new Paragraph({ text: "", alignment: AlignmentType.CENTER, bidirectional: true })],
+                  verticalAlign: AlignmentType.CENTER
+                }),
+                new TableCell({ 
+                  children: [new Paragraph({ text: "", alignment: AlignmentType.CENTER, bidirectional: true })],
+                  verticalAlign: AlignmentType.CENTER
+                }),
+                new TableCell({ 
+                  children: [new Paragraph({ text: "", alignment: AlignmentType.CENTER, bidirectional: true })],
+                  verticalAlign: AlignmentType.CENTER
+                }),
+                new TableCell({ 
+                  children: [new Paragraph({ text: "", alignment: AlignmentType.CENTER, bidirectional: true })],
+                  verticalAlign: AlignmentType.CENTER
+                }),
+                new TableCell({ 
+                  children: [new Paragraph({ text: beneficiary.name || "-", alignment: AlignmentType.CENTER, bidirectional: true })],
+                  verticalAlign: AlignmentType.CENTER
+                }),
+                new TableCell({ 
+                  children: [new Paragraph({ text: String(globalIndex), alignment: AlignmentType.CENTER, bidirectional: true })],
+                  verticalAlign: AlignmentType.CENTER
+                }),
+              ],
+            })
+          );
         });
-        rowHtml += "</tr>";
-        tableRows += rowHtml;
+
+        // إنشاء الجدول
+        const table = new Table({
+          rows: tableRows,
+          width: { size: 9500, type: WidthType.DXA },
+          alignment: AlignmentType.CENTER,
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 2, color: "000000" },
+            bottom: { style: BorderStyle.SINGLE, size: 2, color: "000000" },
+            left: { style: BorderStyle.SINGLE, size: 2, color: "000000" },
+            right: { style: BorderStyle.SINGLE, size: 2, color: "000000" },
+            insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "666666" },
+            insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "666666" },
+          },
+        });
+
+        // إنشاء محتوى الصفحة: الهيدر + الجدول + الفوتر
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pageContent: any[] = [];
+
+        // الهيدر
+        pageContent.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "جمعية  دعوة الحق  الإسلامية بدمياط",
+                bold: true,
+                size: 28,
+              }),
+            ],
+            alignment: AlignmentType.RIGHT,
+            spacing: { after: 100 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "المشهرة  برقم  131  لسنة  1984م",
+                bold: true,
+                size: 24,
+              }),
+            ],
+            alignment: AlignmentType.RIGHT,
+            spacing: { after: 100 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "لمنطقة / ...........................                          شهر/ ......... 2025 م",
+                bold: true,
+                size: 22,
+              }),
+            ],
+            alignment: AlignmentType.RIGHT,
+            spacing: { after: 100 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "كشف توزيع التبرعات العينية",
+                bold: true,
+                size: 26,
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 200 },
+          })
+        );
+
+        // الجدول
+        pageContent.push(table);
+
+        // الفوتر
+        pageContent.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "تم التوزيع بمعرفة مسؤول المنطقة                                                                           توقيع:  أمين الصندوق",
+                bold: true,
+                size: 22,
+              }),
+            ],
+            alignment: AlignmentType.RIGHT,
+            spacing: { before: 200, after: 100 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "...............................................الاسم",
+                bold: true,
+                size: 22,
+              }),
+            ],
+            alignment: AlignmentType.RIGHT,
+            spacing: { before: 50 },
+          })
+        );
+
+        // إضافة Section
+        sections.push({
+          children: pageContent,
+          properties: {
+            page: {
+              margin: {
+                top: 1440,
+                right: 1440,
+                bottom: 1440,
+                left: 1440,
+              },
+              pageNumbers: {
+                start: 1,
+              },
+            },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            textDirection: "rightToLeft" as any,
+            bidi: true,
+          },
+        });
+      }
+
+      const doc = new Document({
+        sections,
       });
 
-      // Build table headers HTML
-      let headerHtml = "";
-      columnHeaders.forEach((h) => {
-        headerHtml += `<th>${h.label}</th>`;
-      });
+      const blob = await Packer.toBlob(doc);
+      saveAs(blob, `كشف_المبادرة_${initiative.name || "المبادرة"}.docx`);
 
-      // Create HTML content
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html lang="ar" dir="rtl">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              * { margin: 0; padding: 0; }
-              body {
-                font-family: Arial, sans-serif;
-                direction: rtl;
-                text-align: right;
-                padding: 20px;
-                color: #000000;
-                margin-bottom: 30px;
-              }
-              .header {
-                text-align: center;
-                margin-bottom: 20px;
-              }
-              .header h1 {
-                font-size: 18px;
-                font-weight: bold;
-                margin-bottom: 5px;
-                color: #000000;
-              }
-              .header h2 {
-                font-size: 14px;
-                font-weight: bold;
-                margin-bottom: 10px;
-                color: #000000;
-              }
-              .info {
-                margin-bottom: 20px;
-              }
-              .info h3 {
-                font-size: 12px;
-                font-weight: bold;
-                margin-bottom: 8px;
-                text-decoration: underline;
-                color: #000000;
-              }
-              .info p {
-                font-size: 11px;
-                line-height: 1.6;
-                color: #000000;
-              }
-              table {
-                width: 100%;
-                border-collapse: collapse;
-                margin: 20px 0;
-              }
-              thead {
-                background-color: #d0d0d0;
-              }
-              th {
-                border: 1px solid #333;
-                padding: 8px;
-                font-size: 10px;
-                font-weight: bold;
-                text-align: center;
-                color: #000000;
-              }
-              td {
-                border: 1px solid #666;
-                padding: 6px;
-                font-size: 10px;
-                text-align: right;
-                color: #000000;
-              }
-              .row-index {
-                text-align: center;
-                width: 30px;
-                color: #000000;
-              }
-              .footer {
-                text-align: center;
-                font-size: 9px;
-                color: #000000;
-                margin-top: 30px;
-                padding: 15px;
-                border-top: 1px solid #ccc;
-              }
-              h3 {
-                color: #000000;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>مؤسسة دعوة الحق</h1>
-              <h2>تقرير المستفيدين من المبادرة</h2>
-            </div>
-
-            <div class="info">
-              <h3>معلومات المبادرة:</h3>
-              <p><strong>اسم المبادرة:</strong> ${initiative.name || "بدون اسم"}</p>
-              <p><strong>الحالة:</strong> ${STATUS_LABELS[initiative.status || "planned"]}</p>
-              <p><strong>التاريخ:</strong> ${formattedDate}</p>
-              <p><strong>إجمالي التمويل:</strong> ${initiative.totalAmount?.toLocaleString("ar-EG") || 0} ج.م</p>
-            </div>
-
-            <h3 style="margin-bottom: 10px;">قائمة المستفيدين (${initiative.beneficiaries.length} مستفيد)</h3>
-
-            <table>
-              <thead>
-                <tr>
-                  ${headerHtml}
-                </tr>
-              </thead>
-              <tbody>
-                ${tableRows}
-              </tbody>
-            </table>
-
-            <div class="footer">
-              <p>Report Date: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</p>
-            </div>
-          </body>
-        </html>
-      `;
-
-      // Create PDF from HTML
-      const element = document.createElement("div");
-      element.innerHTML = htmlContent;
-      document.body.appendChild(element);
-
-      const opt = {
-        margin: 10,
-        filename: `تقرير_مستفيدي_${initiative.name || "المبادرة"}.pdf`,
-        image: { type: "jpeg" as const, quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { orientation: "landscape" as const, unit: "mm" as const, format: "a4" }
-      };
-
-      await html2pdf().set(opt).from(element).save();
-      document.body.removeChild(element);
-      setShowExportModal(false);
     } catch (err) {
-      console.error("PDF export error:", err);
-      alert("فشل تصدير ملف PDF");
+      console.error("Word export error:", err);
+      alert("فشل تصدير ملف Word");
     } finally {
       setExporting(false);
     }
@@ -416,12 +429,12 @@ export default function ViewInitiativePage() {
               ✏️ تعديل المبادرة
             </Link>
             <button
-              onClick={() => setShowExportModal(true)}
+              onClick={exportToWord}
               disabled={exporting}
               className="inline-flex items-center justify-center px-5 py-2 rounded-lg border border-primary text-primary hover:bg-primary/10 disabled:opacity-50"
             >
               <Download className="w-4 h-4 mr-2" />
-              {exporting ? "جاري التصدير..." : "تصدير المستفيدين"}
+              {exporting ? "جاري التصدير..." : "تصدير الكشف"}
             </button>
             <Link
               href="/admin/initiatives/add"
@@ -533,77 +546,6 @@ export default function ViewInitiativePage() {
             >
               <X className="w-8 h-8" />
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Export Modal */}
-      {showExportModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-          onClick={() => setShowExportModal(false)}
-        >
-          <div className="relative bg-card rounded-lg p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-foreground">اختر البيانات المطلوب تصديرها</h3>
-              <button
-                onClick={() => setShowExportModal(false)}
-                className="text-muted-foreground hover:text-foreground"
-                title="إغلاق"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3 mb-6 max-h-96 overflow-y-auto">
-              {Object.entries({
-                name: "الاسم",
-                phone: "الرقم القومى",
-                whatsapp: "واتس آب",
-                address: "العنوان",
-                healthStatus: "الحالة الصحية",
-                housingType: "نوع السكن",
-                employment: "التوظيف",
-                priority: "الأولوية",
-                spouse: "الزوج/الزوجة",
-                familyMembers: "عدد أفراد الأسرة",
-                maritalStatus: "الحالة الاجتماعية",
-                income: "الدخل الشهري",
-                rentalCost: "تكلفة الإيجار",
-                notes: "ملاحظات",
-              }).map(([key, label]) => (
-                <label key={key} className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={exportColumns[key as keyof typeof exportColumns]}
-                    onChange={(e) =>
-                      setExportColumns({
-                        ...exportColumns,
-                        [key]: e.target.checked,
-                      })
-                    }
-                    className="w-4 h-4"
-                  />
-                  <span className="text-foreground">{label}</span>
-                </label>
-              ))}
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={exportToPDF}
-                disabled={exporting || !Object.values(exportColumns).some(Boolean)}
-                className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
-              >
-                {exporting ? "جاري التصدير..." : "تصدير"}
-              </button>
-              <button
-                onClick={() => setShowExportModal(false)}
-                className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-muted"
-              >
-                إلغاء
-              </button>
-            </div>
           </div>
         </div>
       )}
