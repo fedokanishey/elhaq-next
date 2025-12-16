@@ -36,6 +36,11 @@ interface Beneficiary {
   };
   children?: Array<{ name?: string; nationalId?: string; school?: string; educationStage?: string }>;
   notes?: string;
+  status?: "active" | "cancelled" | "pending";
+  listName?: string;
+  receivesMonthlyAllowance?: boolean;
+  statusDate?: string;
+  createdAt?: string;
 }
 
 export default function BeneficiariesPage() {
@@ -162,12 +167,36 @@ export default function BeneficiariesPage() {
       result = result.filter((b: Beneficiary) => b.acceptsMarriage === true);
     }
 
-    // Sort by nationalId
-    result = [...result].sort((a: Beneficiary, b: Beneficiary) => {
-      const aId = parseInt(a.nationalId || "0", 10);
-      const bId = parseInt(b.nationalId || "0", 10);
-      return sortByNationalId ? aId - bId : bId - aId;
-    });
+    if (filters.receivesMonthlyAllowance) {
+      result = result.filter((b: Beneficiary) => b.receivesMonthlyAllowance === true);
+    }
+
+    if (filters.status) {
+      result = result.filter((b: Beneficiary) => (b.status || "active") === filters.status);
+    }
+
+    if (filters.listName) {
+      const normalizedListName = filters.listName.toLowerCase().trim();
+      result = result.filter((b: Beneficiary) =>
+        (b.listName || "الكشف العام").toLowerCase().includes(normalizedListName)
+      );
+    }
+
+    // Sort by date (oldest first) if filtering by pending status, otherwise sort by nationalId
+    if (filters.status === "pending") {
+      result = [...result].sort((a: Beneficiary, b: Beneficiary) => {
+        const dateA = new Date(a.statusDate || a.createdAt || 0).getTime();
+        const dateB = new Date(b.statusDate || b.createdAt || 0).getTime();
+        return dateA - dateB; // Oldest first
+      });
+    } else {
+      // Sort by nationalId
+      result = [...result].sort((a: Beneficiary, b: Beneficiary) => {
+        const aId = parseInt(a.nationalId || "0", 10);
+        const bId = parseInt(b.nationalId || "0", 10);
+        return sortByNationalId ? aId - bId : bId - aId;
+      });
+    }
 
     return result;
   }, [data?.beneficiaries, debouncedSearch, filters, sortByNationalId]);

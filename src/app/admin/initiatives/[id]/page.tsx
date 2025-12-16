@@ -19,6 +19,7 @@ import {
 interface BeneficiarySummary {
   _id: string;
   name: string;
+  nationalId?: string;
   phone?: string;
   whatsapp?: string;
   address?: string;
@@ -481,18 +482,20 @@ export default function ViewInitiativePage() {
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {beneficiaries.map((beneficiary) => (
                 <div key={beneficiary._id} className="border border-border rounded-lg p-4 flex flex-col items-center text-center gap-3 hover:bg-muted/50 transition-colors">
-                  <div className="w-16 h-16 rounded-full overflow-hidden border border-border bg-muted flex items-center justify-center text-xl font-semibold text-primary">
+                  <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-border bg-muted flex items-center justify-center text-2xl font-semibold text-primary">
                     {beneficiary.profileImage ? (
                       <img src={beneficiary.profileImage} alt={beneficiary.name} className="w-full h-full object-cover" />
                     ) : (
                       beneficiary.name?.charAt(0) || "م"
                     )}
                   </div>
-                  <div className="flex-1 w-full">
-                    <p className="text-foreground font-semibold">{beneficiary.name}</p>
-                    <p className="text-muted-foreground text-xs">{beneficiary.phone || "بدون رقم"}</p>
-                    {beneficiary.whatsapp && (
-                      <p className="text-muted-foreground text-xs">{beneficiary.whatsapp}</p>
+                  <div className="flex-1 w-full space-y-1">
+                    <p className="text-foreground font-bold text-base">{beneficiary.name}</p>
+                    {beneficiary._id && (
+                      <p className="text-muted-foreground text-xs">رقم المستفيد الداخلى : {beneficiary.nationalId}</p>
+                    )}
+                    {beneficiary.spouse?.name && (
+                      <p className="text-muted-foreground text-xs">الزوج/الزوجة: {beneficiary.spouse.name}</p>
                     )}
                   </div>
                   <Link

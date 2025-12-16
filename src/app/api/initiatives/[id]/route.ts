@@ -48,7 +48,7 @@ export async function GET(
 
       if (beneficiaryIds.length > 0) {
         const raw = await Beneficiary.find({ _id: { $in: beneficiaryIds } })
-          .select("name phone whatsapp nationalId address healthStatus housingType employment priority children spouse familyMembers maritalStatus income rentalCost")
+          .select("name phone whatsapp nationalId address healthStatus housingType employment priority children spouse familyMembers maritalStatus income rentalCost profileImage")
           .lean();
 
         // Ensure _id is a string for the API response

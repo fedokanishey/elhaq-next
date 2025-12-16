@@ -7,9 +7,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
-import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Loader2, PiggyBank, Receipt, Trash2, Edit2 } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Loader2, PiggyBank, Receipt, Trash2, Edit2, Printer } from "lucide-react";
 import SearchFilterBar from "@/components/SearchFilterBar";
 import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
+import MonthlyAllowancePrintModal from "@/components/MonthlyAllowancePrintModal";
 
 interface TreasuryTotals {
   incomeTotal: number;
@@ -53,6 +54,8 @@ interface BeneficiarySummary {
   acceptsMarriage?: boolean;
   marriageDetails?: string;
   nationalId?: string;
+  receivesMonthlyAllowance?: boolean;
+  monthlyAllowanceAmount?: number;
 }
 
 type TreasuryFormState = {
@@ -94,6 +97,7 @@ export default function TreasuryPage() {
   const [dateTo, setDateTo] = useState("");
   const [formData, setFormData] = useState<TreasuryFormState>(createDefaultFormState);
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+  const [showMonthlyAllowancePrint, setShowMonthlyAllowancePrint] = useState(false);
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
   const isAdmin = role === "admin";
@@ -132,6 +136,8 @@ export default function TreasuryPage() {
     acceptsMarriage: b.acceptsMarriage,
     marriageDetails: b.marriageDetails,
     nationalId: b.nationalId,
+    receivesMonthlyAllowance: b.receivesMonthlyAllowance,
+    monthlyAllowanceAmount: b.monthlyAllowanceAmount,
   })), [beneficiariesData]);
   const loading = treasuryLoading;
 
@@ -200,6 +206,11 @@ export default function TreasuryPage() {
     // Apply filter criteria - accepts marriage
     if (beneficiaryFilters.acceptsMarriage) {
       result = result.filter((b: BeneficiarySummary) => b.acceptsMarriage === true);
+    }
+
+    // Apply filter criteria - receives monthly allowance
+    if (beneficiaryFilters.receivesMonthlyAllowance) {
+      result = result.filter((b: BeneficiarySummary) => b.receivesMonthlyAllowance === true);
     }
 
     return result;
@@ -453,13 +464,28 @@ export default function TreasuryPage() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">الخزينة</h1>
             <p className="text-muted-foreground">تتبع الوارد والصادر وراقب الرصيد المتبقي بسهولة.</p>
-            <div className="mt-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               <Link
                 href="/admin/donors"
-                className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 🧾 قائمة المتبرعين ({donors.length})
               </Link>
+              <button
+                onClick={() => {
+                  console.log("Button clicked - Opening monthly allowance print modal");
+                  console.log("Total beneficiaries:", beneficiaries.length);
+                  const monthlyBeneficiaries = beneficiaries.filter((b: BeneficiarySummary) => b.receivesMonthlyAllowance);
+                  console.log("Beneficiaries with monthly allowance:", monthlyBeneficiaries.length);
+                  console.log("Monthly beneficiaries data:", monthlyBeneficiaries);
+                  setShowMonthlyAllowancePrint(true);
+                }}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                type="button"
+              >
+                <Printer className="w-4 h-4" />
+                طباعة كشف الشهريات
+              </button>
             </div>
           </div>
         </div>
@@ -686,6 +712,11 @@ export default function TreasuryPage() {
                                 </span>
                               )}
                               {b.phone && <span className="text-sm text-muted-foreground">📞 {b.phone}</span>}
+                              {b.receivesMonthlyAllowance && (
+                                <span className="text-xs px-2 py-1 bg-green-500/20 text-green-600 dark:text-green-400 rounded-full">
+                                  💰 شهرية: {b.monthlyAllowanceAmount || 0} ج.م
+                                </span>
+                              )}
                               {b.acceptsMarriage && (
                                 <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-full">
                                   💍 مقبل على الزواج
@@ -942,6 +973,28 @@ export default function TreasuryPage() {
             )}
           </div>
         </div>
+
+        {/* Monthly Allowance Print Modal */}
+        {showMonthlyAllowancePrint && (() => {
+          const monthlyBeneficiaries = beneficiaries
+            .filter((b: BeneficiarySummary) => b.receivesMonthlyAllowance)
+            .map((b: BeneficiarySummary) => ({
+              _id: b._id,
+              name: b.name,
+              nationalId: b.nationalId,
+              monthlyAllowanceAmount: b.monthlyAllowanceAmount,
+            }));
+          
+          console.log("Rendering MonthlyAllowancePrintModal with beneficiaries:", monthlyBeneficiaries);
+          
+          return (
+            <MonthlyAllowancePrintModal
+              isOpen={showMonthlyAllowancePrint}
+              onClose={() => setShowMonthlyAllowancePrint(false)}
+              beneficiaries={monthlyBeneficiaries}
+            />
+          );
+        })()}
       </div>
     </div>
   );
