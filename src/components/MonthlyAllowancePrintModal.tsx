@@ -79,6 +79,7 @@ export default function MonthlyAllowancePrintModal({
                   width: 700,
                   height: 150,
                 },
+                type: "png",
               }),
             ],
             alignment: AlignmentType.CENTER,
@@ -87,7 +88,7 @@ export default function MonthlyAllowancePrintModal({
         );
 
         // إنشاء جدول موحد بأربعة أعمدة مكررة
-        const tableRows: TableRow[] = [];
+        const tableRows: any[] = [];
 
         // Header row
         tableRows.push(
@@ -172,9 +173,6 @@ export default function MonthlyAllowancePrintModal({
 
       const doc = new Document({
         sections,
-        settings: {
-          rtl: true,
-        },
       });
 
       const blob = await Packer.toBlob(doc);
