@@ -32,7 +32,8 @@ interface Beneficiary {
   status?: "active" | "cancelled" | "pending";
   statusDate?: string;
   createdAt?: string;
-  listName?: string;
+  listName?: string; // Deprecated: kept for backward compatibility
+  listNames?: string[]; // New: supports multiple lists
   receivesMonthlyAllowance?: boolean;
   monthlyAllowanceAmount?: number;
   spouse?: {
@@ -177,9 +178,11 @@ export default function AdminBeneficiaries() {
 
     if (filters.listName) {
       const normalizedListName = filters.listName.toLowerCase().trim();
-      result = result.filter((b) =>
-        (b.listName || "الكشف العام").toLowerCase().includes(normalizedListName)
-      );
+      result = result.filter((b) => {
+        // Support both old listName and new listNames
+        const lists = b.listNames?.length ? b.listNames : (b.listName ? [b.listName] : ["الكشف العام"]);
+        return lists.some((name: string) => name.toLowerCase().includes(normalizedListName));
+      });
     }
 
     // Sort by date (oldest first) if filtering by pending status, otherwise sort by nationalId
@@ -328,6 +331,8 @@ export default function AdminBeneficiaries() {
                   idImage={beneficiary.idImage}
                   maritalStatus={beneficiary.maritalStatus}
                   spouseName={beneficiary.spouse?.name}
+                  receivesMonthlyAllowance={beneficiary.receivesMonthlyAllowance}
+                  monthlyAllowanceAmount={beneficiary.monthlyAllowanceAmount}
                   onView={() => router.push(`/admin/beneficiaries/${beneficiary._id}`)}
                   onEdit={() =>
                     router.push(`/admin/beneficiaries/${beneficiary._id}/edit`)

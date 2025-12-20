@@ -129,7 +129,8 @@ export interface IBeneficiary extends Document {
   status?: 'active' | 'cancelled' | 'pending';
   statusReason?: string;
   statusDate?: Date;
-  listName?: string;
+  listName?: string; // Deprecated: kept for backward compatibility
+  listNames?: string[]; // New: supports multiple lists
   receivesMonthlyAllowance?: boolean;
   monthlyAllowanceAmount?: number;
   children: IChild[];
@@ -182,7 +183,8 @@ const BeneficiarySchema = new Schema<IBeneficiary>(
     },
     statusReason: String,
     statusDate: Date,
-    listName: { type: String, default: 'الكشف العام' },
+    listName: { type: String }, // Deprecated: kept for backward compatibility
+    listNames: { type: [String], default: ['الكشف العام'] }, // New: supports multiple lists
     receivesMonthlyAllowance: { type: Boolean, default: false },
     monthlyAllowanceAmount: Number,
     children: [ChildSchema],

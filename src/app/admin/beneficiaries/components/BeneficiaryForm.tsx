@@ -71,7 +71,7 @@ export interface BeneficiaryFormValues {
   status: "active" | "cancelled" | "pending";
   statusReason: string;
   statusDate: string;
-  listName: string;
+  listNames: string[]; // Changed from listName to listNames for multiple lists
   receivesMonthlyAllowance: boolean;
   monthlyAllowanceAmount: string;
   spouse: SpouseDetails;
@@ -175,7 +175,7 @@ const createInitialFormValues = (): BeneficiaryFormValues => ({
   status: "active",
   statusReason: "",
   statusDate: new Date().toISOString().split('T')[0],
-  listName: "الكشف العام",
+  listNames: ["الكشف العام"],
   receivesMonthlyAllowance: false,
   monthlyAllowanceAmount: "",
   spouse: createEmptySpouse(),
@@ -183,20 +183,30 @@ const createInitialFormValues = (): BeneficiaryFormValues => ({
   relationships: [],
 });
 
-const cloneFormValues = (values: BeneficiaryFormValues): BeneficiaryFormValues => ({
-  ...values,
-  status: values.status || "active",
-  statusDate: values.statusDate || new Date().toISOString().split('T')[0],
-  listName: values.listName || "الكشف العام",
-  receivesMonthlyAllowance: values.receivesMonthlyAllowance || false,
-  monthlyAllowanceAmount: values.monthlyAllowanceAmount || "",
-  spouse: { ...values.spouse },
-  children: values.children.map((child) => ({
-    ...child,
-    spouse: { ...child.spouse },
-  })),
-  relationships: values.relationships.map((relationship) => ({ ...relationship })),
-});
+const cloneFormValues = (values: BeneficiaryFormValues): BeneficiaryFormValues => {
+  // Normalize listNames: replace "شهرية عادية" with "كشف الشهرية" and remove duplicates
+  const normalizedListNames = values.listNames?.length 
+    ? [...new Set(
+        values.listNames
+          .map(n => n === "شهرية عادية" ? "كشف الشهرية" : n)
+      )]
+    : ["الكشف العام"];
+
+  return {
+    ...values,
+    status: values.status || "active",
+    statusDate: values.statusDate || new Date().toISOString().split('T')[0],
+    listNames: normalizedListNames,
+    receivesMonthlyAllowance: values.receivesMonthlyAllowance || false,
+    monthlyAllowanceAmount: values.monthlyAllowanceAmount || "",
+    spouse: { ...values.spouse },
+    children: values.children.map((child) => ({
+      ...child,
+      spouse: { ...child.spouse },
+    })),
+    relationships: values.relationships.map((relationship) => ({ ...relationship })),
+  };
+};
 
 const isSpouseEmpty = (spouse?: SpouseDetails) => {
   if (!spouse) return true;
@@ -304,9 +314,7 @@ export default function BeneficiaryForm({
     }));
   };
 
-  const handleListNameChange = async (value: string) => {
-    setFormData((prev) => ({ ...prev, listName: value }));
-    
+  const handleListNameSearch = async (value: string) => {
     if (value.trim().length >= 2) {
       try {
         const res = await fetch(`/api/beneficiaries/list-names?q=${encodeURIComponent(value.trim())}`);
@@ -324,8 +332,28 @@ export default function BeneficiaryForm({
     }
   };
 
-  const handleSelectListName = (name: string) => {
-    setFormData((prev) => ({ ...prev, listName: name }));
+  const handleToggleListName = (name: string) => {
+    setFormData((prev) => {
+      const currentNames = prev.listNames || [];
+      if (currentNames.includes(name)) {
+        // Remove the name if already selected
+        const newNames = currentNames.filter((n) => n !== name);
+        return { ...prev, listNames: newNames.length > 0 ? newNames : ["الكشف العام"] };
+      } else {
+        // Add the name if not selected
+        return { ...prev, listNames: [...currentNames, name] };
+      }
+    });
+  };
+
+  const handleAddNewListName = (name: string) => {
+    const trimmedName = name.trim();
+    if (trimmedName && !formData.listNames.includes(trimmedName)) {
+      setFormData((prev) => ({
+        ...prev,
+        listNames: [...prev.listNames, trimmedName],
+      }));
+    }
     setShowListNameSuggestions(false);
   };
 
@@ -678,12 +706,19 @@ export default function BeneficiaryForm({
       status: formData.status,
       statusReason: formData.statusReason?.trim() || undefined,
       statusDate: formData.statusDate ? new Date(formData.statusDate) : undefined,
-      listName: formData.listName?.trim() || "الكشف العام",
+      listNames: formData.listNames
+        .filter(n => n.trim())
+        .map(n => n === "شهرية عادية" ? "كشف الشهرية" : n) // Normalize old name to new name
+        .length > 0 
+          ? formData.listNames.filter(n => n.trim()).map(n => n === "شهرية عادية" ? "كشف الشهرية" : n) 
+          : ["الكشف العام"],
       receivesMonthlyAllowance: formData.receivesMonthlyAllowance,
       monthlyAllowanceAmount: formData.receivesMonthlyAllowance && formData.monthlyAllowanceAmount ? Number(formData.monthlyAllowanceAmount) : undefined,
     };
 
     console.log("🔍 Payload being sent:", {
+      listNames: payload.listNames,
+      formDataListNames: formData.listNames,
       acceptsMarriage: payload.acceptsMarriage,
       marriageDetails: payload.marriageDetails,
       marriageCertificateImage: payload.marriageCertificateImage,
@@ -1039,36 +1074,90 @@ export default function BeneficiaryForm({
               </div>
 
               <div className="sm:col-span-2">
-                <label htmlFor="beneficiary-list-name" className="block text-sm font-medium text-foreground mb-2">
-                  اسم الكشف
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  الكشوفات (يمكن اختيار أكثر من كشف)
                 </label>
+                
+                {/* Currently selected lists */}
+                {formData.listNames.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {formData.listNames.map((name, idx) => {
+                      // Normalize display: replace "شهرية عادية" with "كشف الشهرية"
+                      const displayName = name === "شهرية عادية" ? "كشف الشهرية" : name;
+                      return (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-3 py-1 text-sm"
+                        >
+                          {displayName}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleListName(name)}
+                            className="text-primary/70 hover:text-primary ml-1"
+                            title="إزالة"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {/* Search input for adding new lists */}
                 <div className="relative">
                   <input
-                    id="beneficiary-list-name"
+                    id="beneficiary-list-search"
                     type="text"
-                    value={formData.listName}
-                    onChange={(e) => handleListNameChange(e.target.value)}
-                    onFocus={() => formData.listName.length >= 2 && setShowListNameSuggestions(true)}
+                    onChange={(e) => handleListNameSearch(e.target.value)}
+                    onFocus={() => handleListNameSearch("")}
                     onBlur={() => setTimeout(() => setShowListNameSuggestions(false), 200)}
-                    placeholder="الكشف العام"
+                    placeholder="ابحث عن كشف أو أضف كشف جديد..."
                     className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary"
                   />
                   {showListNameSuggestions && listNameSuggestions.length > 0 && (
                     <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
-                      {listNameSuggestions.map((name, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => handleSelectListName(name)}
-                          className="w-full px-4 py-2 text-right hover:bg-muted transition text-foreground"
-                        >
-                          {name}
-                        </button>
-                      ))}
+                      {listNameSuggestions.map((name, idx) => {
+                        const isSelected = formData.listNames.includes(name);
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => handleToggleListName(name)}
+                            className={`w-full px-4 py-2 text-right hover:bg-muted transition flex items-center justify-between ${
+                              isSelected ? "bg-primary/10 text-primary" : "text-foreground"
+                            }`}
+                          >
+                            <span>{name}</span>
+                            {isSelected && <span className="text-primary">✓</span>}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">ابحث عن كشف موجود أو أضف اسم كشف جديد</p>
+                
+                {/* Quick add predefined lists */}
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {["كشف الشهرية", "كشف المستشفى", "كشف الشيخ ابراهيم", "الكشف العام"].map((name) => {
+                    const isSelected = formData.listNames.includes(name);
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => handleToggleListName(name)}
+                        className={`px-3 py-1 rounded-full text-sm border transition ${
+                          isSelected
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background text-foreground border-border hover:border-primary"
+                        }`}
+                      >
+                        {isSelected ? "✓ " : ""}{name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">اختر كشف أو أكثر من الخيارات أعلاه أو ابحث عن كشف موجود</p>
               </div>
 
               <div className="sm:col-span-2">
@@ -1077,12 +1166,31 @@ export default function BeneficiaryForm({
                     id="receives-monthly-allowance"
                     type="checkbox"
                     checked={formData.receivesMonthlyAllowance}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        receivesMonthlyAllowance: e.target.checked,
-                      }))
-                    }
+                    onChange={(e) => {
+                      const isChecked = e.target.checked;
+                      setFormData((prev) => {
+                        const currentNames = prev.listNames || [];
+                        let newListNames = currentNames;
+                        
+                        if (isChecked && !currentNames.includes("كشف الشهرية")) {
+                          // Add "كشف الشهرية" when checkbox is checked
+                          newListNames = [...currentNames, "كشف الشهرية"];
+                        } else if (!isChecked && currentNames.includes("كشف الشهرية")) {
+                          // Remove "كشف الشهرية" when checkbox is unchecked
+                          newListNames = currentNames.filter((n) => n !== "كشف الشهرية");
+                          // If no lists left, add default
+                          if (newListNames.length === 0) {
+                            newListNames = ["الكشف العام"];
+                          }
+                        }
+                        
+                        return {
+                          ...prev,
+                          receivesMonthlyAllowance: isChecked,
+                          listNames: newListNames,
+                        };
+                      });
+                    }}
                     className="w-4 h-4 rounded border-input bg-background cursor-pointer accent-primary"
                   />
                   <label htmlFor="receives-monthly-allowance" className="text-sm font-medium text-foreground cursor-pointer">

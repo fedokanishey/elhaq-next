@@ -24,6 +24,8 @@ interface BeneficiaryCardProps {
   nationalId?: string;
   maritalStatus?: string;
   spouseName?: string;
+  receivesMonthlyAllowance?: boolean;
+  monthlyAllowanceAmount?: number;
   onEdit?: () => void;
   onDelete?: () => void;
   onView?: () => void;
@@ -42,6 +44,8 @@ export default function BeneficiaryCard({
   nationalId,
   maritalStatus,
   spouseName,
+  receivesMonthlyAllowance,
+  monthlyAllowanceAmount,
   onEdit,
   onDelete,
   onView,
@@ -179,6 +183,14 @@ export default function BeneficiaryCard({
             <AlertCircle className="w-4 h-4" />
             <span>الأولوية: {priority}</span>
           </div>
+
+          {receivesMonthlyAllowance && monthlyAllowanceAmount && (
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full text-sm font-medium">
+                💰 شهرية: {monthlyAllowanceAmount.toLocaleString("ar-EG")} ج.م
+              </span>
+            </div>
+          )}
         </div>
 
         {!isReadOnly && (

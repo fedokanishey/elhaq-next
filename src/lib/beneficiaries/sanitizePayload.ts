@@ -65,7 +65,7 @@ export interface SanitizedBeneficiaryPayload {
   status?: "active" | "cancelled" | "pending";
   statusReason?: string;
   statusDate?: Date;
-  listName?: string;
+  listNames?: string[];
   receivesMonthlyAllowance?: boolean;
   monthlyAllowanceAmount?: number;
   spouse?: SpousePayload;
@@ -315,7 +315,20 @@ export const sanitizeBeneficiaryPayload = (
     : typeof body?.statusDate === "string" && body.statusDate
     ? new Date(body.statusDate)
     : undefined;
-  const listName = normalizeString(body?.listName) || "الكشف العام";
+  
+  // Handle listNames - normalize "شهرية عادية" to "كشف الشهرية" and remove duplicates
+  let listNames: string[] = ["الكشف العام"];
+  if (Array.isArray(body?.listNames) && body.listNames.length > 0) {
+    listNames = [...new Set(
+      (body.listNames as string[])
+        .filter((n: string) => typeof n === "string" && n.trim())
+        .map((n: string) => n === "شهرية عادية" ? "كشف الشهرية" : n)
+    )];
+    if (listNames.length === 0) listNames = ["الكشف العام"];
+  } else if (typeof body?.listName === "string" && body.listName.trim()) {
+    // Backward compatibility with old listName field
+    listNames = [body.listName === "شهرية عادية" ? "كشف الشهرية" : body.listName];
+  }
   
   // Monthly allowance fields
   const receivesMonthlyAllowance = Boolean(body?.receivesMonthlyAllowance);
@@ -345,7 +358,7 @@ export const sanitizeBeneficiaryPayload = (
     status,
     statusReason,
     statusDate,
-    listName,
+    listNames,
     receivesMonthlyAllowance,
     monthlyAllowanceAmount,
     spouse,

@@ -57,7 +57,7 @@ const createBlankFormValues = (): BeneficiaryFormValues => ({
   status: "active",
   statusReason: "",
   statusDate: new Date().toISOString().split('T')[0],
-  listName: "الكشف العام",
+  listNames: ["الكشف العام"],
   receivesMonthlyAllowance: false,
   monthlyAllowanceAmount: "",
   spouse: createEmptySpouse(),
@@ -163,7 +163,7 @@ export default function EditBeneficiaryPage() {
       status: record?.status || "active",
       statusReason: record?.statusReason || "",
       statusDate: record?.statusDate ? new Date(record.statusDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-      listName: record?.listName || "الكشف العام",
+      listNames: record?.listNames?.length ? record.listNames : (record?.listName ? [record.listName] : ["الكشف العام"]),
       receivesMonthlyAllowance: record?.receivesMonthlyAllowance || false,
       monthlyAllowanceAmount: record?.monthlyAllowanceAmount?.toString?.() || "",
       spouse: record?.spouse

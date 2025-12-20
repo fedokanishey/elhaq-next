@@ -1,20 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { X, Loader2, Printer } from "lucide-react";
 
-interface MonthlyAllowanceBeneficiary {
+type ReportType = "monthly" | "hospital" | "sheikh_ibrahim";
+
+interface AllowanceBeneficiary {
   _id: string;
   name: string;
   nationalId?: string;
   monthlyAllowanceAmount?: number;
+  listName?: string;
+  listNames?: string[];
+  receivesMonthlyAllowance?: boolean;
 }
 
 interface MonthlyAllowancePrintModalProps {
   isOpen: boolean;
   onClose: () => void;
-  beneficiaries: MonthlyAllowanceBeneficiary[];
+  beneficiaries: AllowanceBeneficiary[];
 }
+
+const REPORT_TYPES: { value: ReportType; label: string; listMatch: string }[] = [
+  { value: "monthly", label: "كشف الشهرية", listMatch: "كشف الشهرية" },
+  { value: "hospital", label: "كشف المستشفى", listMatch: "كشف المستشفى" },
+  { value: "sheikh_ibrahim", label: "كشف الشيخ ابراهيم", listMatch: "كشف الشيخ ابراهيم" },
+];
 
 export default function MonthlyAllowancePrintModal({
   isOpen,
@@ -22,22 +33,43 @@ export default function MonthlyAllowancePrintModal({
   beneficiaries,
 }: MonthlyAllowancePrintModalProps) {
   const [printing, setPrinting] = useState(false);
+  const [selectedReportType, setSelectedReportType] = useState<ReportType>("monthly");
+  const [customAmounts, setCustomAmounts] = useState<Record<string, number>>({});
+
+  const selectedReport = REPORT_TYPES.find((r) => r.value === selectedReportType) || REPORT_TYPES[0];
+
+  // Filter beneficiaries based on selected report type
+  const filteredBeneficiaries = useMemo(() => {
+    if (selectedReportType === "monthly") {
+      // For monthly, filter by receivesMonthlyAllowance OR by listNames containing monthly-related lists
+      return beneficiaries.filter((b) => {
+        if (b.receivesMonthlyAllowance) return true;
+        const lists = b.listNames?.length ? b.listNames : (b.listName ? [b.listName] : []);
+        // Match both "كشف الشهرية" and "شهرية عادية" for backward compatibility
+        return lists.some((name: string) => name.includes("شهرية"));
+      });
+    } else {
+      // For other reports, filter by listNames matching the report type
+      return beneficiaries.filter((b) => {
+        const lists = b.listNames?.length ? b.listNames : (b.listName ? [b.listName] : []);
+        return lists.some((name: string) => name.includes(selectedReport.listMatch));
+      });
+    }
+  }, [beneficiaries, selectedReportType, selectedReport.listMatch]);
 
   if (!isOpen) return null;
 
-  // حساب إجمالي الشهريات
-  const totalAllowance = beneficiaries.reduce(
-    (sum, b) => sum + (b.monthlyAllowanceAmount || 0),
-    0
-  );
+  // Calculate total for all reports
+  const totalAllowance = selectedReportType === "monthly"
+    ? filteredBeneficiaries.reduce((sum, b) => sum + (b.monthlyAllowanceAmount || 0), 0)
+    : filteredBeneficiaries.reduce((sum, b) => sum + (customAmounts[b._id] || 0), 0);
 
-  // تقسيم المستفيدين إلى صفحات (32 اسم في كل صفحة - 16 في كل نصف)
   const BENEFICIARIES_PER_COLUMN = 16;
-  const BENEFICIARIES_PER_PAGE = 32; // 16 في كل نصف
-  const pages: MonthlyAllowanceBeneficiary[][] = [];
+  const BENEFICIARIES_PER_PAGE = 32;
+  const pages: AllowanceBeneficiary[][] = [];
   
-  for (let i = 0; i < beneficiaries.length; i += BENEFICIARIES_PER_PAGE) {
-    pages.push(beneficiaries.slice(i, i + BENEFICIARIES_PER_PAGE));
+  for (let i = 0; i < filteredBeneficiaries.length; i += BENEFICIARIES_PER_PAGE) {
+    pages.push(filteredBeneficiaries.slice(i, i + BENEFICIARIES_PER_PAGE));
   }
 
   const handlePrint = async () => {
@@ -115,17 +147,27 @@ export default function MonthlyAllowancePrintModal({
           const leftRowNum = pageIndex * BENEFICIARIES_PER_PAGE + i + 1;
           const rightRowNum = pageIndex * BENEFICIARIES_PER_PAGE + BENEFICIARIES_PER_COLUMN + i + 1;
 
+          // For non-monthly reports, use custom amounts if entered
+          const getAmountText = (ben?: AllowanceBeneficiary) => {
+            if (!ben) return "";
+            if (selectedReportType === "monthly") {
+              return ben.monthlyAllowanceAmount?.toString() || "";
+            }
+            // Use custom amount for non-monthly reports
+            return customAmounts[ben._id]?.toString() || "";
+          };
+
         tableRows.push(
             new TableRow({
             children: [
                 // Right side (first because RTL)
                 new TableCell({ children: [new Paragraph({ text: "", bidirectional: true })] }),
-                new TableCell({ children: [new Paragraph({ text: rightBen?.monthlyAllowanceAmount?.toString() || "", alignment: AlignmentType.CENTER, bidirectional: true })] }),
+                new TableCell({ children: [new Paragraph({ text: getAmountText(rightBen), alignment: AlignmentType.CENTER, bidirectional: true })] }),
                 new TableCell({ children: [new Paragraph({ text: rightBen?.name || "", alignment: AlignmentType.CENTER, bidirectional: true })] }),
                 new TableCell({ children: [new Paragraph({ text: rightRowNum.toString(), alignment: AlignmentType.CENTER, bidirectional: true })] }),
                 // Left side (second because RTL)
                 new TableCell({ children: [new Paragraph({ text: "", bidirectional: true })] }),
-                new TableCell({ children: [new Paragraph({ text: leftBen?.monthlyAllowanceAmount?.toString() || "", alignment: AlignmentType.CENTER, bidirectional: true })] }),
+                new TableCell({ children: [new Paragraph({ text: getAmountText(leftBen), alignment: AlignmentType.CENTER, bidirectional: true })] }),
                 new TableCell({ children: [new Paragraph({ text: leftBen?.name || "", alignment: AlignmentType.CENTER, bidirectional: true })] }),
                 new TableCell({ children: [new Paragraph({ text: leftRowNum.toString(), alignment: AlignmentType.CENTER, bidirectional: true })] }),
               ],
@@ -176,7 +218,8 @@ export default function MonthlyAllowancePrintModal({
       });
 
       const blob = await Packer.toBlob(doc);
-      saveAs(blob, `كشف_الشهريات_${new Date().toISOString().split("T")[0]}.docx`);
+      const reportName = selectedReport.label.replace(/\s+/g, "_");
+      saveAs(blob, `${reportName}_${new Date().toISOString().split("T")[0]}.docx`);
 
       // إغلاق المودال بعد الطباعة
       onClose();
@@ -193,7 +236,7 @@ export default function MonthlyAllowancePrintModal({
       <div className="bg-background border border-border rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
-          <h2 className="text-xl font-semibold text-foreground">طباعة كشف الشهريات</h2>
+          <h2 className="text-xl font-semibold text-foreground">طباعة الكشف</h2>
           <button
             onClick={onClose}
             className="p-1 hover:bg-muted rounded transition-colors"
@@ -207,13 +250,39 @@ export default function MonthlyAllowancePrintModal({
 
         {/* Content */}
         <div className="p-6 space-y-6 overflow-y-auto max-h-[60vh]">
-          {beneficiaries.length === 0 ? (
+          {/* Report Type Selector */}
+          <div className="bg-muted/50 border border-border rounded-lg p-4">
+            <h3 className="font-semibold text-foreground mb-3">اختر نوع الكشف:</h3>
+            <div className="flex flex-wrap gap-2">
+              {REPORT_TYPES.map((rt) => (
+                <button
+                  key={rt.value}
+                  type="button"
+                  onClick={() => setSelectedReportType(rt.value)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                    selectedReportType === rt.value
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background border border-border text-foreground hover:border-primary"
+                  }`}
+                >
+                  {rt.label}
+                </button>
+              ))}
+            </div>
+            {selectedReportType !== "monthly" && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                ملاحظة: حقل المبلغ سيكون فارغاً للكتابة يدوياً
+              </p>
+            )}
+          </div>
+
+          {filteredBeneficiaries.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-red-600 dark:text-red-400 text-lg font-semibold">
-                تنبيه: لا يوجد مستفيدين يتقاضون شهريات
+                تنبيه: لا يوجد مستفيدين في هذا الكشف
               </p>
               <p className="text-muted-foreground mt-2">
-                تأكد من أن هناك مستفيدين مع تفعيل خيار &quot;يتقاضى شهرية&quot;
+                تأكد من أن هناك مستفيدين مسجلين في &quot;{selectedReport.label}&quot;
               </p>
             </div>
           ) : (
@@ -222,20 +291,20 @@ export default function MonthlyAllowancePrintModal({
                 <h3 className="font-semibold text-foreground mb-3">معلومات الطباعة:</h3>
                 <ul className="space-y-2 text-sm text-foreground">
                   <li className="flex items-center gap-2">
-                    <span className="font-medium">عدد المستفيدين:</span>
-                    <span className="text-primary font-bold">{beneficiaries.length} مستفيد</span>
+                    <span className="font-medium">نوع الكشف:</span>
+                    <span className="text-primary font-bold">{selectedReport.label}</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="font-medium">إجمالي الشهريات:</span>
+                    <span className="font-medium">عدد المستفيدين:</span>
+                    <span className="text-primary font-bold">{filteredBeneficiaries.length} مستفيد</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="font-medium">إجمالي المبالغ:</span>
                     <span className="text-primary font-bold">{totalAllowance.toLocaleString()} ج.م</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <span className="font-medium">عدد الصفحات:</span>
                     <span>{pages.length} صفحة</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="font-medium">عدد الأسماء في كل صفحة:</span>
-                    <span>32 اسم (16 في كل جانب)</span>
                   </li>
                 </ul>
               </div>
@@ -253,14 +322,33 @@ export default function MonthlyAllowancePrintModal({
               <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4 max-h-64 overflow-y-auto">
                 <h3 className="font-semibold text-foreground mb-3">قائمة المستفيدين:</h3>
                 <ul className="space-y-2 text-sm">
-                  {beneficiaries.map((b, index) => (
+                  {filteredBeneficiaries.map((b, index) => (
                     <li key={b._id} className="flex items-center justify-between gap-2 p-2 hover:bg-green-100 dark:hover:bg-green-900/20 rounded">
-                      <span className="font-medium">
+                      <span className="font-medium flex-1">
                         {index + 1}. {b.name}
                       </span>
-                      <span className="text-green-600 dark:text-green-400 font-bold">
-                        {b.monthlyAllowanceAmount || 0} ج.م
-                      </span>
+                      {selectedReportType === "monthly" ? (
+                        <span className="text-green-600 dark:text-green-400 font-bold">
+                          {b.monthlyAllowanceAmount || 0} ج.م
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            value={customAmounts[b._id] || ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setCustomAmounts((prev) => ({
+                                ...prev,
+                                [b._id]: value ? Number(value) : 0,
+                              }));
+                            }}
+                            placeholder="0"
+                            className="w-20 px-2 py-1 text-sm border border-border rounded bg-background text-foreground text-center"
+                          />
+                          <span className="text-muted-foreground text-xs">ج.م</span>
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -285,7 +373,7 @@ export default function MonthlyAllowancePrintModal({
             ) : (
               <>
                 <Printer className="w-5 h-5" />
-                طباعة كشف الشهريات
+                طباعة {selectedReport.label}
               </>
             )}
           </button>

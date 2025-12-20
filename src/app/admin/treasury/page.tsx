@@ -56,6 +56,8 @@ interface BeneficiarySummary {
   nationalId?: string;
   receivesMonthlyAllowance?: boolean;
   monthlyAllowanceAmount?: number;
+  listName?: string;
+  listNames?: string[];
 }
 
 type TreasuryFormState = {
@@ -138,6 +140,8 @@ export default function TreasuryPage() {
     nationalId: b.nationalId,
     receivesMonthlyAllowance: b.receivesMonthlyAllowance,
     monthlyAllowanceAmount: b.monthlyAllowanceAmount,
+    listName: b.listName,
+    listNames: b.listNames,
   })), [beneficiariesData]);
   const loading = treasuryLoading;
 
@@ -473,18 +477,15 @@ export default function TreasuryPage() {
               </Link>
               <button
                 onClick={() => {
-                  console.log("Button clicked - Opening monthly allowance print modal");
+                  console.log("Button clicked - Opening print modal");
                   console.log("Total beneficiaries:", beneficiaries.length);
-                  const monthlyBeneficiaries = beneficiaries.filter((b: BeneficiarySummary) => b.receivesMonthlyAllowance);
-                  console.log("Beneficiaries with monthly allowance:", monthlyBeneficiaries.length);
-                  console.log("Monthly beneficiaries data:", monthlyBeneficiaries);
                   setShowMonthlyAllowancePrint(true);
                 }}
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                 type="button"
               >
                 <Printer className="w-4 h-4" />
-                طباعة كشف الشهريات
+                طباعة الكشوف
               </button>
             </div>
           </div>
@@ -974,27 +975,22 @@ export default function TreasuryPage() {
           </div>
         </div>
 
-        {/* Monthly Allowance Print Modal */}
-        {showMonthlyAllowancePrint && (() => {
-          const monthlyBeneficiaries = beneficiaries
-            .filter((b: BeneficiarySummary) => b.receivesMonthlyAllowance)
-            .map((b: BeneficiarySummary) => ({
+        {/* Print Modal */}
+        {showMonthlyAllowancePrint && (
+          <MonthlyAllowancePrintModal
+            isOpen={showMonthlyAllowancePrint}
+            onClose={() => setShowMonthlyAllowancePrint(false)}
+            beneficiaries={beneficiaries.map((b: BeneficiarySummary) => ({
               _id: b._id,
               name: b.name,
               nationalId: b.nationalId,
               monthlyAllowanceAmount: b.monthlyAllowanceAmount,
-            }));
-          
-          console.log("Rendering MonthlyAllowancePrintModal with beneficiaries:", monthlyBeneficiaries);
-          
-          return (
-            <MonthlyAllowancePrintModal
-              isOpen={showMonthlyAllowancePrint}
-              onClose={() => setShowMonthlyAllowancePrint(false)}
-              beneficiaries={monthlyBeneficiaries}
-            />
-          );
-        })()}
+              receivesMonthlyAllowance: b.receivesMonthlyAllowance,
+              listName: b.listName,
+              listNames: b.listNames,
+            }))}
+          />
+        )}
       </div>
     </div>
   );
