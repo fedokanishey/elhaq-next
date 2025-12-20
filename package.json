@@ -10,6 +10,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
     "@clerk/nextjs": "^6.35.5",
     "@react-pdf/font": "^4.0.3",
     "@react-pdf/renderer": "^4.3.1",
