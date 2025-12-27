@@ -3,7 +3,7 @@ import dbConnect from "@/lib/mongodb";
 import Loan from "@/lib/models/Loan";
 import { NextResponse } from "next/server";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
