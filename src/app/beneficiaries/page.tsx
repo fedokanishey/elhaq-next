@@ -8,8 +8,10 @@ import Link from "next/link";
 import BeneficiaryCard from "@/components/BeneficiaryCard";
 import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
 import SearchFilterBar from "@/components/SearchFilterBar";
-import { Loader2, Plus, Users, AlertCircle, ArrowDownUp } from "lucide-react";
+import { Loader2, Plus, Users, AlertCircle, ArrowDownUp, Printer } from "lucide-react";
 import { useRouter } from "next/navigation";
+import MonthlyAllowancePrintModal from "@/components/MonthlyAllowancePrintModal";
+import BeneficiaryModal from "@/components/BeneficiaryModal";
 
 interface Beneficiary {
   _id: string;
@@ -38,7 +40,9 @@ interface Beneficiary {
   notes?: string;
   status?: "active" | "cancelled" | "pending";
   listName?: string;
+  listNames?: string[];
   receivesMonthlyAllowance?: boolean;
+  monthlyAllowanceAmount?: number;
   statusDate?: string;
   createdAt?: string;
 }
@@ -50,12 +54,37 @@ export default function BeneficiariesPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filters, setFilters] = useState<BeneficiaryFilterCriteria>({});
   const [sortByNationalId, setSortByNationalId] = useState(true);
+  const [showMonthlyAllowancePrint, setShowMonthlyAllowancePrint] = useState(false);
+
+  // Modal State
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedBeneficiaryId, setSelectedBeneficiaryId] = useState<string | undefined>(undefined);
+  const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
+
+  const handleOpenEdit = (id: string) => {
+    setSelectedBeneficiaryId(id);
+    setModalMode("edit");
+    setIsModalOpen(true);
+  };
+
+  const handleOpenView = (id: string) => {
+    setSelectedBeneficiaryId(id);
+    setModalMode("view");
+    setIsModalOpen(true);
+  };
+
+  const handleOpenCreate = () => {
+    setSelectedBeneficiaryId(undefined); // Create mode
+    setModalMode("create");
+    setIsModalOpen(true);
+  };
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
   const canAccessBeneficiaries = role === "admin" || role === "member";
   const isAdmin = role === "admin";
 
-  const { data, error: swrError, isLoading } = useSWR(
+  const { data, error: swrError, isLoading, mutate } = useSWR(
     isLoaded && canAccessBeneficiaries ? "/api/beneficiaries" : null,
     fetcher,
     { revalidateOnFocus: false }
@@ -233,13 +262,22 @@ export default function BeneficiariesPage() {
           </div>
 
           {isAdmin && (
-            <Link
-              href="/admin/beneficiaries/add"
-              className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90 transition-colors shadow-sm hover:shadow-md"
-            >
-              <Plus className="ml-2 h-5 w-5" />
-              إضافة مستفيد
-            </Link>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <button
+                onClick={() => setShowMonthlyAllowancePrint(true)}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+              >
+                <Printer className="ml-2 h-5 w-5" />
+                طباعة الكشوف
+              </button>
+              <button
+                onClick={handleOpenCreate}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90 transition-colors shadow-sm hover:shadow-md"
+              >
+                <Plus className="ml-2 h-5 w-5" />
+                إضافة مستفيد
+              </button>
+            </div>
           )}
         </div>
 
@@ -305,15 +343,19 @@ export default function BeneficiariesPage() {
                   idImage={beneficiary.idImage}
                   maritalStatus={beneficiary.maritalStatus}
                   spouseName={beneficiary.spouse?.name}
-                  onView={() => router.push(`/beneficiaries/${beneficiary._id}`)}
+                  receivesMonthlyAllowance={beneficiary.receivesMonthlyAllowance}
+                  monthlyAllowanceAmount={beneficiary.monthlyAllowanceAmount}
+                  onView={() => handleOpenView(beneficiary._id)}
                   isReadOnly={!isAdmin}
-                  onEdit={isAdmin ? () => router.push(`/admin/beneficiaries/${beneficiary._id}/edit`) : undefined}
+                  onEdit={isAdmin ? () => handleOpenEdit(beneficiary._id) : undefined}
                 />
               </div>
             ))}
           </div>
         )}
 
+        {/* ... (Empty States) ... */}
+        
         {/* No Results State */}
         {!loading && filteredBeneficiaries.length === 0 && (data?.beneficiaries || []).length > 0 && (
           <div className="bg-card border border-border rounded-lg p-12 text-center shadow-sm">
@@ -335,6 +377,32 @@ export default function BeneficiariesPage() {
             </p>
           </div>
         )}
+        
+        {/* Print Modal */}
+        {showMonthlyAllowancePrint && (
+          <MonthlyAllowancePrintModal
+            isOpen={showMonthlyAllowancePrint}
+            onClose={() => setShowMonthlyAllowancePrint(false)}
+            beneficiaries={(data?.beneficiaries || []).map((b: Beneficiary) => ({
+              _id: b._id,
+              name: b.name,
+              nationalId: b.nationalId,
+              monthlyAllowanceAmount: b.monthlyAllowanceAmount,
+              receivesMonthlyAllowance: b.receivesMonthlyAllowance,
+              listName: b.listName,
+              listNames: b.listNames,
+            }))}
+          />
+        )}
+        
+        {/* Edit/Create Modal */}
+        <BeneficiaryModal 
+          isOpen={isModalOpen}
+          initialMode={modalMode}
+          onClose={() => setIsModalOpen(false)}
+          beneficiaryId={selectedBeneficiaryId}
+          onSuccess={() => mutate()}
+        />
       </div>
     </div>
   );

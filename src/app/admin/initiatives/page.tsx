@@ -2,10 +2,11 @@
 
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
+import InitiativeModal from "@/components/InitiativeModal";
 
 interface Initiative {
   _id: string;
@@ -30,6 +31,29 @@ export default function AdminInitiatives() {
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
   const loading = isLoading;
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
+
+  const handleOpenEdit = (id: string) => {
+    setSelectedId(id);
+    setModalMode("edit");
+    setIsModalOpen(true);
+  };
+
+  const handleOpenView = (id: string) => {
+    setSelectedId(id);
+    setModalMode("view");
+    setIsModalOpen(true);
+  };
+
+  const handleOpenCreate = () => {
+    setSelectedId(undefined); // Create mode
+    setModalMode("create");
+    setIsModalOpen(true);
+  };
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
@@ -75,12 +99,12 @@ export default function AdminInitiatives() {
             </Link>
             <h1 className="text-3xl font-bold text-foreground">إدارة المبادرات</h1>
           </div>
-          <Link
-            href="/admin/initiatives/add"
+          <button
+            onClick={handleOpenCreate}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition"
           >
             ➕ إضافة مبادرة
-          </Link>
+          </button>
         </div>
 
         {loading ? (
@@ -112,18 +136,18 @@ export default function AdminInitiatives() {
                   <span>💰 {initiative.totalAmount} ج.م</span>
                 </div>
                 <div className="flex gap-2 justify-end border-t border-border pt-4">
-                  <Link
-                    href={`/admin/initiatives/${initiative._id}`}
+                  <button
+                    onClick={() => handleOpenView(initiative._id)}
                     className="px-3 py-1 border border-border text-foreground rounded hover:bg-muted text-sm"
                   >
                     عرض التفاصيل
-                  </Link>
-                  <Link
-                    href={`/admin/initiatives/${initiative._id}/edit`}
+                  </button>
+                  <button
+                    onClick={() => handleOpenEdit(initiative._id)}
                     className="px-3 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 text-sm"
                   >
                     تعديل
-                  </Link>
+                  </button>
                   <button
                     onClick={() => handleDelete(initiative._id)}
                     className="px-3 py-1 bg-destructive text-destructive-foreground rounded hover:bg-destructive/80 text-sm"
@@ -135,6 +159,14 @@ export default function AdminInitiatives() {
             ))}
           </div>
         )}
+
+        <InitiativeModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          initiativeId={selectedId}
+          initialMode={modalMode}
+          onSuccess={() => mutate()}
+        />
       </div>
     </div>
   );

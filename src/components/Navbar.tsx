@@ -91,6 +91,22 @@ export default function Navbar() {
                     المتبرعين
                   </Link>
                 )}
+                {canViewBeneficiaries && (
+                  <Link
+                    href="/admin/loans"
+                    className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+                  >
+                    القرض الحسن
+                  </Link>
+                )}
+                {canViewBeneficiaries && (
+                  <Link
+                    href="/admin/warehouse"
+                    className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+                  >
+                    المخزن
+                  </Link>
+                )}
                 <ThemeToggle />
                 <UserButton afterSignOutUrl="/" />
               </>
@@ -176,6 +192,24 @@ export default function Navbar() {
                     onClick={() => setMenuOpen(false)}
                   >
                     المتبرعين
+                  </Link>
+                )}
+                {canViewBeneficiaries && (
+                  <Link
+                    href="/admin/loans"
+                    className="block rounded-md px-3 py-2 text-base font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    القرض الحسن
+                  </Link>
+                )}
+                {canViewBeneficiaries && (
+                  <Link
+                    href="/admin/warehouse"
+                    className="block rounded-md px-3 py-2 text-base font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    المخزن
                   </Link>
                 )}
               </>

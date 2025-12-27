@@ -57,19 +57,28 @@ export default function MonthlyAllowancePrintModal({
     }
   }, [beneficiaries, selectedReportType, selectedReport.listMatch]);
 
+  // Sort by nationalId (internal beneficiary number)
+  const sortedBeneficiaries = useMemo(() => {
+    return [...filteredBeneficiaries].sort((a, b) => {
+      const idA = parseInt(a.nationalId || "0", 10);
+      const idB = parseInt(b.nationalId || "0", 10);
+      return idA - idB;
+    });
+  }, [filteredBeneficiaries]);
+
   if (!isOpen) return null;
 
   // Calculate total for all reports
   const totalAllowance = selectedReportType === "monthly"
-    ? filteredBeneficiaries.reduce((sum, b) => sum + (b.monthlyAllowanceAmount || 0), 0)
-    : filteredBeneficiaries.reduce((sum, b) => sum + (customAmounts[b._id] || 0), 0);
+    ? sortedBeneficiaries.reduce((sum, b) => sum + (b.monthlyAllowanceAmount || 0), 0)
+    : sortedBeneficiaries.reduce((sum, b) => sum + (customAmounts[b._id] || 0), 0);
 
   const BENEFICIARIES_PER_COLUMN = 16;
   const BENEFICIARIES_PER_PAGE = 32;
   const pages: AllowanceBeneficiary[][] = [];
   
-  for (let i = 0; i < filteredBeneficiaries.length; i += BENEFICIARIES_PER_PAGE) {
-    pages.push(filteredBeneficiaries.slice(i, i + BENEFICIARIES_PER_PAGE));
+  for (let i = 0; i < sortedBeneficiaries.length; i += BENEFICIARIES_PER_PAGE) {
+    pages.push(sortedBeneficiaries.slice(i, i + BENEFICIARIES_PER_PAGE));
   }
 
   const handlePrint = async () => {
@@ -276,7 +285,7 @@ export default function MonthlyAllowancePrintModal({
             )}
           </div>
 
-          {filteredBeneficiaries.length === 0 ? (
+          {sortedBeneficiaries.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-red-600 dark:text-red-400 text-lg font-semibold">
                 تنبيه: لا يوجد مستفيدين في هذا الكشف
@@ -296,7 +305,7 @@ export default function MonthlyAllowancePrintModal({
                   </li>
                   <li className="flex items-center gap-2">
                     <span className="font-medium">عدد المستفيدين:</span>
-                    <span className="text-primary font-bold">{filteredBeneficiaries.length} مستفيد</span>
+                    <span className="text-primary font-bold">{sortedBeneficiaries.length} مستفيد</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <span className="font-medium">إجمالي المبالغ:</span>
@@ -322,7 +331,7 @@ export default function MonthlyAllowancePrintModal({
               <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4 max-h-64 overflow-y-auto">
                 <h3 className="font-semibold text-foreground mb-3">قائمة المستفيدين:</h3>
                 <ul className="space-y-2 text-sm">
-                  {filteredBeneficiaries.map((b, index) => (
+                  {sortedBeneficiaries.map((b, index) => (
                     <li key={b._id} className="flex items-center justify-between gap-2 p-2 hover:bg-green-100 dark:hover:bg-green-900/20 rounded">
                       <span className="font-medium flex-1">
                         {index + 1}. {b.name}

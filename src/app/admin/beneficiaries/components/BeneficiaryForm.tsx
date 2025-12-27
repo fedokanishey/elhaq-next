@@ -98,6 +98,8 @@ export interface BeneficiaryFormProps {
   initialValues?: BeneficiaryFormValues;
   beneficiaryId?: string;
   onSuccess?: () => void;
+  onCancel?: () => void;
+  isModal?: boolean;
 }
 
 const NAME_REGEX = /^[\u0600-\u06FFa-zA-Z]+(?:[\s'-][\u0600-\u06FFa-zA-Z]+)*$/;
@@ -218,6 +220,8 @@ export default function BeneficiaryForm({
   initialValues,
   beneficiaryId,
   onSuccess,
+  onCancel,
+  isModal = false,
 }: BeneficiaryFormProps) {
   const router = useRouter();
   const [formData, setFormData] = useState<BeneficiaryFormValues>(() =>
@@ -749,7 +753,7 @@ export default function BeneficiaryForm({
       if (res.ok) {
         if (onSuccess) {
           onSuccess();
-        } else {
+        } else if (!isModal) {
           router.push("/admin/beneficiaries");
         }
       } else {
@@ -769,17 +773,19 @@ export default function BeneficiaryForm({
   const submittingLabel = mode === "edit" ? "جاري التحديث..." : "جاري الحفظ...";
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8 transition-colors">
-      <div className="max-w-2xl mx-auto">
-        <div className="mb-8">
-          <Link
-            href="/admin/beneficiaries"
-            className="text-muted-foreground hover:text-primary mb-4 inline-flex items-center gap-2 transition-colors"
-          >
-            ← العودة
-          </Link>
-          <h1 className="text-3xl font-bold text-foreground">{heading}</h1>
-        </div>
+    <div className={isModal ? "" : "min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8 transition-colors"}>
+      <div className={isModal ? "" : "max-w-2xl mx-auto"}>
+        {!isModal && (
+          <div className="mb-8">
+            <Link
+              href="/admin/beneficiaries"
+              className="text-muted-foreground hover:text-primary mb-4 inline-flex items-center gap-2 transition-colors"
+            >
+              ← العودة
+            </Link>
+            <h1 className="text-3xl font-bold text-foreground">{heading}</h1>
+          </div>
+        )}
 
         {error && (
           <div className="mb-6 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-destructive">
@@ -787,7 +793,7 @@ export default function BeneficiaryForm({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-lg shadow-sm p-6 space-y-6">
+        <form onSubmit={handleSubmit} className={isModal ? "space-y-6" : "bg-card border border-border rounded-lg shadow-sm p-6 space-y-6"}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="beneficiary-name" className="block text-sm font-medium text-foreground mb-2">
@@ -1748,12 +1754,22 @@ export default function BeneficiaryForm({
               {submitting ? submittingLabel : submitLabel}
             </button>
 
-            <Link
-              href="/admin/beneficiaries"
-              className="flex-1 px-6 py-3 bg-muted text-foreground rounded-lg hover:bg-muted/80 font-medium transition text-center"
-            >
-              إلغاء
-            </Link>
+            {isModal && onCancel ? (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="flex-1 px-6 py-3 bg-muted text-foreground rounded-lg hover:bg-muted/80 font-medium transition text-center"
+              >
+                إلغاء
+              </button>
+            ) : (
+              <Link
+                href="/admin/beneficiaries"
+                className="flex-1 px-6 py-3 bg-muted text-foreground rounded-lg hover:bg-muted/80 font-medium transition text-center"
+              >
+                إلغاء
+              </Link>
+            )}
           </div>
         </form>
       </div>

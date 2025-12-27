@@ -57,6 +57,8 @@ export interface InitiativeFormProps {
   initialValues?: InitiativeFormValues;
   initialBeneficiaryIds?: string[];
   onSuccess?: () => void;
+  isModal?: boolean;
+  onCancel?: () => void;
 }
 
 const defaultFormValues = (): InitiativeFormValues => ({
@@ -74,6 +76,8 @@ export default function InitiativeForm({
   initialValues,
   initialBeneficiaryIds = [],
   onSuccess,
+  isModal = false,
+  onCancel,
 }: InitiativeFormProps) {
   const router = useRouter();
   const [formData, setFormData] = useState<InitiativeFormValues>(() => initialValues || defaultFormValues());
@@ -317,6 +321,28 @@ export default function InitiativeForm({
   const submitLabel = mode === "edit" ? "تحديث المبادرة" : "حفظ المبادرة";
   const submittingLabel = mode === "edit" ? "جاري التحديث..." : "جاري الحفظ...";
 
+  if (isModal) {
+    return (
+       <div className="space-y-6">
+        {error && (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-destructive">
+            {error}
+          </div>
+        )}
+        <div className="bg-card rounded-lg p-1">
+           <form onSubmit={handleSubmit} className="space-y-6">
+             {/* Form content will follow */}
+             {/* We need to restructure slightly to avoid duplicating form content. 
+                 Actually, the original return wraps everything. 
+                 Let's keep the form logic here but careful about duplication.
+             */}
+             {renderFormFields()}
+           </form>
+        </div>
+       </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8 transition-colors">
       <div className="max-w-3xl mx-auto space-y-8">
@@ -343,241 +369,259 @@ export default function InitiativeForm({
 
         <div className="bg-card border border-border rounded-lg shadow-sm p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-muted-foreground mb-1">
-                اسم المبادرة
-              </label>
-              <input
-                id="name"
-                type="text"
-                required
-                className="w-full p-3 bg-background border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary/40 focus:border-primary"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-muted-foreground mb-1">
-                الوصف
-              </label>
-              <textarea
-                id="description"
-                required
-                rows={4}
-                className="w-full p-3 bg-background border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary/40 focus:border-primary"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="date" className="block text-sm font-medium text-muted-foreground mb-1">
-                  التاريخ
-                </label>
-                <input
-                  id="date"
-                  type="date"
-                  required
-                  className="w-full p-3 bg-background border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary/40 focus:border-primary"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="totalAmount" className="block text-sm font-medium text-muted-foreground mb-1">
-                  المبلغ الإجمالي (ج.م)
-                </label>
-                <input
-                  id="totalAmount"
-                  type="number"
-                  min="0"
-                  required
-                  className="w-full p-3 bg-background border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary/40 focus:border-primary"
-                  value={formData.totalAmount}
-                  onChange={(e) => setFormData({ ...formData, totalAmount: Number(e.target.value) })}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="status" className="block text-sm font-medium text-muted-foreground mb-1">
-                الحالة
-              </label>
-              <select
-                id="status"
-                className="w-full p-3 bg-background border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary/40 focus:border-primary"
-                value={formData.status}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    status: e.target.value as InitiativeStatus,
-                  })
-                }
-              >
-                <option value="planned">مخططة</option>
-                <option value="active">نشطة</option>
-                <option value="completed">مكتملة</option>
-                <option value="cancelled">ملغاة</option>
-              </select>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-muted-foreground">صور المبادرة</label>
-                <p className="text-xs text-muted-foreground">
-                  يمكنك رفع أكثر من صورة، وسيتم تخزين الروابط بعد رفعها على Cloudinary.
-                </p>
-              </div>
-
-              {formData.images.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {formData.images.map((image) => (
-                    <div key={image} className="relative group rounded-lg overflow-hidden border border-border">
-                      <img src={image} alt="صورة المبادرة" className="w-full h-28 object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(image)}
-                        className="absolute top-2 left-2 bg-background/90 text-foreground rounded-full w-6 h-6 flex items-center justify-center text-sm shadow"
-                        aria-label="حذف الصورة"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <CldUploadWidget
-                uploadPreset={cloudinaryPreset}
-                options={{ multiple: false }}
-                onSuccess={(result) => {
-                  const info = result?.info as { secure_url?: string } | undefined;
-                  if (info?.secure_url) {
-                    handleImageUpload(info.secure_url);
-                  }
-                  setUploadingImage(false);
-                }}
-                onError={() => {
-                  setUploadingImage(false);
-                  setError("فشل تحميل الصورة. حاول مرة أخرى.");
-                }}
-                onClose={() => setUploadingImage(false)}
-              >
-                {({ open }) => (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUploadingImage(true);
-                      open();
-                    }}
-                    disabled={uploadingImage}
-                    className="w-full p-3 border border-dashed border-primary text-primary rounded-md hover:bg-primary/5 transition disabled:opacity-50"
-                  >
-                    {uploadingImage ? "جاري رفع الصورة..." : "إضافة صورة"}
-                  </button>
-                )}
-              </CldUploadWidget>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-muted-foreground">المستفيدون من المبادرة</label>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    {selectedBeneficiaries.length} مختار
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSortByNationalId(!sortByNationalId)}
-                    className="px-3 py-1.5 bg-card border border-border rounded-md text-foreground hover:bg-muted transition-colors inline-flex items-center gap-1"
-                    title={sortByNationalId ? "ترتيب تصاعدي حسب رقم المستفيد" : "ترتيب تنازلي حسب رقم المستفيد"}
-                  >
-                    <ArrowDownUp className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Search and Filter Bar */}
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
-                <div className="flex-1 w-full">
-                  <input
-                    type="text"
-                    placeholder={beneficiaryFilters.searchByBeneficiaryId ? "ابحث برقم المستفيد..." : "ابحث بالاسم أو رقم الهاتف أو اسم الأبناء"}
-                    className="w-full p-3 bg-background border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary/40 focus:border-primary"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <BeneficiaryFilterPanel onFilterChange={setBeneficiaryFilters} variant="dropdown" />
-              </div>
-
-              {selectedBeneficiaries.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {selectedBeneficiaries.map((beneficiary) => (
-                    <span
-                      key={beneficiary._id}
-                      className="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary px-3 py-1 text-sm"
-                    >
-                      {beneficiary.nationalId ? `${beneficiary.nationalId} - ${beneficiary.name}` : beneficiary.name}
-                      <button
-                        type="button"
-                        onClick={() => toggleBeneficiary(beneficiary)}
-                        className="text-xs text-primary/70 hover:text-primary"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <div className="rounded-lg border border-border bg-muted/30 divide-y divide-border max-h-64 overflow-y-auto">
-                {loadingBeneficiaries ? (
-                  <div className="px-4 py-6 text-center text-sm text-muted-foreground">جاري تحميل المستفيدين...</div>
-                ) : filteredBeneficiaries.length > 0 ? (
-                  filteredBeneficiaries.map((beneficiary) => {
-                    const isSelected = selectedBeneficiaries.some((item) => item._id === beneficiary._id);
-                    const childNames = beneficiary.children?.map((child) => child?.name).filter(Boolean);
-                    return (
-                      <button
-                        type="button"
-                        key={beneficiary._id}
-                        onClick={() => toggleBeneficiary(beneficiary)}
-                        className={`w-full text-right px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 transition-colors ${
-                          isSelected ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"
-                        }`}
-                      >
-                        <span className="font-medium">
-                          {beneficiary.nationalId ? `${beneficiary.nationalId} - ${beneficiary.name}` : beneficiary.name}
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          {beneficiary.phone || "بدون رقم"}
-                          {childNames?.length ? ` • أبناء: ${childNames.join(", ")}` : ""}
-                        </span>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                    لا توجد نتائج مطابقة للبحث
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full bg-primary text-primary-foreground py-3 px-4 rounded-md hover:bg-primary/90 transition disabled:opacity-50"
-            >
-              {submitting ? submittingLabel : submitLabel}
-            </button>
+            {renderFormFields()}
           </form>
         </div>
       </div>
     </div>
   );
+
+  function renderFormFields() {
+    return (
+      <>
+        <div>
+          <label htmlFor="name" className="block text-sm font-medium text-muted-foreground mb-1">
+            اسم المبادرة
+          </label>
+          <input
+            id="name"
+            type="text"
+            required
+            className="w-full p-3 bg-background border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary/40 focus:border-primary"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="description" className="block text-sm font-medium text-muted-foreground mb-1">
+            الوصف
+          </label>
+          <textarea
+            id="description"
+            required
+            rows={4}
+            className="w-full p-3 bg-background border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary/40 focus:border-primary"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="date" className="block text-sm font-medium text-muted-foreground mb-1">
+              التاريخ
+            </label>
+            <input
+              id="date"
+              type="date"
+              required
+              className="w-full p-3 bg-background border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary/40 focus:border-primary"
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="totalAmount" className="block text-sm font-medium text-muted-foreground mb-1">
+              المبلغ الإجمالي (ج.م)
+            </label>
+            <input
+              id="totalAmount"
+              type="number"
+              min="0"
+              required
+              className="w-full p-3 bg-background border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary/40 focus:border-primary"
+              value={formData.totalAmount}
+              onChange={(e) => setFormData({ ...formData, totalAmount: Number(e.target.value) })}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="status" className="block text-sm font-medium text-muted-foreground mb-1">
+            الحالة
+          </label>
+          <select
+            id="status"
+            className="w-full p-3 bg-background border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary/40 focus:border-primary"
+            value={formData.status}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                status: e.target.value as InitiativeStatus,
+              })
+            }
+          >
+            <option value="planned">مخططة</option>
+            <option value="active">نشطة</option>
+            <option value="completed">مكتملة</option>
+            <option value="cancelled">ملغاة</option>
+          </select>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-muted-foreground">صور المبادرة</label>
+            <p className="text-xs text-muted-foreground">
+              يمكنك رفع أكثر من صورة، وسيتم تخزين الروابط بعد رفعها على Cloudinary.
+            </p>
+          </div>
+
+          {formData.images.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {formData.images.map((image) => (
+                <div key={image} className="relative group rounded-lg overflow-hidden border border-border">
+                  <img src={image} alt="صورة المبادرة" className="w-full h-28 object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(image)}
+                    className="absolute top-2 left-2 bg-background/90 text-foreground rounded-full w-6 h-6 flex items-center justify-center text-sm shadow"
+                    aria-label="حذف الصورة"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <CldUploadWidget
+            uploadPreset={cloudinaryPreset}
+            options={{ multiple: false }}
+            onSuccess={(result) => {
+              const info = result?.info as { secure_url?: string } | undefined;
+              if (info?.secure_url) {
+                handleImageUpload(info.secure_url);
+              }
+              setUploadingImage(false);
+            }}
+            onError={() => {
+              setUploadingImage(false);
+              setError("فشل تحميل الصورة. حاول مرة أخرى.");
+            }}
+            onClose={() => setUploadingImage(false)}
+          >
+            {({ open }) => (
+              <button
+                type="button"
+                onClick={() => {
+                  setUploadingImage(true);
+                  open();
+                }}
+                disabled={uploadingImage}
+                className="w-full p-3 border border-dashed border-primary text-primary rounded-md hover:bg-primary/5 transition disabled:opacity-50"
+              >
+                {uploadingImage ? "جاري رفع الصورة..." : "إضافة صورة"}
+              </button>
+            )}
+          </CldUploadWidget>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-muted-foreground">المستفيدون من المبادرة</label>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {selectedBeneficiaries.length} مختار
+              </span>
+              <button
+                type="button"
+                onClick={() => setSortByNationalId(!sortByNationalId)}
+                className="px-3 py-1.5 bg-card border border-border rounded-md text-foreground hover:bg-muted transition-colors inline-flex items-center gap-1"
+                title={sortByNationalId ? "ترتيب تصاعدي حسب رقم المستفيد" : "ترتيب تنازلي حسب رقم المستفيد"}
+              >
+                <ArrowDownUp className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+            <div className="flex-1 w-full">
+              <input
+                type="text"
+                placeholder={beneficiaryFilters.searchByBeneficiaryId ? "ابحث برقم المستفيد..." : "ابحث بالاسم أو رقم الهاتف أو اسم الأبناء"}
+                className="w-full p-3 bg-background border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary/40 focus:border-primary"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <BeneficiaryFilterPanel onFilterChange={setBeneficiaryFilters} variant="dropdown" />
+          </div>
+
+          {selectedBeneficiaries.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {selectedBeneficiaries.map((beneficiary) => (
+                <span
+                  key={beneficiary._id}
+                  className="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary px-3 py-1 text-sm"
+                >
+                  {beneficiary.nationalId ? `${beneficiary.nationalId} - ${beneficiary.name}` : beneficiary.name}
+                  <button
+                    type="button"
+                    onClick={() => toggleBeneficiary(beneficiary)}
+                    className="text-xs text-primary/70 hover:text-primary"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="rounded-lg border border-border bg-muted/30 divide-y divide-border max-h-64 overflow-y-auto">
+            {loadingBeneficiaries ? (
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">جاري تحميل المستفيدين...</div>
+            ) : filteredBeneficiaries.length > 0 ? (
+              filteredBeneficiaries.map((beneficiary) => {
+                const isSelected = selectedBeneficiaries.some((item) => item._id === beneficiary._id);
+                const childNames = beneficiary.children?.map((child) => child?.name).filter(Boolean);
+                return (
+                  <button
+                    type="button"
+                    key={beneficiary._id}
+                    onClick={() => toggleBeneficiary(beneficiary)}
+                    className={`w-full text-right px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 transition-colors ${
+                      isSelected ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <span className="font-medium">
+                      {beneficiary.nationalId ? `${beneficiary.nationalId} - ${beneficiary.name}` : beneficiary.name}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {beneficiary.phone || "بدون رقم"}
+                      {childNames?.length ? ` • أبناء: ${childNames.join(", ")}` : ""}
+                    </span>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                لا توجد نتائج مطابقة للبحث
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          {isModal && onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="w-full bg-muted text-muted-foreground py-3 px-4 rounded-md hover:bg-muted/80 transition"
+            >
+              إلغاء
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full bg-primary text-primary-foreground py-3 px-4 rounded-md hover:bg-primary/90 transition disabled:opacity-50"
+          >
+            {submitting ? submittingLabel : submitLabel}
+          </button>
+        </div>
+      </>
+    );
+  }
 }

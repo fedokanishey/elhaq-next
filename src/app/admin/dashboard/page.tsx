@@ -14,7 +14,9 @@ import {
   BarChart3, 
   Shield,
   Loader2,
-  Wallet
+  Wallet,
+  Archive,
+  HandCoins
 } from "lucide-react";
 
 interface DashboardStats {
@@ -199,6 +201,32 @@ export default function AdminDashboard() {
               <h3 className="text-lg font-bold text-foreground">الخزينة</h3>
             </div>
             <p className="text-muted-foreground text-sm">تسجيل الوارد والصادر ومراجعة الرصيد المتبقي</p>
+          </Link>
+
+          <Link
+            href="/admin/loans"
+            className="group bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
+          >
+            <div className="flex items-center gap-4 mb-3">
+              <div className="p-3 bg-primary/10 rounded-full group-hover:bg-primary/20 transition-colors">
+                <HandCoins className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">القرض الحسن</h3>
+            </div>
+            <p className="text-muted-foreground text-sm">إدارة القروض وسداد الأقساط</p>
+          </Link>
+
+          <Link
+            href="/admin/warehouse"
+            className="group bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
+          >
+            <div className="flex items-center gap-4 mb-3">
+              <div className="p-3 bg-primary/10 rounded-full group-hover:bg-primary/20 transition-colors">
+                <Archive className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">المخزن</h3>
+            </div>
+            <p className="text-muted-foreground text-sm">تتبع حركة المخزن الواردة والصادرة</p>
           </Link>
         </div>
       </div>

@@ -11,6 +11,7 @@ import { Search, ArrowDownUp, Download } from "lucide-react";
 import BeneficiariesPrintModal from "@/components/BeneficiariesPrintModal";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
+import BeneficiaryModal from "@/components/BeneficiaryModal";
 
 interface Beneficiary {
   _id: string;
@@ -54,12 +55,35 @@ export default function AdminBeneficiaries() {
   const [filters, setFilters] = useState<BeneficiaryFilterCriteria>({});
   const [sortByNationalId, setSortByNationalId] = useState(true);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedBeneficiaryId, setSelectedBeneficiaryId] = useState<string | undefined>(undefined);
+  const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
+
+  const handleOpenEdit = (id: string) => {
+    setSelectedBeneficiaryId(id);
+    setModalMode("edit");
+    setIsModalOpen(true);
+  };
+
+  const handleOpenView = (id: string) => {
+    setSelectedBeneficiaryId(id);
+    setModalMode("view");
+    setIsModalOpen(true);
+  };
+
+  const handleOpenCreate = () => {
+    setSelectedBeneficiaryId(undefined);
+    setModalMode("create");
+    setIsModalOpen(true);
+  };
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
   const isAdmin = role === "admin";
 
   // Fetch beneficiaries with SWR
-  const { data, error, isLoading } = useSWR<{ beneficiaries: Beneficiary[] }>(
+  const { data, error, isLoading, mutate } = useSWR<{ beneficiaries: Beneficiary[] }>(
     isLoaded && isAdmin ? "/api/beneficiaries" : null,
     fetcher,
     {
@@ -257,15 +281,16 @@ export default function AdminBeneficiaries() {
             </h1>
           </div>
 
-          <Link
-            href="/admin/beneficiaries/add"
+          <button
+            onClick={handleOpenCreate}
             className="w-full sm:w-auto px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 font-medium text-center transition-colors"
           >
             ➕ إضافة مستفيد جديد
-          </Link>
+          </button>
         </div>
 
         {/* Search & Filter Bar */}
+        {/* ... (keep existing search logic, just replacing the block to fit context if needed, but here I'll try to target specific blocks or use larger replacement if safer) */}
         <div className="bg-card border border-border rounded-lg shadow-sm p-4 space-y-4">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
             <div className="flex-1 w-full">
@@ -333,10 +358,8 @@ export default function AdminBeneficiaries() {
                   spouseName={beneficiary.spouse?.name}
                   receivesMonthlyAllowance={beneficiary.receivesMonthlyAllowance}
                   monthlyAllowanceAmount={beneficiary.monthlyAllowanceAmount}
-                  onView={() => router.push(`/admin/beneficiaries/${beneficiary._id}`)}
-                  onEdit={() =>
-                    router.push(`/admin/beneficiaries/${beneficiary._id}/edit`)
-                  }
+                  onView={() => handleOpenView(beneficiary._id)}
+                  onEdit={() => handleOpenEdit(beneficiary._id)}
                   onDelete={() => handleDelete(beneficiary._id)}
                   isReadOnly={false}
                 />
@@ -352,12 +375,12 @@ export default function AdminBeneficiaries() {
         ) : (
           <div className="bg-card border border-border rounded-lg shadow-sm p-8 text-center">
             <p className="text-muted-foreground text-lg">لا توجد مستفيدين حالياً</p>
-            <Link
-              href="/admin/beneficiaries/add"
+            <button
+              onClick={handleOpenCreate}
               className="inline-block mt-4 px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
             >
               إضافة الأول
-            </Link>
+            </button>
           </div>
         )}
 
@@ -367,6 +390,15 @@ export default function AdminBeneficiaries() {
           onClose={() => setShowPrintModal(false)}
           beneficiaries={filteredBeneficiaries}
           title="تقرير المستفيدين"
+        />
+
+        {/* Edit/Create Modal */}
+        <BeneficiaryModal 
+          isOpen={isModalOpen}
+          initialMode={modalMode}
+          onClose={() => setIsModalOpen(false)}
+          beneficiaryId={selectedBeneficiaryId}
+          onSuccess={() => mutate()} // Use mutate from useSWR
         />
       </div>
     </div>
