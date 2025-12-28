@@ -20,6 +20,8 @@ interface Initiative {
 export default function AdminInitiatives() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
+  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  const isAdmin = role === "admin";
 
   const { data, isLoading, mutate } = useSWR(
     isLoaded ? "/api/initiatives" : null,
@@ -57,7 +59,7 @@ export default function AdminInitiatives() {
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    if (isLoaded && role !== "admin") {
+    if (isLoaded && role !== "admin" && role !== "member") {
       router.push("/");
     }
   }, [isLoaded, user, router]);
@@ -99,12 +101,14 @@ export default function AdminInitiatives() {
             </Link>
             <h1 className="text-3xl font-bold text-foreground">إدارة المبادرات</h1>
           </div>
-          <button
-            onClick={handleOpenCreate}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition"
-          >
-            ➕ إضافة مبادرة
-          </button>
+          {isAdmin && (
+            <button
+              onClick={handleOpenCreate}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition"
+            >
+              ➕ إضافة مبادرة
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -142,18 +146,22 @@ export default function AdminInitiatives() {
                   >
                     عرض التفاصيل
                   </button>
-                  <button
-                    onClick={() => handleOpenEdit(initiative._id)}
-                    className="px-3 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 text-sm"
-                  >
-                    تعديل
-                  </button>
-                  <button
-                    onClick={() => handleDelete(initiative._id)}
-                    className="px-3 py-1 bg-destructive text-destructive-foreground rounded hover:bg-destructive/80 text-sm"
-                  >
-                    حذف
-                  </button>
+                  {isAdmin && (
+                    <>
+                      <button
+                        onClick={() => handleOpenEdit(initiative._id)}
+                        className="px-3 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 text-sm"
+                      >
+                        تعديل
+                      </button>
+                      <button
+                        onClick={() => handleDelete(initiative._id)}
+                        className="px-3 py-1 bg-destructive text-destructive-foreground rounded hover:bg-destructive/80 text-sm"
+                      >
+                        حذف
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}

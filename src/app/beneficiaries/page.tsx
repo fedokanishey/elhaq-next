@@ -260,6 +260,9 @@ export default function BeneficiariesPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
+            <Link href="/" className="text-muted-foreground hover:text-primary mb-2 inline-flex items-center gap-2 transition-colors">
+              ← العودة للرئيسية
+            </Link>
             <h1 className="text-3xl sm:text-4xl font-bold text-foreground flex items-center gap-3">
               <Users className="h-8 w-8 text-primary" />
               المستفيدين

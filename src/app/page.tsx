@@ -218,9 +218,17 @@ export default function Home() {
                 </Link>
               )}
 
-              {/* Quick Access for Reports, Loans, Warehouse for Members/Admins */}
+              {/* Quick Access for Initiatives, Reports for Members/Admins */}
               {(canViewBeneficiaries) && (
                 <>
+                  <Link
+                    href="/admin/initiatives"
+                    className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 border border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground text-base font-medium rounded-md transition-colors shadow-sm"
+                    title="المبادرات"
+                  >
+                    <Heart className="ml-2 h-5 w-5" />
+                    المبادرات
+                  </Link>
                   <Link
                     href="/admin/reports"
                      className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 border border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground text-base font-medium rounded-md transition-colors shadow-sm"
