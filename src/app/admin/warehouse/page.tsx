@@ -3,7 +3,7 @@
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { Loader2, Archive, ArrowDownCircle, ArrowUpCircle, Filter, Package, DollarSign, Trash2, Edit } from "lucide-react";
@@ -226,13 +226,20 @@ function RecordMovementModal({
 
 export default function WarehousePage() {
   const { user, isLoaded } = useUser();
+  const router = useRouter();
   const { data, error, mutate } = useSWR(isLoaded ? "/api/warehouse" : null, fetcher);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filterType, setFilterType] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [editItem, setEditItem] = useState<WarehouseMovement | null>(null);
-  
-  const role = user?.publicMetadata?.role as string | undefined;
+
+  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  useEffect(() => {
+    if (isLoaded && role !== "admin" && role !== "member") {
+      router.push("/");
+    }
+  }, [isLoaded, role, router]);
+
   const isAdmin = role === "admin";
 
   const movements: WarehouseMovement[] = data?.movements || [];

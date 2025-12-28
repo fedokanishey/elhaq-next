@@ -446,7 +446,12 @@ export default function GoodLoansPage() {
   const [repaymentLoan, setRepaymentLoan] = useState<Loan | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const role = user?.publicMetadata?.role as string | undefined;
+  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  if (isLoaded && role !== "admin" && role !== "member") {
+    router.push("/unauthorized"); // Redirect to an unauthorized page
+    return null; // Or render an unauthorized message
+  }
+
   const isAdmin = role === 'admin';
 
   const loans: Loan[] = data?.loans || [];

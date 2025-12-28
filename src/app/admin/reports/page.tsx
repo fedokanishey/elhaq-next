@@ -15,6 +15,18 @@ interface ReportsStats {
     completed: number;
     cancelled: number;
   };
+  loans: {
+    activeCount: number;
+    completedCount: number;
+    totalLoaned: number;
+    totalPaid: number;
+    activeBalance: number;
+  };
+  warehouse: {
+    itemsCount: number;
+    cashBalance: number;
+    totalStockValue: number;
+  };
 }
 
 export default function AdminReports() {
@@ -25,7 +37,7 @@ export default function AdminReports() {
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    if (isLoaded && role !== "admin") {
+    if (isLoaded && role !== "admin" && role !== "member") {
       router.push("/");
     }
   }, [isLoaded, user, router]);
@@ -112,6 +124,61 @@ export default function AdminReports() {
                   <span className="text-sm text-red-600 dark:text-red-300/90">ملغاة</span>
                 </div>
               </div>
+            </div>
+
+            {/* Warehouse & Loans Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                 {/* Loans Stats */}
+                <div className="bg-card border border-border rounded-lg shadow-sm p-6">
+                  <h3 className="text-lg font-bold text-foreground mb-4 border-b pb-2">إحصائيات القرض الحسن</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="p-4 rounded-lg bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20">
+                        <p className="text-sm text-muted-foreground">قروض نشطة</p>
+                        <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.loans.activeCount}</p>
+                     </div>
+                     <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20">
+                        <p className="text-sm text-muted-foreground">قروض مكتملة</p>
+                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.loans.completedCount}</p>
+                     </div>
+                     <div className="col-span-2 p-4 rounded-lg bg-muted/50">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm text-muted-foreground">إجمالي المبالغ المقرضة</span>
+                            <span className="font-bold">{stats.loans.totalLoaned.toLocaleString()} ج.م</span>
+                        </div>
+                         <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm text-muted-foreground">إجمالي المسدد</span>
+                            <span className="font-bold text-green-600">{stats.loans.totalPaid.toLocaleString()} ج.م</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t">
+                            <span className="text-sm font-medium">الرصيد القائم (لدى المقترضين)</span>
+                            <span className="font-bold text-orange-600">{stats.loans.activeBalance.toLocaleString()} ج.م</span>
+                        </div>
+                     </div>
+                  </div>
+                </div>
+
+                {/* Warehouse Stats */}
+                <div className="bg-card border border-border rounded-lg shadow-sm p-6">
+                  <h3 className="text-lg font-bold text-foreground mb-4 border-b pb-2">إحصائيات المخزن</h3>
+                   <div className="grid grid-cols-1 gap-4">
+                     <div className="flex items-center justify-between p-4 rounded-lg bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/20">
+                        <div>
+                             <p className="text-sm text-muted-foreground">أصناف بالمخزن</p>
+                             <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.warehouse.itemsCount} <span className="text-sm font-normal text-muted-foreground">صنف</span></p>
+                        </div>
+                        <div className="text-left">
+                             <p className="text-sm text-muted-foreground">قيمة المخزون (التقريبية)</p>
+                             <p className="text-lg font-bold text-foreground">{stats.warehouse.totalStockValue.toLocaleString()} ج.م</p>
+                        </div>
+                     </div>
+                     
+                     <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/20">
+                        <p className="text-sm text-muted-foreground mb-1">رصيد خزينة المخزن</p>
+                        <p className="text-3xl font-bold text-green-600 dark:text-green-400">{stats.warehouse.cashBalance.toLocaleString()} <span className="text-sm text-muted-foreground">ج.م</span></p>
+                        <p className="text-xs text-muted-foreground mt-2">السيولة النقدية المتاحة العمليات المخزن</p>
+                     </div>
+                  </div>
+                </div>
             </div>
           </div>
         ) : (

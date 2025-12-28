@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
-import { ArrowRight, Heart, Shield, Users, LayoutDashboard, UserCircle, Image as ImageIcon, Wallet } from "lucide-react";
+import { ArrowRight, Heart, Shield, Users, LayoutDashboard, UserCircle, Image as ImageIcon, Wallet, BarChart3, HandCoins, Archive } from "lucide-react";
 
 interface InitiativePreview {
   _id: string;
@@ -216,6 +216,20 @@ export default function Home() {
                   <Users className="ml-2 h-5 w-5" />
                   المستفيدين
                 </Link>
+              )}
+
+              {/* Quick Access for Reports, Loans, Warehouse for Members/Admins */}
+              {(canViewBeneficiaries) && (
+                <>
+                  <Link
+                    href="/admin/reports"
+                     className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 border border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground text-base font-medium rounded-md transition-colors shadow-sm"
+                    title="التقارير"
+                  >
+                    <BarChart3 className="ml-2 h-5 w-5" />
+                    التقارير
+                  </Link>
+                </>
               )}
 
               <Link

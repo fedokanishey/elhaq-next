@@ -28,6 +28,7 @@ interface BeneficiaryCardProps {
   monthlyAllowanceAmount?: number;
   listName?: string;
   listNames?: string[];
+  status?: string;
   loanDetails?: {
     amount: number;
     status: string;
@@ -54,6 +55,7 @@ export default function BeneficiaryCard({
   monthlyAllowanceAmount,
   listName,
   listNames,
+  status,
   loanDetails,
   onEdit,
   onDelete,
@@ -158,8 +160,25 @@ export default function BeneficiaryCard({
                        📋 {ln}
                     </span>
                  ))}
-                 
-                 {/* Active Loan Badge */}
+                  
+                  {/* Status Badge */}
+                  {status && (
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                      status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                      status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                      status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                      'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
+                    }`}>
+                      {status === 'active' ? 'نشط' :
+                       status === 'pending' ? 'انتظار' :
+                       status === 'rejected' ? 'مرفوض' :
+                       status === 'needs_research' ? 'يحتاج بحث' :
+                       status === 'completed' ? 'مكتمل' :
+                       status}
+                    </span>
+                  )}
+
+                  {/* Active Loan Badge */}
                  {loanDetails && loanDetails.status === 'active' && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
                       🤝 قرض: {loanDetails.amount.toLocaleString()} ج.م

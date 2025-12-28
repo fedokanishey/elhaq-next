@@ -366,6 +366,7 @@ export default function AdminBeneficiaries() {
                   monthlyAllowanceAmount={beneficiary.monthlyAllowanceAmount}
                   listName={beneficiary.listName}
                   listNames={beneficiary.listNames}
+                  status={beneficiary.status}
                   loanDetails={beneficiary.loanDetails as any}
                   onView={() => handleOpenView(beneficiary._id)}
                   onEdit={() => handleOpenEdit(beneficiary._id)}

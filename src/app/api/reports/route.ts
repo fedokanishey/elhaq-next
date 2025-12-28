@@ -4,6 +4,8 @@ import Initiative from "@/lib/models/Initiative";
 import Beneficiary from "@/lib/models/Beneficiary";
 import User from "@/lib/models/User";
 import TreasuryTransaction from "@/lib/models/TreasuryTransaction";
+import Loan from "@/lib/models/Loan";
+import WarehouseMovement from "@/lib/models/WarehouseMovement";
 import { auth, currentUser } from "@clerk/nextjs/server";
 
 export async function GET() {
@@ -18,21 +20,22 @@ export async function GET() {
 
     // Check MongoDB for role first (Source of Truth)
     const dbUser = await User.findOne({ clerkId: userId });
-    let isAdmin = dbUser?.role === 'admin';
+    let isAuthorized = dbUser?.role === 'admin' || dbUser?.role === 'member';
 
     // Fallback to Clerk metadata if not admin in DB (e.g. first login)
-    if (!isAdmin) {
+    if (!isAuthorized) {
         const role = (sessionClaims?.metadata as { role?: string })?.role;
-        if (role === 'admin') isAdmin = true;
+        if (role === 'admin' || role === 'member') isAuthorized = true;
     }
 
-    if (!isAdmin) {
+    if (!isAuthorized) {
          // Double check with currentUser() as last resort
          const clerkUser = await currentUser();
-         if (clerkUser?.publicMetadata?.role === 'admin') isAdmin = true;
+         const role = clerkUser?.publicMetadata?.role;
+         if (role === 'admin' || role === 'member') isAuthorized = true;
     }
 
-    if (!isAdmin) {
+    if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -97,6 +100,100 @@ export async function GET() {
       cancelled: initiatives.filter(i => i.status === 'cancelled').length,
     };
 
+    // --- Loan Stats ---
+    const activeLoansCount = await Loan.countDocuments({ status: "active", deletedAt: null });
+    const completedLoansCount = await Loan.countDocuments({ status: "completed", deletedAt: null });
+    
+    // Aggregating quantities for Loans
+    const loanStats = await Loan.aggregate([
+       { $match: { deletedAt: null } },
+       { 
+         $group: { 
+           _id: null, 
+           totalLoaned: { $sum: "$amount" },
+           totalPaid: { $sum: "$amountPaid" },
+           activeAmount: { 
+             $sum: { 
+               $cond: [{ $eq: ["$status", "active"] }, { $subtract: ["$amount", "$amountPaid"] }, 0] 
+             }
+           }
+         } 
+       }
+    ]);
+    const totalLoaned = loanStats[0]?.totalLoaned || 0;
+    const totalLoanPaid = loanStats[0]?.totalPaid || 0;
+    const activeLoanBalance = loanStats[0]?.activeAmount || 0;
+
+    // --- Warehouse Stats ---
+    
+    // 1. Product Inventory Count (Unique items with >0 quantity)
+    // We reuse the logic from warehouse API or simplify it. Reusing aggregation is safest.
+    const inventoryAgg = await WarehouseMovement.aggregate([
+      { $match: { category: "product", deletedAt: null } },
+      { 
+        $group: { 
+          _id: { itemName: "$itemName", type: "$type" }, 
+          totalQuantity: { $sum: "$quantity" } 
+        } 
+      },
+    ]);
+
+    const inventoryMap: Record<string, number> = {};
+    inventoryAgg.forEach(item => {
+      const name = item._id.itemName;
+      const qty = item.totalQuantity;
+      if (!name) return;
+      if (!inventoryMap[name]) inventoryMap[name] = 0;
+      if (item._id.type === "inbound") inventoryMap[name] += qty;
+      else inventoryMap[name] -= qty;
+    });
+    
+    // Count items with positive stock
+    const inventoryItemsCount = Object.values(inventoryMap).filter(q => q > 0).length;
+
+    // 2. Cash Balance (Warehouse Cash)
+    const cashAgg = await WarehouseMovement.aggregate([
+      { $match: { category: "cash", deletedAt: null } },
+      { 
+        $group: { 
+          _id: "$type", 
+          totalValue: { $sum: "$value" } 
+        } 
+      },
+    ]);
+    
+    let cashInbound = 0;
+    let cashOutbound = 0;
+    cashAgg.forEach(item => {
+      if (item._id === "inbound") cashInbound = item.totalValue;
+      if (item._id === "outbound") cashOutbound = item.totalValue;
+    });
+    const warehouseCashBalance = cashInbound - cashOutbound;
+
+    // 3. Estimated Stock Value (Warehouse Value)
+    // This is tricky as we don't store per-item value always, but we can sum 'product' inbound value - outbound value?
+    // Or just fetch total inbound value of products vs outbound? 
+    // The current Warehouse page doesn't explicitly show "Total Stock Inventory Value", only "Cash Balance".
+    // I will compute "Total Product Value" based on inbound product values minus outbound product values to approximate.
+    const productValueAgg = await WarehouseMovement.aggregate([
+      { $match: { category: "product", deletedAt: null } },
+      { 
+        $group: { 
+          _id: "$type", 
+          totalValue: { $sum: "$value" } 
+        } 
+      },
+    ]);
+     let productInboundVal = 0;
+    let productOutboundVal = 0;
+    productValueAgg.forEach(item => {
+      // Note: Value is optional for items, so this might be partial data, but better than nothing
+      if (item._id === "inbound") productInboundVal = item.totalValue || 0;
+      if (item._id === "outbound") productOutboundVal = item.totalValue || 0;
+    });
+    const totalStockValue = productInboundVal - productOutboundVal;
+
+
     return NextResponse.json({
       stats: {
         totalInitiatives,
@@ -104,7 +201,21 @@ export async function GET() {
         totalAmountSpent,
         initiativesByStatus,
         totalUsers: usersCount,
-        remainingBalance
+        remainingBalance,
+        // New Stats
+        loans: {
+            activeCount: activeLoansCount,
+            completedCount: completedLoansCount,
+            totalLoaned,
+            totalPaid: totalLoanPaid,
+            activeBalance: activeLoanBalance
+        },
+        warehouse: {
+            itemsCount: inventoryItemsCount,
+            cashBalance: warehouseCashBalance,
+            notes: "Stock value is approximate based on recorded movement values",
+            totalStockValue
+        }
       }
     });
   } catch (error) {
