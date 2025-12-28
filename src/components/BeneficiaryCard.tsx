@@ -26,6 +26,12 @@ interface BeneficiaryCardProps {
   spouseName?: string;
   receivesMonthlyAllowance?: boolean;
   monthlyAllowanceAmount?: number;
+  listName?: string;
+  listNames?: string[];
+  loanDetails?: {
+    amount: number;
+    status: string;
+  };
   onEdit?: () => void;
   onDelete?: () => void;
   onView?: () => void;
@@ -46,6 +52,9 @@ export default function BeneficiaryCard({
   spouseName,
   receivesMonthlyAllowance,
   monthlyAllowanceAmount,
+  listName,
+  listNames,
+  loanDetails,
   onEdit,
   onDelete,
   onView,
@@ -140,8 +149,23 @@ export default function BeneficiaryCard({
 
         <div className="space-y-2 text-sm sm:text-base text-muted-foreground">
           {nationalId && (
-            <div className="flex items-center gap-2">
-              <span>رقم المستفيد: {nationalId}</span>
+            <div className="flex flex-col gap-1 w-full">
+              {nationalId && <span>رقم المستفيد: {nationalId}</span>}
+              <div className="flex flex-wrap gap-2 mt-1">
+                 {/* List Names Badge */}
+                 {(listNames && listNames.length > 0 ? listNames : [listName]).filter(Boolean).map((ln, idx) => (
+                    <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-secondary text-secondary-foreground">
+                       📋 {ln}
+                    </span>
+                 ))}
+                 
+                 {/* Active Loan Badge */}
+                 {loanDetails && loanDetails.status === 'active' && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                      🤝 قرض: {loanDetails.amount.toLocaleString()} ج.م
+                    </span>
+                 )}
+              </div>
             </div>
           )}
 

@@ -138,6 +138,12 @@ export interface IBeneficiary extends Document {
   relationships: IRelationship[];
   createdAt: Date;
   updatedAt: Date;
+  loanDetails?: {
+    loanId: Types.ObjectId;
+    amount: number;
+    startDate: Date;
+    status: 'active' | 'completed' | 'defaulted';
+  };
 }
 
 const BeneficiarySchema = new Schema<IBeneficiary>(
@@ -179,7 +185,7 @@ const BeneficiarySchema = new Schema<IBeneficiary>(
     status: {
       type: String,
       enum: ['active', 'cancelled', 'pending'],
-      default: 'active',
+      default: 'pending',
     },
     statusReason: String,
     statusDate: Date,
@@ -190,6 +196,12 @@ const BeneficiarySchema = new Schema<IBeneficiary>(
     children: [ChildSchema],
     spouse: { type: SpouseSchema, default: undefined },
     relationships: { type: [RelationshipSchema], default: [] },
+    loanDetails: {
+      loanId: Schema.Types.ObjectId,
+      amount: Number,
+      startDate: Date,
+      status: { type: String, enum: ['active', 'completed', 'defaulted'] },
+    },
   },
   { timestamps: true, strict: false }
 );

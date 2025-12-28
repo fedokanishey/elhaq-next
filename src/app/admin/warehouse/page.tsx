@@ -2,6 +2,7 @@
 
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useState, useMemo } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
@@ -273,21 +274,26 @@ export default function WarehousePage() {
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto space-y-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Archive className="w-8 h-8" /> سجل المخزن
-            </h1>
-            <p className="text-muted-foreground mt-1">تتبع حركة المخزن الواردة والصادرة</p>
+        <div className="flex flex-col gap-3">
+          <Link href="/admin/dashboard" className="text-muted-foreground hover:text-primary inline-flex items-center gap-2 w-fit">
+            ← العودة للوحة التحكم
+          </Link>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-bold flex items-center gap-2">
+                <Archive className="w-8 h-8" /> سجل المخزن
+              </h1>
+              <p className="text-muted-foreground mt-1">تتبع حركة المخزن الواردة والصادرة</p>
+            </div>
+            {isAdmin && (
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md shadow-sm hover:shadow hover:bg-primary/90 transition-all font-medium"
+              >
+                تسجيل حركة
+              </button>
+            )}
           </div>
-          {isAdmin && (
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md shadow-sm hover:shadow hover:bg-primary/90 transition-all font-medium"
-            >
-              تسجيل حركة
-            </button>
-          )}
         </div>
 
         {/* Stats Grid */}

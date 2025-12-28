@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ImageUpload from "@/components/ImageUpload";
 import { calculatePriority } from "@/lib/utils/calculatePriority";
+import { ArrowLeft, ArrowRightLeft, AlertTriangle } from "lucide-react";
 
 export type MaritalStatus = "single" | "married" | "divorced" | "widowed";
 export type RelationshipType =
@@ -174,7 +175,7 @@ const createInitialFormValues = (): BeneficiaryFormValues => ({
   acceptsMarriage: false,
   marriageDetails: "",
   marriageCertificateImage: "",
-  status: "active",
+  status: "pending",
   statusReason: "",
   statusDate: new Date().toISOString().split('T')[0],
   listNames: ["الكشف العام"],
@@ -196,7 +197,7 @@ const cloneFormValues = (values: BeneficiaryFormValues): BeneficiaryFormValues =
 
   return {
     ...values,
-    status: values.status || "active",
+    status: values.status || "pending",
     statusDate: values.statusDate || new Date().toISOString().split('T')[0],
     listNames: normalizedListNames,
     receivesMonthlyAllowance: values.receivesMonthlyAllowance || false,
@@ -239,6 +240,40 @@ export default function BeneficiaryForm({
   const [manualPriority, setManualPriority] = useState(false);
   const [listNameSuggestions, setListNameSuggestions] = useState<string[]>([]);
   const [showListNameSuggestions, setShowListNameSuggestions] = useState(false);
+
+  // Swap State
+  const [showSwapModal, setShowSwapModal] = useState(false);
+  const [swapTargetId, setSwapTargetId] = useState("");
+  const [swapError, setSwapError] = useState("");
+  const [swapping, setSwapping] = useState(false);
+
+  const handleSwap = async () => {
+    if (!swapTargetId || !beneficiaryId) return;
+    setSwapping(true);
+    setSwapError("");
+    try {
+      const res = await fetch("/api/beneficiaries/swap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentId: beneficiaryId,
+          targetNationalId: swapTargetId
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Swap failed");
+      
+      // Update local state with new ID
+      setFormData(prev => ({ ...prev, nationalId: data.newNationalId }));
+      setShowSwapModal(false);
+      setSwapTargetId("");
+      alert(`تم التبديل بنجاح مع: ${data.swappedWithName}`);
+    } catch (err: any) {
+      setSwapError(err.message);
+    } finally {
+      setSwapping(false);
+    }
+  };
 
   useEffect(() => {
     if (mode === "edit" && initialValues) {
@@ -773,6 +808,53 @@ export default function BeneficiaryForm({
   const submittingLabel = mode === "edit" ? "جاري التحديث..." : "جاري الحفظ...";
 
   return (
+    <>
+    {/* Swap Modal */}
+    {showSwapModal && (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+        <div className="bg-background rounded-lg shadow-lg w-full max-w-md p-6 relative">
+          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <ArrowRightLeft className="w-5 h-5" />
+            تبديل رقم المستفيد
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            أدخل رقم المستفيد الذي تريد التبديل معه. سيأخذ هذا المستفيد الرقم الجديد، وسيأخذ المستفيد الآخر رقم هذا المستفيد الحالي.
+          </p>
+          
+          <input
+             type="text"
+             className="w-full border rounded p-2 mb-4 bg-background"
+             placeholder="رقم المستفيد الآخر..."
+             value={swapTargetId}
+             onChange={e => setSwapTargetId(e.target.value)}
+          />
+
+          {swapError && (
+            <div className="text-destructive text-sm mb-4 bg-destructive/10 p-2 rounded">
+              {swapError}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+             <button 
+               onClick={() => setShowSwapModal(false)}
+               className="px-4 py-2 text-sm rounded hover:bg-muted"
+               disabled={swapping}
+             >
+               إلغاء
+             </button>
+             <button
+               onClick={handleSwap}
+               className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+               disabled={swapping || !swapTargetId}
+             >
+               {swapping ? "جاري التبديل..." : "تأكيد التبديل"}
+             </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     <div className={isModal ? "" : "min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8 transition-colors"}>
       <div className={isModal ? "" : "max-w-2xl mx-auto"}>
         {!isModal && (
@@ -781,7 +863,8 @@ export default function BeneficiaryForm({
               href="/admin/beneficiaries"
               className="text-muted-foreground hover:text-primary mb-4 inline-flex items-center gap-2 transition-colors"
             >
-              ← العودة
+              <ArrowLeft className="w-4 h-4 ml-1" />
+              العودة
             </Link>
             <h1 className="text-3xl font-bold text-foreground">{heading}</h1>
           </div>
@@ -815,18 +898,30 @@ export default function BeneficiaryForm({
               <label htmlFor="beneficiary-id" className="block text-sm font-medium text-foreground mb-2">
                 رقم المستفيد الداخلي
               </label>
-              <input
-                id="beneficiary-id"
-                type="text"
-                name="nationalId"
-                value={formData.nationalId}
-                onChange={handleChange}
-                required
-                inputMode="numeric"
-                pattern="\d+"
-                title="أرقام فقط"
-                className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary"
-              />
+              <div className="flex gap-2">
+                <input
+                  id="beneficiary-id"
+                  type="text"
+                  name="nationalId"
+                  value={formData.nationalId}
+                  onChange={handleChange}
+                  required
+                  inputMode="numeric"
+                  pattern="\d+"
+                  title="أرقام فقط"
+                  className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+                {mode === "edit" && beneficiaryId && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSwapModal(true)}
+                    className="px-3 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors flex-shrink-0"
+                    title="تبديل رقم المستفيد"
+                  >
+                   <ArrowRightLeft className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
             </div>
 
             <div>
@@ -1774,5 +1869,6 @@ export default function BeneficiaryForm({
         </form>
       </div>
     </div>
+    </>
   );
 }

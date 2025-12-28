@@ -55,6 +55,24 @@ function AddLoanModal({ isOpen, onClose, onSuccess, maxAmount }: { isOpen: boole
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  // Fetch beneficiaries for autocomplete
+  const { data: beneficiariesData } = useSWR(
+    searchTerm.length >= 2 ? `/api/beneficiaries/search?q=${encodeURIComponent(searchTerm)}&limit=5` : null,
+    fetcher
+  );
+
+  const suggestions = beneficiariesData?.beneficiaries || [];
+
+  // Close dropdown when closing modal
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchTerm("");
+      setIsDropdownOpen(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -98,12 +116,46 @@ function AddLoanModal({ isOpen, onClose, onSuccess, maxAmount }: { isOpen: boole
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">اسم المستفيد</label>
-            <input
-              required
-              className="w-full border rounded p-2 bg-background"
-              value={formData.beneficiaryName}
-              onChange={(e) => setFormData({ ...formData, beneficiaryName: e.target.value })}
-            />
+            <div className="relative">
+              <input
+                required
+                className="w-full border rounded p-2 bg-background"
+                value={formData.beneficiaryName}
+                onChange={(e) => {
+                  setFormData({ ...formData, beneficiaryName: e.target.value });
+                  setSearchTerm(e.target.value);
+                  setIsDropdownOpen(true);
+                }}
+                onFocus={() => setIsDropdownOpen(true)}
+                placeholder="ابحث عن اسم المستفيد..."
+              />
+              {isDropdownOpen && searchTerm.length >= 2 && suggestions.length > 0 && (
+                <div className="absolute z-10 w-full bg-background border border-border rounded-md shadow-lg mt-1 max-h-48 overflow-y-auto">
+                   {suggestions.map((b: any) => (
+                    <button
+                      key={b._id}
+                      type="button"
+                      className="w-full text-right px-3 py-2 hover:bg-muted text-sm border-b last:border-0 border-border"
+                      onClick={() => {
+                        setFormData({
+                          ...formData,
+                          beneficiaryName: b.name,
+                          nationalId: b.nationalId || formData.nationalId,
+                          phone: b.phone || formData.phone,
+                        });
+                        setSearchTerm("");
+                        setIsDropdownOpen(false);
+                      }}
+                    >
+                      <div className="font-semibold">{b.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {b.nationalId ? `رقم المستفيد: ${b.nationalId}` : ""} {b.phone ? `- ${b.phone}` : ""}
+                      </div>
+                    </button>
+                   ))}
+                </div>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -424,27 +476,32 @@ export default function GoodLoansPage() {
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <img src="/handshake.png" alt="" className="w-8 h-8 hidden" /> {/* Placeholder if needed */}
-              🤝 القرض الحسن
-            </h1>
-            <p className="text-muted-foreground mt-1">إدارة القروض الميسرة ومتابعة السداد</p>
-          </div>
-          {isAdmin && (
-            <div className="flex gap-2">
-              <button onClick={() => setIsHistoryOpen(true)} className="px-3 py-2 border border-border bg-background rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-sm flex items-center gap-2">
-                <Calendar className="w-4 h-4" /> سجل الرصيد
-              </button>
-              <button onClick={() => setIsAddCapitalOpen(true)} className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 flex items-center gap-2">
-                <PiggyBank className="w-4 h-4" /> إضافة رصيد
-              </button>
-              <button onClick={() => setIsAddLoanOpen(true)} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2">
-                <Plus className="w-4 h-4" /> قرض جديد
-              </button>
+        <div className="flex flex-col gap-3">
+          <Link href="/admin/dashboard" className="text-muted-foreground hover:text-primary inline-flex items-center gap-2 w-fit">
+            ← العودة للوحة التحكم
+          </Link>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-bold flex items-center gap-2">
+                <img src="/handshake.png" alt="" className="w-8 h-8 hidden" /> {/* Placeholder if needed */}
+                🤝 القرض الحسن
+              </h1>
+              <p className="text-muted-foreground mt-1">إدارة القروض الميسرة ومتابعة السداد</p>
             </div>
-          )}
+            {isAdmin && (
+              <div className="flex gap-2">
+                <button onClick={() => setIsHistoryOpen(true)} className="px-3 py-2 border border-border bg-background rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-sm flex items-center gap-2">
+                  <Calendar className="w-4 h-4" /> سجل الرصيد
+                </button>
+                <button onClick={() => setIsAddCapitalOpen(true)} className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 flex items-center gap-2">
+                  <PiggyBank className="w-4 h-4" /> إضافة رصيد
+                </button>
+                <button onClick={() => setIsAddLoanOpen(true)} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2">
+                  <Plus className="w-4 h-4" /> قرض جديد
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Stats Grid */}

@@ -45,6 +45,12 @@ interface Beneficiary {
   };
   children?: Array<{ name?: string; nationalId?: string; school?: string; educationStage?: string }>;
   notes?: string;
+  loanDetails?: {
+    loanId: string;
+    amount: number;
+    startDate: string;
+    status: "active" | "completed" | "defaulted";
+  };
 }
 
 export default function AdminBeneficiaries() {
@@ -358,6 +364,9 @@ export default function AdminBeneficiaries() {
                   spouseName={beneficiary.spouse?.name}
                   receivesMonthlyAllowance={beneficiary.receivesMonthlyAllowance}
                   monthlyAllowanceAmount={beneficiary.monthlyAllowanceAmount}
+                  listName={beneficiary.listName}
+                  listNames={beneficiary.listNames}
+                  loanDetails={beneficiary.loanDetails as any}
                   onView={() => handleOpenView(beneficiary._id)}
                   onEdit={() => handleOpenEdit(beneficiary._id)}
                   onDelete={() => handleDelete(beneficiary._id)}

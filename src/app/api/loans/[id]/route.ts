@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import dbConnect from "@/lib/mongodb";
 import Loan from "@/lib/models/Loan";
+import Beneficiary from "@/lib/models/Beneficiary";
 import { NextResponse } from "next/server";
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -21,6 +22,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     // Soft delete
     loan.deletedAt = new Date();
     await loan.save();
+
+    // Unset loan details from Beneficiary
+    if (loan.nationalId) {
+      await Beneficiary.findOneAndUpdate(
+        { nationalId: loan.nationalId, "loanDetails.loanId": loan._id },
+        { $unset: { loanDetails: "" } }
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

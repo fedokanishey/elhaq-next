@@ -8,9 +8,10 @@ import Link from "next/link";
 import BeneficiaryCard from "@/components/BeneficiaryCard";
 import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
 import SearchFilterBar from "@/components/SearchFilterBar";
-import { Loader2, Plus, Users, AlertCircle, ArrowDownUp, Printer } from "lucide-react";
+import { Loader2, Plus, Users, AlertCircle, ArrowDownUp, Printer, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import MonthlyAllowancePrintModal from "@/components/MonthlyAllowancePrintModal";
+import BeneficiariesPrintModal from "@/components/BeneficiariesPrintModal";
 import BeneficiaryModal from "@/components/BeneficiaryModal";
 
 interface Beneficiary {
@@ -45,6 +46,12 @@ interface Beneficiary {
   monthlyAllowanceAmount?: number;
   statusDate?: string;
   createdAt?: string;
+  loanDetails?: {
+    loanId: string;
+    amount: number;
+    startDate: string;
+    status: "active" | "completed" | "defaulted";
+  };
 }
 
 export default function BeneficiariesPage() {
@@ -55,6 +62,7 @@ export default function BeneficiariesPage() {
   const [filters, setFilters] = useState<BeneficiaryFilterCriteria>({});
   const [sortByNationalId, setSortByNationalId] = useState(true);
   const [showMonthlyAllowancePrint, setShowMonthlyAllowancePrint] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   // Modal State
   // Modal State
@@ -307,6 +315,15 @@ export default function BeneficiariesPage() {
               <ArrowDownUp className="w-4 h-4" />
               <span className="text-sm">{sortByNationalId ? "↑" : "↓"}</span>
             </button>
+            <button
+              onClick={() => setShowPrintModal(true)}
+              className="px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors inline-flex items-center gap-2 font-medium"
+              type="button"
+              title="تصدير PDF"
+            >
+              <Download className="w-4 h-4" />
+              طباعة
+            </button>
           </div>
         </div>
 
@@ -345,6 +362,9 @@ export default function BeneficiariesPage() {
                   spouseName={beneficiary.spouse?.name}
                   receivesMonthlyAllowance={beneficiary.receivesMonthlyAllowance}
                   monthlyAllowanceAmount={beneficiary.monthlyAllowanceAmount}
+                  listName={beneficiary.listName}
+                  listNames={beneficiary.listNames}
+                  loanDetails={beneficiary.loanDetails as any}
                   onView={() => handleOpenView(beneficiary._id)}
                   isReadOnly={!isAdmin}
                   onEdit={isAdmin ? () => handleOpenEdit(beneficiary._id) : undefined}
@@ -394,6 +414,14 @@ export default function BeneficiariesPage() {
             }))}
           />
         )}
+
+        {/* General Print Modal */}
+        <BeneficiariesPrintModal
+          isOpen={showPrintModal}
+          onClose={() => setShowPrintModal(false)}
+          beneficiaries={filteredBeneficiaries}
+          title="تقرير المستفيدين"
+        />
         
         {/* Edit/Create Modal */}
         <BeneficiaryModal 

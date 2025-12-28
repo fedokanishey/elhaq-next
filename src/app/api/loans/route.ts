@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import dbConnect from "@/lib/mongodb";
 import Loan from "@/lib/models/Loan";
 import LoanCapital from "@/lib/models/LoanCapital";
+import Beneficiary from "@/lib/models/Beneficiary";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -130,6 +131,23 @@ export async function POST(req: Request) {
       notes,
       createdBy: userId,
     });
+
+    // If nationalId is provided, try to link with Beneficiary
+    if (nationalId) {
+      await Beneficiary.findOneAndUpdate(
+        { nationalId },
+        {
+          $set: {
+            loanDetails: {
+              loanId: loan._id,
+              amount: loan.amount,
+              startDate: loan.startDate,
+              status: loan.status,
+            }
+          }
+        }
+      );
+    }
 
     return NextResponse.json(loan, { status: 201 });
   } catch (error) {
