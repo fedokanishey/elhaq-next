@@ -911,6 +911,31 @@ export default function BeneficiaryForm({
                   title="أرقام فقط"
                   className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary"
                 />
+                {mode === "create" && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch("/api/beneficiaries");
+                        if (res.ok) {
+                          const data = await res.json();
+                          const beneficiaries = data.beneficiaries || [];
+                          const maxId = beneficiaries.reduce((max: number, b: any) => {
+                            const id = parseInt(b.nationalId || "0", 10);
+                            return id > max ? id : max;
+                          }, 0);
+                          setFormData(prev => ({ ...prev, nationalId: String(maxId + 1) }));
+                        }
+                      } catch (err) {
+                        console.error("Failed to fetch beneficiaries:", err);
+                      }
+                    }}
+                    className="px-3 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors flex-shrink-0"
+                    title="تعيين الرقم التالي تلقائياً"
+                  >
+                    +1
+                  </button>
+                )}
                 {mode === "edit" && beneficiaryId && (
                   <button
                     type="button"

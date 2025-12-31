@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
-import { Loader2, PiggyBank, Briefcase, CheckCircle, AlertCircle, Plus, Search, Calendar, ChevronRight, X, Trash2 } from "lucide-react";
+import { Loader2, PiggyBank, Briefcase, CheckCircle, AlertCircle, Plus, Search, Calendar, ChevronRight, X, Trash2, Edit } from "lucide-react";
 import Link from "next/link";
 import StatCard from "@/components/StatCard";
 import SearchFilterBar from "@/components/SearchFilterBar";
@@ -230,6 +230,149 @@ function AddLoanModal({ isOpen, onClose, onSuccess, maxAmount }: { isOpen: boole
   );
 }
 
+function EditLoanModal({ isOpen, onClose, onSuccess, loan }: { isOpen: boolean; onClose: () => void; onSuccess: () => void; loan: Loan | null }) {
+  const [formData, setFormData] = useState({
+    beneficiaryName: "",
+    nationalId: "",
+    phone: "",
+    amount: "",
+    startDate: "",
+    dueDate: "",
+    notes: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (loan && isOpen) {
+      setFormData({
+        beneficiaryName: loan.beneficiaryName,
+        nationalId: loan.nationalId || "",
+        phone: loan.phone,
+        amount: String(loan.amount),
+        startDate: loan.startDate ? new Date(loan.startDate).toISOString().split("T")[0] : "",
+        dueDate: loan.dueDate ? new Date(loan.dueDate).toISOString().split("T")[0] : "",
+        notes: loan.notes || "",
+      });
+    }
+  }, [loan, isOpen]);
+
+  if (!isOpen || !loan) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSubmitting(true);
+
+    try {
+      const res = await fetch(`/api/loans/${loan._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...formData, amount: Number(formData.amount) }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "فشل تحديث القرض");
+      }
+
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-background rounded-lg shadow-lg w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+        <h2 className="text-xl font-bold mb-4">تعديل القرض</h2>
+        {error && <div className="bg-red-50 text-red-600 p-3 rounded mb-4">{error}</div>}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">اسم المستفيد</label>
+            <input
+              required
+              className="w-full border rounded p-2 bg-background"
+              value={formData.beneficiaryName}
+              onChange={(e) => setFormData({ ...formData, beneficiaryName: e.target.value })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">رقم الهاتف</label>
+              <input
+                required
+                className="w-full border rounded p-2 bg-background"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">الرقم القومي (اختياري)</label>
+              <input
+                className="w-full border rounded p-2 bg-background"
+                value={formData.nationalId}
+                onChange={(e) => setFormData({ ...formData, nationalId: e.target.value })}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">مبلغ القرض</label>
+            <input
+              type="number"
+              required
+              min="1"
+              className="w-full border rounded p-2 bg-background"
+              value={formData.amount}
+              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">تاريخ البدء</label>
+              <input
+                type="date"
+                required
+                className="w-full border rounded p-2 bg-background"
+                value={formData.startDate}
+                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">تاريخ الاستحقاق</label>
+              <input
+                type="date"
+                className="w-full border rounded p-2 bg-background"
+                value={formData.dueDate}
+                onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">ملاحظات</label>
+            <textarea
+              className="w-full border rounded p-2 bg-background"
+              rows={3}
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            />
+          </div>
+          <div className="flex gap-2 justify-end mt-4">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded border bg-muted hover:bg-muted/80">إلغاء</button>
+            <button type="submit" disabled={submitting} className="px-4 py-2 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+              {submitting ? "جاري التحديث..." : "تحديث القرض"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
 function AddCapitalModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess: () => void }) {
   const [formData, setFormData] = useState({ amount: "", source: "", notes: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -444,6 +587,7 @@ export default function GoodLoansPage() {
   const [isAddCapitalOpen, setIsAddCapitalOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [repaymentLoan, setRepaymentLoan] = useState<Loan | null>(null);
+  const [editLoan, setEditLoan] = useState<Loan | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
@@ -582,13 +726,22 @@ export default function GoodLoansPage() {
                       <ChevronRight className="w-5 h-5 text-muted-foreground" />
                     </button>
                     {isAdmin && (
-                      <button 
-                        onClick={() => handleDelete(loan._id)}
-                        className="px-3 py-2 border border-border bg-background rounded-md hover:bg-red-50 hover:border-red-200 transition-colors group"
-                        title="حذف القرض"
-                      >
-                        <Trash2 className="w-5 h-5 text-muted-foreground group-hover:text-red-600" />
-                      </button>
+                      <>
+                        <button 
+                          onClick={() => setEditLoan(loan)}
+                          className="px-3 py-2 border border-border bg-background rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors group"
+                          title="تعديل القرض"
+                        >
+                          <Edit className="w-5 h-5 text-muted-foreground group-hover:text-blue-600" />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(loan._id)}
+                          className="px-3 py-2 border border-border bg-background rounded-md hover:bg-red-50 hover:border-red-200 transition-colors group"
+                          title="حذف القرض"
+                        >
+                          <Trash2 className="w-5 h-5 text-muted-foreground group-hover:text-red-600" />
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -618,6 +771,12 @@ export default function GoodLoansPage() {
           loan={repaymentLoan} 
         />
       )}
+      <EditLoanModal 
+        isOpen={!!editLoan}
+        onClose={() => setEditLoan(null)}
+        onSuccess={() => mutate()}
+        loan={editLoan}
+      />
       <CapitalHistoryModal 
         isOpen={isHistoryOpen} 
         onClose={() => setIsHistoryOpen(false)} 

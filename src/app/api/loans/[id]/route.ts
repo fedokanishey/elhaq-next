@@ -60,7 +60,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (body.beneficiaryName) loan.beneficiaryName = body.beneficiaryName;
     if (body.phone) loan.phone = body.phone;
     if (body.nationalId) loan.nationalId = body.nationalId;
-    if (body.notes) loan.notes = body.notes;
+    if (body.notes !== undefined) loan.notes = body.notes;
+    if (body.startDate) loan.startDate = new Date(body.startDate);
+    if (body.dueDate) loan.dueDate = new Date(body.dueDate);
     // Updating amount might be risky if repayments exist, but let's allow basic edits
     // Only allow amount edit if no repayments or handle carefully. For now, simple update.
     if (body.amount) loan.amount = body.amount; 

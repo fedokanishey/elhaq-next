@@ -167,6 +167,7 @@ export default function BeneficiaryCard({
                       status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
                       status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
                       status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                      status === 'cancelled' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
                       'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
                     }`}>
                       {status === 'active' ? 'نشط' :
@@ -174,6 +175,7 @@ export default function BeneficiaryCard({
                        status === 'rejected' ? 'مرفوض' :
                        status === 'needs_research' ? 'يحتاج بحث' :
                        status === 'completed' ? 'مكتمل' :
+                       status === 'cancelled' ? 'ملغى' :
                        status}
                     </span>
                   )}
