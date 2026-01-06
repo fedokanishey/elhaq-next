@@ -27,6 +27,7 @@ export const createBlankFormValues = (): BeneficiaryFormValues => ({
   listNames: ["الكشف العام"],
   receivesMonthlyAllowance: false,
   monthlyAllowanceAmount: "",
+  category: "C",
   spouse: createEmptySpouse(),
   children: [],
   relationships: [],
@@ -110,6 +111,7 @@ export const mapBeneficiaryToForm = (record: any): BeneficiaryFormValues | undef
       listNames: record?.listNames?.length ? record.listNames : (record?.listName ? [record.listName] : ["الكشف العام"]),
       receivesMonthlyAllowance: record?.receivesMonthlyAllowance || false,
       monthlyAllowanceAmount: record?.monthlyAllowanceAmount?.toString?.() || "",
+      category: record?.category || "C",
       spouse: record?.spouse
         ? {
             name: record.spouse.name || "",

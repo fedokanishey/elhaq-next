@@ -28,12 +28,18 @@ export async function GET(
       return NextResponse.json({ error: "Beneficiary not found" }, { status: 404 });
     }
 
+    // Ensure beneficiary has a category field (default to 'C' if not set)
+    const beneficiaryWithCategory = {
+      ...beneficiary,
+      category: beneficiary.category || 'C',
+    };
+
     const initiatives = await Initiative.find({ beneficiaries: id })
       .sort({ date: -1 })
       .select("name status date totalAmount")
       .lean();
 
-    return NextResponse.json({ beneficiary, initiatives });
+    return NextResponse.json({ beneficiary: beneficiaryWithCategory, initiatives });
   } catch (error) {
     console.error("Error fetching beneficiary:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

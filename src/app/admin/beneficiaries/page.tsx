@@ -37,6 +37,7 @@ interface Beneficiary {
   listNames?: string[]; // New: supports multiple lists
   receivesMonthlyAllowance?: boolean;
   monthlyAllowanceAmount?: number;
+  category?: "A" | "B" | "C" | "D";
   spouse?: {
     name?: string;
     nationalId?: string;
@@ -215,6 +216,13 @@ export default function AdminBeneficiaries() {
       });
     }
 
+    if (filters.categories && filters.categories.length > 0) {
+      result = result.filter((b) => {
+        const beneficiaryCategory = b.category || "C";
+        return filters.categories!.includes(beneficiaryCategory);
+      });
+    }
+
     // Sort by date (oldest first) if filtering by pending status, otherwise sort by nationalId
     if (filters.status === "pending") {
       result = [...result].sort((a, b) => {
@@ -367,6 +375,7 @@ export default function AdminBeneficiaries() {
                   listName={beneficiary.listName}
                   listNames={beneficiary.listNames}
                   status={beneficiary.status}
+                  category={beneficiary.category}
                   loanDetails={beneficiary.loanDetails as any}
                   onView={() => handleOpenView(beneficiary._id)}
                   onEdit={() => handleOpenEdit(beneficiary._id)}

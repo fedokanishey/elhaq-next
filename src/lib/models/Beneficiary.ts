@@ -133,6 +133,7 @@ export interface IBeneficiary extends Document {
   listNames?: string[]; // New: supports multiple lists
   receivesMonthlyAllowance?: boolean;
   monthlyAllowanceAmount?: number;
+  category?: 'A' | 'B' | 'C' | 'D'; // Beneficiary category
   children: IChild[];
   spouse?: ISpouse;
   relationships: IRelationship[];
@@ -193,6 +194,7 @@ const BeneficiarySchema = new Schema<IBeneficiary>(
     listNames: { type: [String], default: ['الكشف العام'] }, // New: supports multiple lists
     receivesMonthlyAllowance: { type: Boolean, default: false },
     monthlyAllowanceAmount: Number,
+    category: { type: String, enum: ['A', 'B', 'C', 'D'], default: 'C' },
     children: [ChildSchema],
     spouse: { type: SpouseSchema, default: undefined },
     relationships: { type: [RelationshipSchema], default: [] },

@@ -15,6 +15,7 @@ export interface BeneficiaryFilterCriteria {
   acceptsMarriage?: boolean;
   receivesMonthlyAllowance?: boolean;
   searchByBeneficiaryId?: boolean;
+  categories?: ("A" | "B" | "C" | "D")[];
 }
 
 interface BeneficiaryFilterPanelProps {
@@ -35,6 +36,7 @@ const defaultFilters: BeneficiaryFilterCriteria = {
   acceptsMarriage: undefined,
   receivesMonthlyAllowance: undefined,
   searchByBeneficiaryId: undefined,
+  categories: undefined,
 };
 
 export default function BeneficiaryFilterPanel({
@@ -47,7 +49,7 @@ export default function BeneficiaryFilterPanel({
   const [listNameSuggestions, setListNameSuggestions] = useState<string[]>([]);
   const [showListNameSuggestions, setShowListNameSuggestions] = useState(false);
 
-  const handleChange = (field: keyof BeneficiaryFilterCriteria, value: string | number | boolean | undefined) => {
+  const handleChange = (field: keyof BeneficiaryFilterCriteria, value: any) => {
     const updated = { ...filters, [field]: value };
     setFilters(updated);
     onFilterChange(updated);
@@ -96,7 +98,8 @@ export default function BeneficiaryFilterPanel({
     filters.priorityMax !== 10 ||
     filters.acceptsMarriage ||
     filters.receivesMonthlyAllowance ||
-    filters.searchByBeneficiaryId;
+    filters.searchByBeneficiaryId ||
+    (filters.categories && filters.categories.length > 0);
 
   const filterContent = (
     <div className="space-y-4">
@@ -272,6 +275,38 @@ export default function BeneficiaryFilterPanel({
               className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Category Filter */}
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">
+          الفئة
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          {(['A', 'B', 'C', 'D'] as const).map((cat) => (
+            <div key={cat} className="flex items-center gap-2">
+              <input
+                id={`filter-category-${cat}`}
+                type="checkbox"
+                checked={filters.categories?.includes(cat) || false}
+                onChange={(e) => {
+                  const currentCategories = filters.categories || [];
+                  const updated = e.target.checked
+                    ? [...currentCategories, cat]
+                    : currentCategories.filter(c => c !== cat);
+                  handleChange("categories", updated.length > 0 ? updated : undefined);
+                }}
+                className="w-4 h-4 rounded border-input bg-background cursor-pointer accent-primary"
+              />
+              <label 
+                htmlFor={`filter-category-${cat}`} 
+                className="text-sm font-medium text-foreground cursor-pointer"
+              >
+                فئة {cat}
+              </label>
+            </div>
+          ))}
         </div>
       </div>
 

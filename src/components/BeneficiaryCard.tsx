@@ -29,6 +29,7 @@ interface BeneficiaryCardProps {
   listName?: string;
   listNames?: string[];
   status?: string;
+  category?: "A" | "B" | "C" | "D";
   loanDetails?: {
     amount: number;
     status: string;
@@ -56,6 +57,7 @@ export default function BeneficiaryCard({
   listName,
   listNames,
   status,
+  category,
   loanDetails,
   onEdit,
   onDelete,
@@ -161,6 +163,13 @@ export default function BeneficiaryCard({
                     </span>
                  ))}
                   
+                  {/* Category Badge */}
+                  {category && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
+                      فئة {category}
+                    </span>
+                  )}
+
                   {/* Status Badge */}
                   {status && (
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${

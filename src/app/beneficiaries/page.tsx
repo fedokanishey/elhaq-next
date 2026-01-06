@@ -44,6 +44,7 @@ interface Beneficiary {
   listNames?: string[];
   receivesMonthlyAllowance?: boolean;
   monthlyAllowanceAmount?: number;
+  category?: "A" | "B" | "C" | "D";
   statusDate?: string;
   createdAt?: string;
   loanDetails?: {
@@ -219,6 +220,13 @@ export default function BeneficiariesPage() {
       );
     }
 
+    if (filters.categories && filters.categories.length > 0) {
+      result = result.filter((b: Beneficiary) => {
+        const beneficiaryCategory = b.category || "C";
+        return filters.categories!.includes(beneficiaryCategory);
+      });
+    }
+
     // Sort by date (oldest first) if filtering by pending status, otherwise sort by nationalId
     if (filters.status === "pending") {
       result = [...result].sort((a: Beneficiary, b: Beneficiary) => {
@@ -368,6 +376,7 @@ export default function BeneficiariesPage() {
                   listName={beneficiary.listName}
                   listNames={beneficiary.listNames}
                   status={beneficiary.status}
+                  category={beneficiary.category}
                   loanDetails={beneficiary.loanDetails as any}
                   onView={() => handleOpenView(beneficiary._id)}
                   isReadOnly={!isAdmin}

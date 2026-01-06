@@ -68,6 +68,7 @@ export interface SanitizedBeneficiaryPayload {
   listNames?: string[];
   receivesMonthlyAllowance?: boolean;
   monthlyAllowanceAmount?: number;
+  category?: "A" | "B" | "C" | "D";
   spouse?: SpousePayload;
   children: Array<
     Required<Pick<ChildPayload, "name">> &
@@ -334,6 +335,12 @@ export const sanitizeBeneficiaryPayload = (
   const receivesMonthlyAllowance = Boolean(body?.receivesMonthlyAllowance);
   const monthlyAllowanceAmount = receivesMonthlyAllowance ? normalizeNumber(body?.monthlyAllowanceAmount) : undefined;
 
+  // Category field
+  const allowedCategories = ["A", "B", "C", "D"];
+  const category = allowedCategories.includes(body?.category as string)
+    ? (body?.category as "A" | "B" | "C" | "D")
+    : "C";
+
   return {
     name: rawName,
     nationalId: rawBeneficiaryId,
@@ -361,6 +368,7 @@ export const sanitizeBeneficiaryPayload = (
     listNames,
     receivesMonthlyAllowance,
     monthlyAllowanceAmount,
+    category,
     spouse,
     children,
     relationships,

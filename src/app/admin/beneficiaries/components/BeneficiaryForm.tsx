@@ -75,6 +75,7 @@ export interface BeneficiaryFormValues {
   listNames: string[]; // Changed from listName to listNames for multiple lists
   receivesMonthlyAllowance: boolean;
   monthlyAllowanceAmount: string;
+  category: "A" | "B" | "C" | "D"; // Beneficiary category
   spouse: SpouseDetails;
   children: Child[];
   relationships: RelationshipEntry[];
@@ -181,6 +182,7 @@ const createInitialFormValues = (): BeneficiaryFormValues => ({
   listNames: ["الكشف العام"],
   receivesMonthlyAllowance: false,
   monthlyAllowanceAmount: "",
+  category: "C", // Default category
   spouse: createEmptySpouse(),
   children: [],
   relationships: [],
@@ -202,6 +204,7 @@ const cloneFormValues = (values: BeneficiaryFormValues): BeneficiaryFormValues =
     listNames: normalizedListNames,
     receivesMonthlyAllowance: values.receivesMonthlyAllowance || false,
     monthlyAllowanceAmount: values.monthlyAllowanceAmount || "",
+    category: values.category || "C", // Default to C if not set
     spouse: { ...values.spouse },
     children: values.children.map((child) => ({
       ...child,
@@ -1035,6 +1038,27 @@ export default function BeneficiaryForm({
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                فئة المستفيد
+              </label>
+              <div className="flex gap-4">
+                {(['A', 'B', 'C', 'D'] as const).map((cat) => (
+                  <label key={cat} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="category"
+                      value={cat}
+                      checked={formData.category === cat}
+                      onChange={handleChange}
+                      className="w-4 h-4 text-primary focus:ring-2 focus:ring-primary"
+                    />
+                    <span className="text-sm font-medium text-foreground">{cat}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             <div>

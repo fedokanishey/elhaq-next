@@ -22,10 +22,16 @@ export async function GET() {
       .populate("relationships.relative", "name nationalId phone whatsapp")
       .lean();
 
+    // Ensure all beneficiaries have a category field (default to 'C' if not set)
+    const beneficiariesWithCategory = beneficiaries.map((b: any) => ({
+      ...b,
+      category: b.category || 'C',
+    }));
+
     const total = await Beneficiary.countDocuments();
 
     return NextResponse.json({
-      beneficiaries,
+      beneficiaries: beneficiariesWithCategory,
       total,
       page: 1,
       pages: 1,
