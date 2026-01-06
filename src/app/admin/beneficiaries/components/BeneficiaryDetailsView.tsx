@@ -95,6 +95,7 @@ interface Beneficiary {
   listName?: string;
   receivesMonthlyAllowance?: boolean;
   monthlyAllowanceAmount?: number;
+  category?: "A" | "B" | "C" | "D";
   spouse?: SpouseDetails;
   children?: Child[];
   relationships?: RelationshipEntry[];
@@ -394,6 +395,14 @@ export default function BeneficiaryDetailsView({
                     BENEFICIARY_STATUS_STYLES[beneficiary.status || "active"]
                   }`}>
                     {BENEFICIARY_STATUS_LABELS[beneficiary.status || "active"]}
+                  </span>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-sm text-muted-foreground">فئة المستفيد</dt>
+                <dd className="mt-1 flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
+                    فئة {beneficiary.category || "C"}
                   </span>
                 </dd>
               </div>
