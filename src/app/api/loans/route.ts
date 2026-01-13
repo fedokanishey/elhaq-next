@@ -4,6 +4,7 @@ import Loan from "@/lib/models/Loan";
 import LoanCapital from "@/lib/models/LoanCapital";
 import Beneficiary from "@/lib/models/Beneficiary";
 import { NextResponse } from "next/server";
+import { getAuthenticatedUser, getBranchFilterWithOverride, getBranchFilter } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -13,13 +14,18 @@ export async function GET(req: Request) {
     // if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     await dbConnect();
+    
+    const authResult = await getAuthenticatedUser();
 
     // Parse query params for search/filter if needed
     const { searchParams } = new URL(req.url);
+    const branchIdOverride = searchParams.get("branchId");
+    const branchFilter = getBranchFilterWithOverride(authResult, branchIdOverride);
+    
     const search = searchParams.get("search");
     const status = searchParams.get("status");
 
-    const query: any = { deletedAt: null };
+    const query: any = { deletedAt: null, ...branchFilter };
 
     if (search) {
       query.$or = [
@@ -33,27 +39,34 @@ export async function GET(req: Request) {
       query.status = status;
     }
 
-    // Fetch loans
-    const loans = await Loan.find(query).sort({ startDate: -1 }).lean();
+    // Fetch loans filtered by branch
+    const loans = await Loan.find(query)
+      .sort({ startDate: -1 })
+      .populate("branch", "name code")
+      .lean();
 
-    // Calculate Summary Stats
+    // Calculate Summary Stats (filtered by branch)
     // 1. Total Fund (Capital)
+    const capitalMatch = (authResult.isSuperAdmin && branchIdOverride)
+      ? { branch: branchIdOverride }
+      : (authResult.isSuperAdmin ? {} : { branch: authResult.branch });
     const capitalResult = await LoanCapital.aggregate([
+      { $match: capitalMatch },
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]);
     const totalFund = capitalResult[0]?.total || 0;
 
     // 2. Total Disbursed (from ALL loans, even non-active ones, unless logic differs)
-    // Assuming disbursal is total loaned amount.
+    const loanMatch = { deletedAt: null, ...branchFilter };
     const disbursedResult = await Loan.aggregate([
-      { $match: { deletedAt: null } },
+      { $match: loanMatch },
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]);
     const totalDisbursed = disbursedResult[0]?.total || 0;
 
     // 3. Total Repaid
     const repaidResult = await Loan.aggregate([
-      { $match: { deletedAt: null } },
+      { $match: loanMatch },
       { $group: { _id: null, total: { $sum: "$amountPaid" } } },
     ]);
     const totalRepaid = repaidResult[0]?.total || 0;
@@ -69,6 +82,8 @@ export async function GET(req: Request) {
         totalRepaid,
         availableFund,
       },
+      branch: authResult.branchName,
+      isSuperAdmin: authResult.isSuperAdmin,
     });
   } catch (error) {
     console.error("Error fetching loans:", error);
@@ -84,8 +99,15 @@ export async function POST(req: Request) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // Assuming user details fetching logic if needed for 'recordedBy', using userId for now or fetching Clrek user
-    // For now, simpler to just store user Id
+    await dbConnect();
+    
+    const authResult = await getAuthenticatedUser();
+    
+    if (!authResult.isAuthorized) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    
+    const branchFilter = getBranchFilter(authResult);
 
     const body = await req.json();
     const { beneficiaryName, phone, nationalId, amount, startDate, dueDate, notes } = body;
@@ -94,20 +116,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    await dbConnect();
-
-    // Check available fund
-    const capitalResult = await LoanCapital.aggregate([{ $group: { _id: null, total: { $sum: "$amount" } } }]);
+    // Check available fund (filtered by branch)
+    const capitalMatch = authResult.isSuperAdmin ? {} : { branch: authResult.branch };
+    const capitalResult = await LoanCapital.aggregate([
+      { $match: capitalMatch },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]);
     const totalFund = capitalResult[0]?.total || 0;
 
+    const loanMatch = { deletedAt: null, ...branchFilter };
     const disbursedResult = await Loan.aggregate([
-      { $match: { deletedAt: null } },
+      { $match: loanMatch },
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]);
     const totalDisbursed = disbursedResult[0]?.total || 0;
 
     const repaidResult = await Loan.aggregate([
-      { $match: { deletedAt: null } },
+      { $match: loanMatch },
       { $group: { _id: null, total: { $sum: "$amountPaid" } } },
     ]);
     const totalRepaid = repaidResult[0]?.total || 0;
@@ -121,6 +146,62 @@ export async function POST(req: Request) {
       );
     }
 
+    // For SuperAdmin: if no branch provided, copy to ALL branches
+    if (authResult.isSuperAdmin && !body.branch) {
+      const Branch = (await import("@/lib/models/Branch")).default;
+      const allBranches = await Branch.find({ isActive: true }).lean();
+      
+      if (allBranches.length === 0) {
+        return NextResponse.json({ error: "لا توجد فروع نشطة" }, { status: 400 });
+      }
+      
+      const createdLoans = [];
+      
+      for (const branch of allBranches) {
+        const loan = await Loan.create({
+          beneficiaryName,
+          phone,
+          nationalId,
+          amount,
+          startDate: startDate || new Date(),
+          dueDate,
+          notes,
+          createdBy: userId,
+          branch: branch._id,
+          branchName: branch.name,
+        });
+        createdLoans.push(loan);
+        
+        // If nationalId is provided, try to link with Beneficiary in this branch
+        if (nationalId) {
+          await Beneficiary.findOneAndUpdate(
+            { nationalId, branch: branch._id },
+            {
+              $set: {
+                loanDetails: {
+                  loanId: loan._id,
+                  amount: loan.amount,
+                  startDate: loan.startDate,
+                  status: loan.status,
+                }
+              }
+            }
+          );
+        }
+      }
+      
+      console.log(`✅ Created ${createdLoans.length} loans for all branches`);
+      return NextResponse.json({ 
+        message: `تم إضافة القرض لـ ${createdLoans.length} فرع`,
+        count: createdLoans.length,
+        loan: createdLoans[0] 
+      }, { status: 201 });
+    }
+
+    // Single branch
+    const targetBranch = authResult.isSuperAdmin ? body.branch : authResult.branch;
+    const targetBranchName = authResult.isSuperAdmin ? body.branchName : authResult.branchName;
+
     const loan = await Loan.create({
       beneficiaryName,
       phone,
@@ -130,12 +211,14 @@ export async function POST(req: Request) {
       dueDate,
       notes,
       createdBy: userId,
+      branch: targetBranch,
+      branchName: targetBranchName,
     });
 
     // If nationalId is provided, try to link with Beneficiary
     if (nationalId) {
       await Beneficiary.findOneAndUpdate(
-        { nationalId },
+        { nationalId, branch: targetBranch },
         {
           $set: {
             loanDetails: {

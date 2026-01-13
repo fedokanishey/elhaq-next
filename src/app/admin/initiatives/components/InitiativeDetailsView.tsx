@@ -92,7 +92,8 @@ export default function InitiativeDetailsView({
 
   // Check authorization - handled by parent or page usually, but good to check role for showing actions
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-  const isAdmin = role === "admin";
+  const isSuperAdmin = role === "superadmin";
+  const isAdmin = role === "admin" || isSuperAdmin;
 
   useEffect(() => {
     if (!initiativeId) {

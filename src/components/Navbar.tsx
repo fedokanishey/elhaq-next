@@ -29,7 +29,8 @@ export default function Navbar() {
   }, []);
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-  const isAdmin = role === "admin";
+  const isSuperAdmin = role === "superadmin";
+  const isAdmin = role === "admin" || isSuperAdmin;
   const isMember = role === "member";
   const canViewBeneficiaries = isAdmin || isMember;
 

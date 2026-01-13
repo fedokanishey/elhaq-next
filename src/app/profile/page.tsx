@@ -2,24 +2,37 @@
 
 import { useUser, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
-import { useEffect } from "react";
-import { ArrowRight, User, Mail, Shield, Phone, Calendar } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowRight, User, Mail, Shield, Phone, Calendar, Building2, Crown } from "lucide-react";
 
 export default function ProfilePage() {
   const { user } = useUser();
+  const [branchName, setBranchName] = useState<string | null>(null);
 
-  // Trigger sync with MongoDB
+  // Trigger sync with MongoDB and fetch branch info
   useEffect(() => {
     if (user) {
-      fetch('/api/users').catch(console.error);
+      fetch('/api/users')
+        .then(res => res.json())
+        .then(data => {
+          if (data.user?.branchName || data.branch) {
+            setBranchName(data.user?.branchName || data.branch);
+          }
+        })
+        .catch(console.error);
     }
   }, [user]);
 
-  const role = (user?.publicMetadata?.role || user?.unsafeMetadata?.role || "user") as "admin" | "member" | "user";
-  const roleDetails: Record<"admin" | "member" | "user", { label: string; description: string; badgeClass: string }> = {
+  const role = (user?.publicMetadata?.role || user?.unsafeMetadata?.role || "user") as "superadmin" | "admin" | "member" | "user";
+  const roleDetails: Record<"superadmin" | "admin" | "member" | "user", { label: string; description: string; badgeClass: string }> = {
+    superadmin: {
+      label: "سوبر ادمن",
+      description: "يمكنه إدارة جميع الفروع والمسؤولين",
+      badgeClass: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    },
     admin: {
       label: "مسؤول",
-      description: "يمكنه إدارة لوحة التحكم وكافة البيانات",
+      description: "يمكنه إدارة لوحة التحكم وكافة البيانات الخاصة بالفرع",
       badgeClass: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
     },
     member: {
@@ -115,7 +128,11 @@ export default function ProfilePage() {
               {/* Role */}
               <div className="flex items-start gap-4 p-4 rounded-lg bg-muted/20 border border-border/50">
                 <div className="p-2 bg-primary/10 rounded-full">
-                  <Shield className="h-5 w-5 text-primary" />
+                  {role === "superadmin" ? (
+                    <Crown className="h-5 w-5 text-purple-600" />
+                  ) : (
+                    <Shield className="h-5 w-5 text-primary" />
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1">الدور</label>
@@ -127,6 +144,38 @@ export default function ProfilePage() {
                   <p className="text-xs text-muted-foreground mt-1">{activeRole.description}</p>
                 </div>
               </div>
+
+              {/* Branch */}
+              {role !== "superadmin" && (
+                <div className="flex items-start gap-4 p-4 rounded-lg bg-muted/20 border border-border/50">
+                  <div className="p-2 bg-primary/10 rounded-full">
+                    <Building2 className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-muted-foreground mb-1">الفرع</label>
+                    <p className="text-lg font-medium text-foreground">
+                      {branchName || "لم يتم تعيين فرع"}
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {role === "superadmin" && (
+                <div className="flex items-start gap-4 p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+                  <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-full">
+                    <Building2 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-muted-foreground mb-1">الفرع</label>
+                    <p className="text-lg font-medium text-purple-700 dark:text-purple-300">
+                      جميع الفروع
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      كسوبر ادمن، لديك صلاحية الوصول لجميع الفروع
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

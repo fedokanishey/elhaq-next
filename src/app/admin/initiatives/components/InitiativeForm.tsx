@@ -7,6 +7,9 @@ import { useEffect, useMemo, useState } from "react";
 import { CldUploadWidget } from "next-cloudinary";
 import { ArrowDownUp } from "lucide-react";
 import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
+import { useBranchContext } from "@/contexts/BranchContext";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 
 export type InitiativeStatus = "planned" | "active" | "completed" | "cancelled";
 
@@ -80,6 +83,17 @@ export default function InitiativeForm({
   onCancel,
 }: InitiativeFormProps) {
   const router = useRouter();
+  const { selectedBranchId, isSuperAdmin } = useBranchContext();
+  
+  // Fetch branch details if SuperAdmin has selected a branch
+  const { data: branchesData } = useSWR(
+    isSuperAdmin && selectedBranchId ? "/api/branches" : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  
+  const selectedBranch = branchesData?.branches?.find((b: { _id: string; name: string }) => b._id === selectedBranchId);
+  
   const [formData, setFormData] = useState<InitiativeFormValues>(() => initialValues || defaultFormValues());
   const [beneficiaries, setBeneficiaries] = useState<BeneficiaryOption[]>([]);
   const [selectedBeneficiaries, setSelectedBeneficiaries] = useState<BeneficiaryOption[]>([]);
@@ -281,6 +295,11 @@ export default function InitiativeForm({
       ...formData,
       totalAmount: Number(formData.totalAmount) || 0,
       beneficiaries: selectedBeneficiaries.map((item) => item._id),
+      // Include branch for SuperAdmin when a specific branch is selected
+      ...(isSuperAdmin && selectedBranchId && mode === "create" ? {
+        branch: selectedBranchId,
+        branchName: selectedBranch?.name || null,
+      } : {}),
     };
 
     const endpoint = mode === "edit" && initiativeId ? `/api/initiatives/${initiativeId}` : "/api/initiatives";

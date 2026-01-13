@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { Loader2, Trash2 } from "lucide-react";
+import { useBranchContext } from "@/contexts/BranchContext";
 
 interface DonorSummary {
   _id: string;
@@ -23,12 +24,16 @@ export default function DonorsListPage() {
   const [error, setError] = useState("");
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-  const isAdmin = role === "admin";
+  const isSuperAdmin = role === "superadmin";
+  const isAdmin = role === "admin" || isSuperAdmin;
   const canEdit = isAdmin;
-  const canAccess = role === "admin" || role === "member";
+  const canAccess = isAdmin || role === "member";
+  
+  const { selectedBranchId } = useBranchContext();
+  const branchParam = selectedBranchId ? `&branchId=${selectedBranchId}` : "";
 
   const { data, isLoading, mutate } = useSWR(
-    isLoaded && canAccess ? "/api/donors?limit=200" : null,
+    isLoaded && canAccess ? `/api/donors?limit=200${branchParam}` : null,
     fetcher,
     { revalidateOnFocus: false }
   );

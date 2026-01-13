@@ -145,13 +145,15 @@ export interface IBeneficiary extends Document {
     startDate: Date;
     status: 'active' | 'completed' | 'defaulted';
   };
+  branch?: Types.ObjectId; // Reference to Branch model
+  branchName?: string; // Cached branch name
 }
 
 const BeneficiarySchema = new Schema<IBeneficiary>(
   {
     clerkId: { type: String, required: true, index: true },
     name: { type: String, required: true },
-    nationalId: { type: String, required: true, unique: true },
+    nationalId: { type: String, required: true }, // Removed unique: true - using compound index with branch
     phone: { type: String, required: true },
     whatsapp: { type: String, required: true },
     address: { type: String, required: true },
@@ -204,9 +206,21 @@ const BeneficiarySchema = new Schema<IBeneficiary>(
       startDate: Date,
       status: { type: String, enum: ['active', 'completed', 'defaulted'] },
     },
+    branch: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'Branch',
+      index: true 
+    },
+    branchName: {
+      type: String,
+      trim: true
+    },
   },
   { timestamps: true, strict: false }
 );
+
+// Compound unique index: nationalId must be unique within each branch
+BeneficiarySchema.index({ nationalId: 1, branch: 1 }, { unique: true });
 
 if (mongoose.models.Beneficiary) {
   mongoose.deleteModel('Beneficiary');

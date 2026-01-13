@@ -6,6 +6,8 @@ export interface ILoanCapital extends Document {
   source: string;
   notes?: string;
   recordedBy?: string;
+  branch?: mongoose.Types.ObjectId; // Reference to Branch model
+  branchName?: string; // Cached branch name
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,6 +19,15 @@ const LoanCapitalSchema = new Schema<ILoanCapital>(
     source: { type: String, required: true, trim: true },
     notes: String,
     recordedBy: String,
+    branch: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'Branch',
+      index: true 
+    },
+    branchName: {
+      type: String,
+      trim: true
+    },
   },
   { timestamps: true }
 );

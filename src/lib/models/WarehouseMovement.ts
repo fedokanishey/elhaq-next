@@ -10,6 +10,8 @@ export interface IWarehouseMovement extends Document {
   date: Date;
   recordedBy?: string;
   deletedAt?: Date;
+  branch?: mongoose.Types.ObjectId; // Reference to Branch model
+  branchName?: string; // Cached branch name
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,6 +37,15 @@ const WarehouseMovementSchema = new Schema<IWarehouseMovement>(
     date: { type: Date, default: Date.now },
     recordedBy: String,
     deletedAt: { type: Date, index: true },
+    branch: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'Branch',
+      index: true 
+    },
+    branchName: {
+      type: String,
+      trim: true
+    },
   },
   { timestamps: true }
 );

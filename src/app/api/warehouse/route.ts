@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import dbConnect from "@/lib/mongodb";
 import WarehouseMovement from "@/lib/models/WarehouseMovement";
 import { NextResponse } from "next/server";
+import { getAuthenticatedUser, getBranchFilterWithOverride } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +12,18 @@ export async function GET(req: Request) {
     // if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     await dbConnect();
+    
+    const authResult = await getAuthenticatedUser();
 
     const { searchParams } = new URL(req.url);
+    const branchIdOverride = searchParams.get("branchId");
+    const branchFilter = getBranchFilterWithOverride(authResult, branchIdOverride);
+    
     const type = searchParams.get("type");
     const dateFrom = searchParams.get("dateFrom");
     const dateTo = searchParams.get("dateTo");
 
-    const query: any = { deletedAt: null };
+    const query: any = { deletedAt: null, ...branchFilter };
 
     if (type) {
       query.type = type;
@@ -35,11 +41,14 @@ export async function GET(req: Request) {
 
     const movements = await WarehouseMovement.find(query).sort({ date: -1 }).lean();
 
-    // --- Aggregation Stats ---
+    // --- Aggregation Stats (filtered by branch) ---
+    const matchStage = (authResult.isSuperAdmin && branchIdOverride)
+      ? { deletedAt: null, branch: branchIdOverride }
+      : (authResult.isSuperAdmin ? { deletedAt: null } : { deletedAt: null, branch: authResult.branch });
     
     // 1. Calculate Product Inventory
     const inventoryAgg = await WarehouseMovement.aggregate([
-      { $match: { category: "product", deletedAt: null } },
+      { $match: { ...matchStage, category: "product" } },
       { 
         $group: { 
           _id: { itemName: "$itemName", type: "$type" }, 
@@ -65,7 +74,7 @@ export async function GET(req: Request) {
 
     // 2. Calculate Cash Balance
     const cashAgg = await WarehouseMovement.aggregate([
-      { $match: { category: "cash", deletedAt: null } },
+      { $match: { ...matchStage, category: "cash" } },
       { 
         $group: { 
           _id: "$type", 
@@ -87,7 +96,8 @@ export async function GET(req: Request) {
       stats: {
         productInventory,
         cashBalance
-      }
+      },
+      branch: authResult.branchName,
     });
   } catch (error) {
     console.error("Error fetching warehouse movements:", error);
@@ -113,6 +123,13 @@ export async function POST(req: Request) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    await dbConnect();
+    
+    const authResult = await getAuthenticatedUser();
+    if (!authResult.isAuthorized) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await req.json();
     let { type, category, itemName, description, quantity, value, date } = body;
 
@@ -133,21 +150,25 @@ export async function POST(req: Request) {
 
     await dbConnect();
 
-    // Check stock for outbound products
+    // Check stock for outbound products (per branch)
     if (type === 'outbound' && category === 'product') {
        if (!quantity || quantity <= 0) {
          return NextResponse.json({ error: "Quantity is required" }, { status: 400 });
        }
 
-       // Calculate current stock using normalized name
+       // Calculate current stock using normalized name (filtered by branch)
+       const stockMatchStage = authResult.isSuperAdmin 
+         ? { itemName, category: 'product', deletedAt: null }
+         : { itemName, category: 'product', deletedAt: null, branch: authResult.branch };
+       
        const inboundResult = await WarehouseMovement.aggregate([
-         { $match: { itemName, category: 'product', type: 'inbound', deletedAt: null } },
+         { $match: { ...stockMatchStage, type: 'inbound' } },
          { $group: { _id: null, total: { $sum: "$quantity" } } }
        ]);
        const totalInbound = inboundResult[0]?.total || 0;
 
        const outboundResult = await WarehouseMovement.aggregate([
-         { $match: { itemName, category: 'product', type: 'outbound', deletedAt: null } },
+         { $match: { ...stockMatchStage, type: 'outbound' } },
          { $group: { _id: null, total: { $sum: "$quantity" } } }
        ]);
        const totalOutbound = outboundResult[0]?.total || 0;
@@ -162,6 +183,45 @@ export async function POST(req: Request) {
        }
     }
 
+    // For SuperAdmin: if no branch provided, copy to ALL branches
+    if (authResult.isSuperAdmin && !body.branch) {
+      const Branch = (await import("@/lib/models/Branch")).default;
+      const allBranches = await Branch.find({ isActive: true }).lean();
+      
+      if (allBranches.length === 0) {
+        return NextResponse.json({ error: "لا توجد فروع نشطة" }, { status: 400 });
+      }
+      
+      const createdMovements = [];
+      
+      for (const branch of allBranches) {
+        const movement = await WarehouseMovement.create({
+          type,
+          category,
+          itemName,
+          description,
+          quantity,
+          value,
+          date: date || new Date(),
+          recordedBy: userId,
+          branch: branch._id,
+          branchName: branch.name,
+        });
+        createdMovements.push(movement);
+      }
+      
+      console.log(`✅ Created ${createdMovements.length} warehouse movements for all branches`);
+      return NextResponse.json({ 
+        message: `تم إضافة الحركة لـ ${createdMovements.length} فرع`,
+        count: createdMovements.length,
+        movement: createdMovements[0] 
+      }, { status: 201 });
+    }
+
+    // Single branch
+    const targetBranch = authResult.isSuperAdmin ? body.branch : authResult.branch;
+    const targetBranchName = authResult.isSuperAdmin ? body.branchName : authResult.branchName;
+
     const movement = await WarehouseMovement.create({
       type,
       category,
@@ -171,6 +231,8 @@ export async function POST(req: Request) {
       value,
       date: date || new Date(),
       recordedBy: userId,
+      branch: targetBranch,
+      branchName: targetBranchName,
     });
 
     return NextResponse.json(movement, { status: 201 });

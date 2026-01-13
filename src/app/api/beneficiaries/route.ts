@@ -7,19 +7,30 @@ import {
   SanitizedRelationship,
 } from "@/lib/beneficiaries/sanitizePayload";
 import { addReciprocalRelationsForNew } from "@/lib/beneficiaries/reciprocal";
+import { getAuthenticatedUser, getBranchFilterWithOverride } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await dbConnect();
+    
+    const authResult = await getAuthenticatedUser();
+    
+    // Get branchId from query params (for SuperAdmin branch filtering)
+    const { searchParams } = new URL(request.url);
+    const branchIdOverride = searchParams.get("branchId");
+    
+    // Build branch filter based on user role and optional override
+    const branchFilter = getBranchFilterWithOverride(authResult, branchIdOverride);
 
-    // Get all beneficiaries without artificial limit
-    const beneficiaries = await Beneficiary.find()
+    // Get all beneficiaries filtered by branch
+    const beneficiaries = await Beneficiary.find(branchFilter)
       .sort({ createdAt: -1 })
       .populate("relationships.relative", "name nationalId phone whatsapp")
+      .populate("branch", "name code")
       .lean();
 
     // Ensure all beneficiaries have a category field (default to 'C' if not set)
@@ -28,13 +39,15 @@ export async function GET() {
       category: b.category || 'C',
     }));
 
-    const total = await Beneficiary.countDocuments();
+    const total = await Beneficiary.countDocuments(branchFilter);
 
     return NextResponse.json({
       beneficiaries: beneficiariesWithCategory,
       total,
       page: 1,
       pages: 1,
+      branch: authResult.branchName,
+      isSuperAdmin: authResult.isSuperAdmin,
     });
   } catch (error) {
     console.error("Error fetching beneficiaries:", error);
@@ -84,11 +97,69 @@ export async function POST(req: Request) {
     }
 
     await dbConnect();
+    
+    const authResult = await getAuthenticatedUser();
+    
+    // Check if user is authorized to create beneficiaries
+    if (!authResult.isAuthorized) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const rawBody = await req.json();
     const payload = sanitizeBeneficiaryPayload(rawBody);
     const { relationships, ...rest } = payload;
     const resolvedRelationships = await buildRelationshipReferences(relationships);
+
+    // For SuperAdmin: use the branch from request body if provided
+    // If SuperAdmin and no branch provided, copy to ALL branches
+    // For other users: always use their assigned branch
+    
+    if (authResult.isSuperAdmin && !rawBody.branch) {
+      // SuperAdmin selected "All Branches" - copy to each branch
+      const Branch = (await import("@/lib/models/Branch")).default;
+      const allBranches = await Branch.find({ isActive: true }).lean();
+      
+      if (allBranches.length === 0) {
+        return NextResponse.json({ error: "لا توجد فروع نشطة" }, { status: 400 });
+      }
+      
+      const createdBeneficiaries = [];
+      
+      for (const branch of allBranches) {
+        const beneficiary = new Beneficiary({
+          clerkId: userId,
+          ...rest,
+          relationships: resolvedRelationships,
+          branch: branch._id,
+          branchName: branch.name,
+        });
+        await beneficiary.save();
+        createdBeneficiaries.push(beneficiary);
+        
+        // Create reciprocal relations
+        try {
+          await addReciprocalRelationsForNew(
+            beneficiary._id.toString(),
+            beneficiary.name,
+            beneficiary.nationalId,
+            resolvedRelationships as any
+          );
+        } catch (e) {
+          console.error("❌ Failed to add reciprocal relations:", e);
+        }
+      }
+      
+      console.log(`✅ Created ${createdBeneficiaries.length} beneficiaries for all branches`);
+      return NextResponse.json({ 
+        message: `تم إضافة المستفيد لـ ${createdBeneficiaries.length} فرع`,
+        count: createdBeneficiaries.length,
+        beneficiary: createdBeneficiaries[0] 
+      }, { status: 201 });
+    }
+    
+    // Single branch (either SuperAdmin selected a branch, or regular admin/member)
+    const targetBranch = authResult.isSuperAdmin ? rawBody.branch : authResult.branch;
+    const targetBranchName = authResult.isSuperAdmin ? rawBody.branchName : authResult.branchName;
 
     console.log("📝 Creating beneficiary:", {
       name: rest.name,
@@ -97,14 +168,19 @@ export async function POST(req: Request) {
       acceptsMarriage: rest.acceptsMarriage,
       marriageDetails: rest.marriageDetails,
       marriageCertificateImage: rest.marriageCertificateImage,
-      hasMarriageCertImage: !!rest.marriageCertificateImage,
-      relationshipsCount: resolvedRelationships.length
+      hasMarriageCertImg: !!rest.marriageCertificateImage,
+      relationshipsCount: resolvedRelationships.length,
+      branch: targetBranchName,
     });
 
     const beneficiary = new Beneficiary({
       clerkId: userId,
       ...rest,
       relationships: resolvedRelationships,
+      // Assign to target branch
+      branch: targetBranch,
+      branchName: targetBranchName,
+      branchName: authResult.branchName,
     });
 
     await beneficiary.save();

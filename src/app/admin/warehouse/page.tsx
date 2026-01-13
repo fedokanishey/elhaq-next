@@ -9,6 +9,7 @@ import { fetcher } from "@/lib/fetcher";
 import { Loader2, Archive, ArrowDownCircle, ArrowUpCircle, Filter, Package, DollarSign, Trash2, Edit } from "lucide-react";
 import StatCard from "@/components/StatCard";
 import SearchFilterBar from "@/components/SearchFilterBar";
+import { useBranchContext } from "@/contexts/BranchContext";
 
 // --- Types ---
 interface WarehouseMovement {
@@ -31,7 +32,9 @@ function RecordMovementModal({
   onSuccess, 
   inventory = [], 
   cashBalance = 0,
-  initialData = null
+  initialData = null,
+  branchId = null,
+  branchName = null,
 }: { 
   isOpen: boolean; 
   onClose: () => void; 
@@ -39,6 +42,8 @@ function RecordMovementModal({
   inventory?: { itemName: string; quantity: number }[];
   cashBalance?: number;
   initialData?: WarehouseMovement | null;
+  branchId?: string | null;
+  branchName?: string | null;
 }) {
   const [formData, setFormData] = useState({
     type: "inbound",
@@ -106,6 +111,11 @@ function RecordMovementModal({
           ...formData,
           quantity: formData.quantity ? Number(formData.quantity) : undefined,
           value: formData.value ? Number(formData.value) : undefined,
+          // Include branch for SuperAdmin when a specific branch is selected
+          ...(branchId && !initialData ? {
+            branch: branchId,
+            branchName: branchName || null,
+          } : {}),
         }),
       });
       
@@ -227,20 +237,33 @@ function RecordMovementModal({
 export default function WarehousePage() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
-  const { data, error, mutate } = useSWR(isLoaded ? "/api/warehouse" : null, fetcher);
+  const { selectedBranchId } = useBranchContext();
+  const branchParam = selectedBranchId ? `?branchId=${selectedBranchId}` : "";
+  
+  // Fetch branch details if SuperAdmin has selected a branch
+  const { data: branchesData } = useSWR(
+    selectedBranchId ? "/api/branches" : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  
+  const selectedBranch = branchesData?.branches?.find((b: { _id: string; name: string }) => b._id === selectedBranchId);
+  
+  const { data, error, mutate } = useSWR(isLoaded ? `/api/warehouse${branchParam}` : null, fetcher);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filterType, setFilterType] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [editItem, setEditItem] = useState<WarehouseMovement | null>(null);
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  const isSuperAdmin = role === "superadmin";
   useEffect(() => {
-    if (isLoaded && role !== "admin" && role !== "member") {
+    if (isLoaded && role !== "admin" && role !== "member" && role !== "superadmin") {
       router.push("/");
     }
   }, [isLoaded, role, router]);
 
-  const isAdmin = role === "admin";
+  const isAdmin = role === "admin" || isSuperAdmin;
 
   const movements: WarehouseMovement[] = data?.movements || [];
   const inventory: { itemName: string; quantity: number }[] = data?.stats?.productInventory || [];
@@ -456,6 +479,8 @@ export default function WarehousePage() {
         inventory={inventory}
         cashBalance={cashBalance}
         initialData={editItem}
+        branchId={isSuperAdmin ? selectedBranchId : null}
+        branchName={isSuperAdmin ? selectedBranch?.name : null}
       />
     </div>
   );

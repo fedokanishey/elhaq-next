@@ -13,7 +13,7 @@ export default function AddInitiativePage() {
     if (!isLoaded) return;
     
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    if (role !== "admin") {
+    if (role !== "admin" && role !== "superadmin") {
       const timer = setTimeout(() => router.push("/"), 0);
       return () => clearTimeout(timer);
     }

@@ -8,6 +8,8 @@ export interface IInitiative extends Document {
   status: 'planned' | 'active' | 'completed' | 'cancelled';
   beneficiaries: string[]; // Array of Beneficiary IDs
   images: string[];
+  branch?: mongoose.Types.ObjectId; // Reference to Branch model
+  branchName?: string; // Cached branch name
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,6 +29,15 @@ const InitiativeSchema = new Schema<IInitiative>(
     images: {
       type: [String],
       default: [],
+    },
+    branch: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'Branch',
+      index: true 
+    },
+    branchName: {
+      type: String,
+      trim: true
     },
   },
   { timestamps: true }

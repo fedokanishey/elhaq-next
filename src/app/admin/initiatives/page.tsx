@@ -7,6 +7,7 @@ import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
 import InitiativeModal from "@/components/InitiativeModal";
+import { useBranchContext } from "@/contexts/BranchContext";
 
 interface Initiative {
   _id: string;
@@ -21,10 +22,14 @@ export default function AdminInitiatives() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-  const isAdmin = role === "admin";
+  const isSuperAdmin = role === "superadmin";
+  const isAdmin = role === "admin" || isSuperAdmin;
+  
+  const { selectedBranchId } = useBranchContext();
+  const branchParam = selectedBranchId ? `?branchId=${selectedBranchId}` : "";
 
   const { data, isLoading, mutate } = useSWR(
-    isLoaded ? "/api/initiatives" : null,
+    isLoaded ? `/api/initiatives${branchParam}` : null,
     fetcher,
     { revalidateOnFocus: false }
   );
@@ -59,7 +64,7 @@ export default function AdminInitiatives() {
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    if (isLoaded && role !== "admin" && role !== "member") {
+    if (isLoaded && role !== "admin" && role !== "member" && role !== "superadmin") {
       router.push("/");
     }
   }, [isLoaded, user, router]);

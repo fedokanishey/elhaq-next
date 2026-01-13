@@ -9,6 +9,7 @@ import { Loader2, PiggyBank, Briefcase, CheckCircle, AlertCircle, Plus, Search, 
 import Link from "next/link";
 import StatCard from "@/components/StatCard";
 import SearchFilterBar from "@/components/SearchFilterBar";
+import { useBranchContext } from "@/contexts/BranchContext";
 
 // --- Types ---
 interface Repayment {
@@ -43,7 +44,7 @@ interface LoanStats {
 // --- Components ---
 
 
-function AddLoanModal({ isOpen, onClose, onSuccess, maxAmount }: { isOpen: boolean; onClose: () => void; onSuccess: () => void; maxAmount: number }) {
+function AddLoanModal({ isOpen, onClose, onSuccess, maxAmount, branchId = null, branchName = null }: { isOpen: boolean; onClose: () => void; onSuccess: () => void; maxAmount: number; branchId?: string | null; branchName?: string | null }) {
   const [formData, setFormData] = useState({
     beneficiaryName: "",
     nationalId: "",
@@ -91,7 +92,15 @@ function AddLoanModal({ isOpen, onClose, onSuccess, maxAmount }: { isOpen: boole
       const res = await fetch("/api/loans", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, amount: Number(formData.amount) }),
+        body: JSON.stringify({ 
+          ...formData, 
+          amount: Number(formData.amount),
+          // Include branch for SuperAdmin when a specific branch is selected
+          ...(branchId ? {
+            branch: branchId,
+            branchName: branchName || null,
+          } : {}),
+        }),
       });
 
       if (!res.ok) {
@@ -581,7 +590,19 @@ function CapitalHistoryModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 export default function GoodLoansPage() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
-  const { data, error, mutate } = useSWR(isLoaded ? "/api/loans" : null, fetcher);
+  const { selectedBranchId } = useBranchContext();
+  const branchParam = selectedBranchId ? `?branchId=${selectedBranchId}` : "";
+  
+  // Fetch branch details if SuperAdmin has selected a branch
+  const { data: branchesData } = useSWR(
+    selectedBranchId ? "/api/branches" : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  
+  const selectedBranch = branchesData?.branches?.find((b: { _id: string; name: string }) => b._id === selectedBranchId);
+  
+  const { data, error, mutate } = useSWR(isLoaded ? `/api/loans${branchParam}` : null, fetcher);
   
   const [isAddLoanOpen, setIsAddLoanOpen] = useState(false);
   const [isAddCapitalOpen, setIsAddCapitalOpen] = useState(false);
@@ -591,12 +612,17 @@ export default function GoodLoansPage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-  if (isLoaded && role !== "admin" && role !== "member") {
-    router.push("/unauthorized"); // Redirect to an unauthorized page
-    return null; // Or render an unauthorized message
-  }
+  const isSuperAdmin = role === "superadmin";
+  const isAdmin = role === 'admin' || isSuperAdmin;
+  const isMember = role === 'member';
+  const isAuthorized = isAdmin || isMember;
 
-  const isAdmin = role === 'admin';
+  // Redirect unauthorized users
+  useEffect(() => {
+    if (isLoaded && !isAuthorized) {
+      router.push("/unauthorized");
+    }
+  }, [isLoaded, isAuthorized, router]);
 
   const loans: Loan[] = data?.loans || [];
   const stats: LoanStats = data?.stats || { totalFund: 0, totalDisbursed: 0, totalRepaid: 0, availableFund: 0 };
@@ -607,6 +633,15 @@ export default function GoodLoansPage() {
       l.phone.includes(searchTerm)
     );
   }, [loans, searchTerm]);
+
+  // Show loading while checking auth
+  if (!isLoaded || (!isAuthorized && isLoaded)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const handleDelete = async (id: string) => {
     if (!confirm("هل أنت متأكد من حذف هذا القرض؟ سيتم إلغاء جميع العمليات المرتبطة به.")) return;
@@ -757,6 +792,8 @@ export default function GoodLoansPage() {
         onClose={() => setIsAddLoanOpen(false)} 
         onSuccess={() => mutate()} 
         maxAmount={stats.availableFund}
+        branchId={isSuperAdmin ? selectedBranchId : null}
+        branchName={isSuperAdmin ? selectedBranch?.name : null}
       />
       <AddCapitalModal 
         isOpen={isAddCapitalOpen} 

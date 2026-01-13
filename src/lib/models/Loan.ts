@@ -20,6 +20,8 @@ export interface ILoan extends Document {
   notes?: string;
   createdBy?: string;
   deletedAt?: Date; // Soft delete
+  branch?: mongoose.Types.ObjectId; // Reference to Branch model
+  branchName?: string; // Cached branch name
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,6 +55,15 @@ const LoanSchema = new Schema<ILoan>(
     notes: String,
     createdBy: String,
     deletedAt: { type: Date, index: true },
+    branch: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'Branch',
+      index: true 
+    },
+    branchName: {
+      type: String,
+      trim: true
+    },
   },
   { timestamps: true }
 );

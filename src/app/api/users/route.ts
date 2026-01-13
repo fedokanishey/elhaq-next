@@ -1,7 +1,9 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import dbConnect from "@/lib/mongodb";
 import User from "@/lib/models/User";
+import Branch from "@/lib/models/Branch";
 import { NextResponse } from "next/server";
+import { getAuthenticatedUser, getBranchFilter } from "@/lib/auth-helpers";
 
 export async function GET() {
   try {
@@ -14,12 +16,12 @@ export async function GET() {
     await dbConnect();
 
     // Check MongoDB for role first (Source of Truth)
-    const dbUser = await User.findOne({ clerkId: userId });
+    const dbUser = await User.findOne({ clerkId: userId }).populate('branch');
     let role = dbUser?.role;
 
     // Fallback to Clerk metadata
-    if (role !== 'admin') {
-        role = (sessionClaims?.metadata as { role?: string })?.role;
+    if (!role || role === 'user') {
+        role = (sessionClaims?.metadata as { role?: string })?.role || role;
     }
 
     // Sync user to MongoDB if not exists
@@ -68,16 +70,32 @@ export async function GET() {
     console.log("User Role in API:", role);
     console.log("DB Name:", (await dbConnect()).connection.name);
     
-    if (role === "admin") {
-      const users = await User.find({});
-      console.log("Admin fetching users. Found:", users.length);
-      return NextResponse.json({ users });
-    } else {
-      console.log("Non-admin fetching own profile");
-      // If not admin, return only own profile
-      const user = await User.findOne({ clerkId: userId });
-      return NextResponse.json({ user });
+    // SuperAdmin can see all users
+    if (role === "superadmin") {
+      const users = await User.find({}).populate('branch').sort({ createdAt: -1 });
+      const branches = await Branch.find({ isActive: true });
+      console.log("SuperAdmin fetching all users. Found:", users.length);
+      return NextResponse.json({ users, branches, role: 'superadmin' });
     }
+    
+    // Admin can see only members and users in their branch (not other admins)
+    if (role === "admin") {
+      const authResult = await getAuthenticatedUser();
+      const branchFilter = getBranchFilter(authResult);
+      
+      // Admin can only see members and users, not other admins or superadmins
+      const roleFilter = { role: { $in: ['member', 'user'] } };
+      const combinedFilter = { ...branchFilter, ...roleFilter };
+      
+      const users = await User.find(combinedFilter).populate('branch').sort({ createdAt: -1 });
+      console.log("Admin fetching branch members/users. Found:", users.length);
+      return NextResponse.json({ users, role: 'admin', branch: authResult.branchName });
+    } 
+    
+    // Non-admin: return only own profile
+    console.log("Non-admin fetching own profile");
+    const user = await User.findOne({ clerkId: userId }).populate('branch');
+    return NextResponse.json({ user, role });
   } catch (error) {
     console.error("Error fetching users:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

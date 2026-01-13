@@ -11,6 +11,7 @@ import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Loader2, PiggyB
 import SearchFilterBar from "@/components/SearchFilterBar";
 import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
 import MonthlyAllowancePrintModal from "@/components/MonthlyAllowancePrintModal";
+import { useBranchContext } from "@/contexts/BranchContext";
 
 interface TreasuryTotals {
   incomeTotal: number;
@@ -102,24 +103,39 @@ export default function TreasuryPage() {
   const [showMonthlyAllowancePrint, setShowMonthlyAllowancePrint] = useState(false);
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-  const isAdmin = role === "admin";
+  const isSuperAdmin = role === "superadmin";
+  const isAdmin = role === "admin" || isSuperAdmin;
   const canEdit = isAdmin;
-  const canAccess = role === "admin" || role === "member";
+  const canAccess = isAdmin || role === "member";
+  
+  const { selectedBranchId } = useBranchContext();
+  
+  // Fetch branch details if SuperAdmin has selected a branch
+  const { data: branchesData } = useSWR(
+    isSuperAdmin && selectedBranchId ? "/api/branches" : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  
+  const selectedBranch = branchesData?.branches?.find((b: { _id: string; name: string }) => b._id === selectedBranchId);
+  
+  // Build API URLs with branch filter
+  const branchParam = selectedBranchId ? `branchId=${selectedBranchId}` : "";
 
   const { data: treasuryData, isLoading: treasuryLoading, mutate: mutateTreasury } = useSWR(
-    isLoaded && canAccess ? "/api/treasury" : null,
+    isLoaded && canAccess ? `/api/treasury${branchParam ? `?${branchParam}` : ""}` : null,
     fetcher,
     { revalidateOnFocus: false }
   );
 
   const { data: donorsData } = useSWR(
-    isLoaded && canAccess ? "/api/donors?limit=200" : null,
+    isLoaded && canAccess ? `/api/donors?limit=200${branchParam ? `&${branchParam}` : ""}` : null,
     fetcher,
     { revalidateOnFocus: false }
   );
 
   const { data: beneficiariesData } = useSWR(
-    isLoaded && canAccess ? "/api/beneficiaries?limit=500" : null,
+    isLoaded && canAccess ? `/api/beneficiaries?limit=500${branchParam ? `&${branchParam}` : ""}` : null,
     fetcher,
     { revalidateOnFocus: false }
   );
@@ -295,6 +311,11 @@ export default function TreasuryPage() {
             ...formData,
             amount: amountNumber,
             recordedBy: user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() : undefined,
+            // Include branch for SuperAdmin when a specific branch is selected
+            ...(isSuperAdmin && selectedBranchId ? {
+              branch: selectedBranchId,
+              branchName: selectedBranch?.name || null,
+            } : {}),
           }),
         });
 

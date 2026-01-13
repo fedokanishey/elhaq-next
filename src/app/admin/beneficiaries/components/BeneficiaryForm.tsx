@@ -6,6 +6,9 @@ import Link from "next/link";
 import ImageUpload from "@/components/ImageUpload";
 import { calculatePriority } from "@/lib/utils/calculatePriority";
 import { ArrowLeft, ArrowRightLeft, AlertTriangle } from "lucide-react";
+import { useBranchContext } from "@/contexts/BranchContext";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 
 export type MaritalStatus = "single" | "married" | "divorced" | "widowed";
 export type RelationshipType =
@@ -228,6 +231,17 @@ export default function BeneficiaryForm({
   isModal = false,
 }: BeneficiaryFormProps) {
   const router = useRouter();
+  const { selectedBranchId, isSuperAdmin } = useBranchContext();
+  
+  // Fetch branch details if SuperAdmin has selected a branch
+  const { data: branchesData } = useSWR(
+    isSuperAdmin && selectedBranchId ? "/api/branches" : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  
+  const selectedBranch = branchesData?.branches?.find((b: { _id: string; name: string }) => b._id === selectedBranchId);
+  
   const [formData, setFormData] = useState<BeneficiaryFormValues>(() =>
     initialValues ? cloneFormValues(initialValues) : createInitialFormValues()
   );
@@ -756,6 +770,11 @@ export default function BeneficiaryForm({
           : ["الكشف العام"],
       receivesMonthlyAllowance: formData.receivesMonthlyAllowance,
       monthlyAllowanceAmount: formData.receivesMonthlyAllowance && formData.monthlyAllowanceAmount ? Number(formData.monthlyAllowanceAmount) : undefined,
+      // Include branch for SuperAdmin when a specific branch is selected
+      ...(isSuperAdmin && selectedBranchId && mode === "create" ? {
+        branch: selectedBranchId,
+        branchName: selectedBranch?.name || null,
+      } : {}),
     };
 
     console.log("🔍 Payload being sent:", {

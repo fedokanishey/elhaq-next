@@ -4,8 +4,14 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ShieldAlert, User, Loader2, Search, Users as UsersIcon } from "lucide-react";
+import { ArrowRight, ShieldAlert, User, Loader2, Search, Users as UsersIcon, Crown, Building2 } from "lucide-react";
 import { toast } from "sonner";
+
+interface BranchData {
+  _id: string;
+  name: string;
+  code: string;
+}
 
 interface UserData {
   _id: string;
@@ -14,6 +20,8 @@ interface UserData {
   firstName: string;
   lastName: string;
   role: string;
+  branch?: BranchData | string;
+  branchName?: string;
   createdAt: string;
 }
 
@@ -21,13 +29,15 @@ export default function AdminUsers() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
   const [users, setUsers] = useState<UserData[]>([]);
+  const [branches, setBranches] = useState<BranchData[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentUserRole, setCurrentUserRole] = useState<string>("");
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    if (isLoaded && role !== "admin") {
+    if (isLoaded && role !== "admin" && role !== "superadmin") {
       router.push("/");
     }
   }, [isLoaded, user, router]);
@@ -39,6 +49,12 @@ export default function AdminUsers() {
         const data = await res.json();
         if (res.ok && data.users) {
           setUsers(data.users);
+          if (data.branches) {
+            setBranches(data.branches);
+          }
+          if (data.role) {
+            setCurrentUserRole(data.role);
+          }
         }
       } catch (error) {
         console.error("Error fetching users:", error);
@@ -95,11 +111,68 @@ export default function AdminUsers() {
     }
   };
 
+  const handleBranchChange = async (userId: string, branchId: string) => {
+    if (currentUserRole !== "superadmin") {
+      toast.error("فقط السوبر ادمن يمكنه تغيير الفرع");
+      return;
+    }
+
+    setUpdatingId(userId);
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ branch: branchId || null }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setUsers((prevUsers) =>
+          prevUsers.map((u) =>
+            u._id === userId ? { ...u, branch: data.user.branch, branchName: data.user.branchName } : u
+          )
+        );
+        toast.success("تم تحديث فرع المستخدم بنجاح");
+      } else {
+        const errorData = await res.json();
+        toast.error(errorData.error || "فشل تحديث الفرع");
+      }
+    } catch (error) {
+      console.error("Error updating branch:", error);
+      toast.error("حدث خطأ أثناء تحديث الفرع");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const getAvailableRoles = () => {
+    if (currentUserRole === "superadmin") {
+      return ["superadmin", "admin", "member", "user"];
+    }
+    return ["member", "user"];
+  };
+
   const filteredUsers = users.filter(
     (u) =>
       u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const getUserBranchId = (u: UserData): string => {
+    if (typeof u.branch === 'object' && u.branch?._id) {
+      return u.branch._id;
+    }
+    return typeof u.branch === 'string' ? u.branch : '';
+  };
+
+  const getUserBranchName = (u: UserData): string => {
+    if (typeof u.branch === 'object' && u.branch?.name) {
+      return u.branch.name;
+    }
+    return u.branchName || 'بدون فرع';
+  };
 
   if (!isLoaded) {
     return (
@@ -124,7 +197,9 @@ export default function AdminUsers() {
             </Link>
             <h1 className="text-3xl font-bold text-foreground">إدارة المستخدمين</h1>
             <p className="text-muted-foreground mt-1">
-              عرض وإدارة جميع المستخدمين المسجلين في النظام
+              {currentUserRole === "superadmin" 
+                ? "عرض وإدارة جميع المستخدمين والمسؤولين في النظام"
+                : "عرض وإدارة الأعضاء والمستخدمين في فرعك"}
             </p>
           </div>
           
@@ -186,23 +261,60 @@ export default function AdminUsers() {
                       {new Date(u.createdAt).toLocaleDateString("ar-EG")}
                     </span>
                   </div>
+                  
+                  {/* Branch Badge */}
+                  <div className="mt-2 flex items-center gap-2">
+                    <Building2 className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      {getUserBranchName(u)}
+                    </span>
+                  </div>
 
-                  <div className="mt-4 space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground" htmlFor={`role-${u._id}`}>
-                      تغيير الدور
-                    </label>
-                    <select
-                      id={`role-${u._id}`}
-                      aria-label="تغيير دور المستخدم"
-                      disabled={updatingId === u._id || u.clerkId === user?.id}
-                      value={u.role}
-                      onChange={(e) => handleRoleChange(u._id, e.target.value)}
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="user">مستخدم</option>
-                      <option value="member">عضو</option>
-                      <option value="admin">مسؤول</option>
-                    </select>
+                  <div className="mt-4 space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground" htmlFor={`role-${u._id}`}>
+                        تغيير الدور
+                      </label>
+                      <select
+                        id={`role-${u._id}`}
+                        aria-label="تغيير دور المستخدم"
+                        disabled={updatingId === u._id || u.clerkId === user?.id}
+                        value={u.role}
+                        onChange={(e) => handleRoleChange(u._id, e.target.value)}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {getAvailableRoles().map((role) => (
+                          <option key={role} value={role}>
+                            {getRoleLabel(role)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    {/* Branch Selection - SuperAdmin only */}
+                    {currentUserRole === "superadmin" && branches.length > 0 && (
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground" htmlFor={`branch-${u._id}`}>
+                          تغيير الفرع
+                        </label>
+                        <select
+                          id={`branch-${u._id}`}
+                          aria-label="تغيير فرع المستخدم"
+                          disabled={updatingId === u._id || u.role === "superadmin"}
+                          value={getUserBranchId(u)}
+                          onChange={(e) => handleBranchChange(u._id, e.target.value)}
+                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <option value="">بدون فرع</option>
+                          {branches.map((branch) => (
+                            <option key={branch._id} value={branch._id}>
+                              {branch.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    
                     {updatingId === u._id && (
                       <span className="inline-flex items-center text-xs text-muted-foreground">
                         <Loader2 className="w-3 h-3 animate-spin ml-1" />
@@ -230,11 +342,19 @@ export default function AdminUsers() {
                         الدور الحالي
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        الفرع
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         تاريخ التسجيل
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        إجراءات
+                        تغيير الدور
                       </th>
+                      {currentUserRole === "superadmin" && (
+                        <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          تغيير الفرع
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="bg-card divide-y divide-border">
@@ -261,6 +381,12 @@ export default function AdminUsers() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <RoleBadge role={u.role} />
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center text-sm text-muted-foreground">
+                            <Building2 className="w-4 h-4 ml-1" />
+                            {getUserBranchName(u)}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                           {new Date(u.createdAt).toLocaleDateString("ar-EG")}
                         </td>
@@ -272,17 +398,36 @@ export default function AdminUsers() {
                             onChange={(e) => handleRoleChange(u._id, e.target.value)}
                             className="block w-full pl-3 pr-10 py-2 text-base border-input bg-background text-foreground focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed border"
                           >
-                            <option value="user">مستخدم</option>
-                            <option value="member">عضو</option>
-                            <option value="admin">مسؤول</option>
+                            {getAvailableRoles().map((role) => (
+                              <option key={role} value={role}>
+                                {getRoleLabel(role)}
+                              </option>
+                            ))}
                           </select>
                           {updatingId === u._id && (
                             <span className="mr-2 inline-flex items-center text-xs text-muted-foreground">
                               <Loader2 className="w-3 h-3 animate-spin ml-1" />
-                              جاري التحديث...
                             </span>
                           )}
                         </td>
+                        {currentUserRole === "superadmin" && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <select
+                              aria-label="تغيير فرع المستخدم"
+                              disabled={updatingId === u._id || u.role === "superadmin"}
+                              value={getUserBranchId(u)}
+                              onChange={(e) => handleBranchChange(u._id, e.target.value)}
+                              className="block w-full pl-3 pr-10 py-2 text-base border-input bg-background text-foreground focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed border"
+                            >
+                              <option value="">بدون فرع</option>
+                              {branches.map((branch) => (
+                                <option key={branch._id} value={branch._id}>
+                                  {branch.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -296,8 +441,23 @@ export default function AdminUsers() {
   );
 }
 
+function getRoleLabel(role: string): string {
+  const labels: Record<string, string> = {
+    superadmin: "سوبر ادمن",
+    admin: "مسؤول",
+    member: "عضو",
+    user: "مستخدم",
+  };
+  return labels[role] || role;
+}
+
 function RoleBadge({ role }: { role: string }) {
-  const roleConfig: Record<"admin" | "member" | "user", { label: string; classes: string; Icon: typeof ShieldAlert }> = {
+  const roleConfig: Record<string, { label: string; classes: string; Icon: typeof ShieldAlert }> = {
+    superadmin: {
+      label: "سوبر ادمن",
+      classes: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+      Icon: Crown,
+    },
     admin: {
       label: "مسؤول",
       classes: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
@@ -316,7 +476,7 @@ function RoleBadge({ role }: { role: string }) {
   };
 
   const fallback = roleConfig.user;
-  const config = roleConfig[role as keyof typeof roleConfig] || fallback;
+  const config = roleConfig[role] || fallback;
   const Icon = config.Icon;
 
   return (

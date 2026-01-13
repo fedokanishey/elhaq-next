@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Navbar from "@/components/Navbar";
 import BackToTopButton from "@/components/BackToTopButton";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { BranchProvider } from "@/contexts/BranchContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -38,11 +39,13 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <Navbar />
-            <main className="min-h-screen">
-              {children}
-            </main>
-            <BackToTopButton />
+            <BranchProvider>
+              <Navbar />
+              <main className="min-h-screen">
+                {children}
+              </main>
+              <BackToTopButton />
+            </BranchProvider>
           </ThemeProvider>
         </body>
       </html>

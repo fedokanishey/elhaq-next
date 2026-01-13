@@ -3,7 +3,7 @@
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { 
@@ -16,8 +16,12 @@ import {
   Loader2,
   Wallet,
   Archive,
-  HandCoins
+  HandCoins,
+  Building2,
+  Crown
 } from "lucide-react";
+import { useBranchContext } from "@/contexts/BranchContext";
+import BranchSelector from "@/components/BranchSelector";
 
 interface DashboardStats {
   totalInitiatives: number;
@@ -36,21 +40,43 @@ interface DashboardStats {
 export default function AdminDashboard() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
+  const [branchName, setBranchName] = useState<string | null>(null);
+  const { selectedBranchId, setSelectedBranchId, isSuperAdmin: contextIsSuperAdmin } = useBranchContext();
+
+  // Build API URL with branch filter
+  const apiUrl = selectedBranchId 
+    ? `/api/reports?branchId=${selectedBranchId}` 
+    : "/api/reports";
 
   const { data } = useSWR(
-    isLoaded ? "/api/reports" : null,
+    isLoaded ? apiUrl : null,
     fetcher,
     { revalidateOnFocus: false }
   );
 
   const stats = data?.stats || null;
+  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  const isSuperAdmin = role === "superadmin";
 
   useEffect(() => {
-    const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    if (isLoaded && role !== "admin") {
+    if (isLoaded && role !== "admin" && role !== "superadmin") {
       router.push("/");
     }
-  }, [isLoaded, user, router]);
+  }, [isLoaded, user, router, role]);
+
+  // Fetch branch info
+  useEffect(() => {
+    if (isLoaded && !isSuperAdmin) {
+      fetch("/api/users")
+        .then(res => res.json())
+        .then(data => {
+          if (data.branch) {
+            setBranchName(data.branch);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [isLoaded, isSuperAdmin]);
 
   if (!isLoaded) {
     return (
@@ -65,12 +91,35 @@ export default function AdminDashboard() {
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex flex-col gap-2">
-          <h1 className="text-4xl font-bold text-foreground">
-            لوحة التحكم
-          </h1>
-          <p className="text-muted-foreground">
-            مرحباً بك {user?.firstName || "المسؤول"}، إليك نظرة عامة على النظام
-          </p>
+          <div className="flex items-center gap-3">
+            <h1 className="text-4xl font-bold text-foreground">
+              لوحة التحكم
+            </h1>
+            {isSuperAdmin && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                <Crown className="w-4 h-4 ml-1" />
+                سوبر ادمن
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+            <span>مرحباً بك {user?.firstName || "المسؤول"}، إليك نظرة عامة على النظام</span>
+            {branchName && !isSuperAdmin && (
+              <span className="inline-flex items-center text-primary">
+                <Building2 className="w-4 h-4 ml-1" />
+                فرع {branchName}
+              </span>
+            )}
+            {isSuperAdmin && (
+              <span className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400">
+                -
+                <BranchSelector
+                  selectedBranchId={selectedBranchId}
+                  onBranchChange={setSelectedBranchId}
+                />
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Stats Grid */}
@@ -228,6 +277,22 @@ export default function AdminDashboard() {
             </div>
             <p className="text-muted-foreground text-sm">تتبع حركة المخزن الواردة والصادرة</p>
           </Link>
+
+          {/* Branches Management - SuperAdmin only */}
+          {isSuperAdmin && (
+            <Link
+              href="/admin/branches"
+              className="group bg-card border border-purple-200 dark:border-purple-800 rounded-xl shadow-sm p-6 hover:shadow-md hover:border-purple-400 dark:hover:border-purple-600 transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-4 mb-3">
+                <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-full group-hover:bg-purple-200 dark:group-hover:bg-purple-900/50 transition-colors">
+                  <Building2 className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                </div>
+                <h3 className="text-lg font-bold text-foreground">إدارة الفروع</h3>
+              </div>
+              <p className="text-muted-foreground text-sm">إضافة وإدارة فروع الجمعية (سوبر ادمن فقط)</p>
+            </Link>
+          )}
         </div>
       </div>
     </div>

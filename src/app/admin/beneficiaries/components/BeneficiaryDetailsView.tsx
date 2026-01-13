@@ -191,7 +191,8 @@ export default function BeneficiaryDetailsView({
   const error = swrError ? "فشل تحميل بيانات المستفيد" : "";
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-  const isAdmin = role === "admin";
+  const isSuperAdmin = role === "superadmin";
+  const isAdmin = role === "admin" || isSuperAdmin;
 
   const whatsappLink = useMemo(() => {
     const normalized = beneficiary?.whatsapp?.replace(/\D/g, "");

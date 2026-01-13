@@ -8,6 +8,8 @@ export interface IDonor extends Document {
   lastDonationDate?: Date;
   contactPhone?: string;
   notes?: string;
+  branch?: mongoose.Types.ObjectId; // Reference to Branch model
+  branchName?: string; // Cached branch name
   createdAt: Date;
   updatedAt: Date;
 }
@@ -45,6 +47,15 @@ const DonorSchema = new Schema<IDonor>(
     notes: {
       type: String,
       trim: true,
+    },
+    branch: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'Branch',
+      index: true 
+    },
+    branchName: {
+      type: String,
+      trim: true
     },
   },
   {

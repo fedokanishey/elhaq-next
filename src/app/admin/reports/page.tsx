@@ -4,6 +4,7 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useBranchContext } from "@/contexts/BranchContext";
 
 interface ReportsStats {
   totalInitiatives: number;
@@ -34,10 +35,13 @@ export default function AdminReports() {
   const router = useRouter();
   const [stats, setStats] = useState<ReportsStats | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  const { selectedBranchId } = useBranchContext();
+  const branchParam = selectedBranchId ? `?branchId=${selectedBranchId}` : "";
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    if (isLoaded && role !== "admin" && role !== "member") {
+    if (isLoaded && role !== "admin" && role !== "member" && role !== "superadmin") {
       router.push("/");
     }
   }, [isLoaded, user, router]);
@@ -45,7 +49,7 @@ export default function AdminReports() {
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const res = await fetch("/api/reports");
+        const res = await fetch(`/api/reports${branchParam}`);
         const data = await res.json();
         if (res.ok) {
           setStats(data.stats);
@@ -60,7 +64,7 @@ export default function AdminReports() {
     if (isLoaded) {
       fetchReports();
     }
-  }, [isLoaded]);
+  }, [isLoaded, branchParam]);
 
   if (!isLoaded) {
     return (

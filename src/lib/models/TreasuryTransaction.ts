@@ -13,6 +13,8 @@ export interface ITreasuryTransaction extends Document {
   donorNameSnapshot?: string;
   beneficiaryIds?: Schema.Types.ObjectId[];
   beneficiaryNamesSnapshot?: string[];
+  branch?: mongoose.Types.ObjectId; // Reference to Branch model
+  branchName?: string; // Cached branch name
   createdAt: Date;
   updatedAt: Date;
 }
@@ -74,6 +76,15 @@ const TreasuryTransactionSchema = new Schema<ITreasuryTransaction>(
     beneficiaryNamesSnapshot: {
       type: [String],
       default: [],
+    },
+    branch: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'Branch',
+      index: true 
+    },
+    branchName: {
+      type: String,
+      trim: true
     },
   },
   {

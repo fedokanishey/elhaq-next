@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import MonthlyAllowancePrintModal from "@/components/MonthlyAllowancePrintModal";
 import BeneficiariesPrintModal from "@/components/BeneficiariesPrintModal";
 import BeneficiaryModal from "@/components/BeneficiaryModal";
+import { useBranchContext } from "@/contexts/BranchContext";
 
 interface Beneficiary {
   _id: string;
@@ -90,13 +91,19 @@ export default function BeneficiariesPage() {
   };
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-  const canAccessBeneficiaries = role === "admin" || role === "member";
-  const isAdmin = role === "admin";
+  const canAccessBeneficiaries = role === "admin" || role === "member" || role === "superadmin";
+  const isAdmin = role === "admin" || role === "superadmin";
+  
+  const { selectedBranchId } = useBranchContext();
+  const branchParam = selectedBranchId ? `?branchId=${selectedBranchId}` : "";
 
+  // Key includes branchParam so SWR refetches when branch changes
+  const swrKey = isLoaded && canAccessBeneficiaries ? `/api/beneficiaries${branchParam}` : null;
+  
   const { data, error: swrError, isLoading, mutate } = useSWR(
-    isLoaded && canAccessBeneficiaries ? "/api/beneficiaries" : null,
+    swrKey,
     fetcher,
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, revalidateOnMount: true }
   );
 
   const loading = isLoading;

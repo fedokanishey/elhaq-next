@@ -5,6 +5,7 @@ import TreasuryTransaction from "@/lib/models/TreasuryTransaction";
 import Donor from "@/lib/models/Donor";
 import Beneficiary from "@/lib/models/Beneficiary";
 import { isValidObjectId } from "mongoose";
+import { getAuthenticatedUser, getBranchFilterWithOverride } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -13,17 +14,28 @@ export const fetchCache = "force-no-store";
 export async function GET(req: Request) {
   try {
     await dbConnect();
-
+    
+    const authResult = await getAuthenticatedUser();
+    
     const { searchParams } = new URL(req.url);
+    const branchIdOverride = searchParams.get("branchId");
+    const branchFilter = getBranchFilterWithOverride(authResult, branchIdOverride);
+
     const limitParam = Number(searchParams.get("limit"));
     const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 50;
 
+    // Build match stage for aggregation
+    const matchStage = (authResult.isSuperAdmin && branchIdOverride) 
+      ? { branch: branchIdOverride } 
+      : (authResult.isSuperAdmin ? {} : { branch: authResult.branch });
+
     const [transactions, summary] = await Promise.all([
-      TreasuryTransaction.find()
+      TreasuryTransaction.find(branchFilter)
         .sort({ transactionDate: -1, createdAt: -1 })
         .limit(limit)
         .lean(),
       TreasuryTransaction.aggregate([
+        { $match: matchStage },
         {
           $group: {
             _id: null,
@@ -53,6 +65,7 @@ export async function GET(req: Request) {
         balance,
       },
       transactions,
+      branch: authResult.branchName,
     });
   } catch (error) {
     console.error("Error fetching treasury data:", error);
@@ -68,6 +81,12 @@ export async function POST(req: Request) {
     }
 
     await dbConnect();
+    
+    const authResult = await getAuthenticatedUser();
+    if (!authResult.isAuthorized) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    
     const body = await req.json();
     const {
       amount,
@@ -106,11 +125,17 @@ export async function POST(req: Request) {
 
       if (!resolvedDonor && trimmedDonorName) {
         const normalizedName = trimmedDonorName.toLowerCase();
-        let donor = await Donor.findOne({ nameNormalized: normalizedName });
+        // Search for donor within the same branch
+        const donorQuery = authResult.isSuperAdmin 
+          ? { nameNormalized: normalizedName }
+          : { nameNormalized: normalizedName, branch: authResult.branch };
+        let donor = await Donor.findOne(donorQuery);
         if (!donor) {
           donor = await Donor.create({
             name: trimmedDonorName,
             nameNormalized: normalizedName,
+            branch: authResult.branch,
+            branchName: authResult.branchName,
           });
         }
         resolvedDonor = { _id: donor._id.toString(), name: donor.name };
@@ -131,6 +156,59 @@ export async function POST(req: Request) {
         });
     }
 
+    // Resolve beneficiary names snapshot
+    const resolvedBeneficiaryIds = normalizedType === "expense" && Array.isArray(beneficiaryIds) 
+      ? beneficiaryIds.filter((id: string) => isValidObjectId(id))
+      : [];
+    const beneficiaryNamesSnapshot = normalizedType === "expense" && resolvedBeneficiaryIds.length > 0
+      ? (await Promise.all(
+          resolvedBeneficiaryIds.map((id: string) => Beneficiary.findById(id).lean().then(b => b?.name || '').catch(() => ''))
+        )).filter(Boolean)
+      : [];
+
+    // For SuperAdmin: if no branch provided, copy to ALL branches
+    if (authResult.isSuperAdmin && !body.branch) {
+      const Branch = (await import("@/lib/models/Branch")).default;
+      const allBranches = await Branch.find({ isActive: true }).lean();
+      
+      if (allBranches.length === 0) {
+        return NextResponse.json({ error: "لا توجد فروع نشطة" }, { status: 400 });
+      }
+      
+      const createdTransactions = [];
+      
+      for (const branch of allBranches) {
+        const entry = await TreasuryTransaction.create({
+          amount: normalizedAmount,
+          type: normalizedType,
+          description: description.trim(),
+          category: category?.trim() || "general",
+          reference: reference?.trim(),
+          transactionDate: transactionDate ? new Date(transactionDate) : new Date(),
+          createdBy: userId,
+          recordedBy: recordedBy?.trim(),
+          donorId: resolvedDonor?._id,
+          donorNameSnapshot: resolvedDonor?.name || trimmedDonorName || undefined,
+          beneficiaryIds: resolvedBeneficiaryIds,
+          beneficiaryNamesSnapshot,
+          branch: branch._id,
+          branchName: branch.name,
+        });
+        createdTransactions.push(entry);
+      }
+      
+      console.log(`✅ Created ${createdTransactions.length} treasury transactions for all branches`);
+      return NextResponse.json({ 
+        message: `تم إضافة المعاملة لـ ${createdTransactions.length} فرع`,
+        count: createdTransactions.length,
+        transaction: createdTransactions[0] 
+      }, { status: 201 });
+    }
+
+    // Single branch
+    const targetBranch = authResult.isSuperAdmin ? body.branch : authResult.branch;
+    const targetBranchName = authResult.isSuperAdmin ? body.branchName : authResult.branchName;
+
     const entry = await TreasuryTransaction.create({
       amount: normalizedAmount,
       type: normalizedType,
@@ -142,16 +220,10 @@ export async function POST(req: Request) {
       recordedBy: recordedBy?.trim(),
       donorId: resolvedDonor?._id,
       donorNameSnapshot: resolvedDonor?.name || trimmedDonorName || undefined,
-      beneficiaryIds: normalizedType === "expense" && Array.isArray(beneficiaryIds) 
-        ? beneficiaryIds.filter(id => isValidObjectId(id))
-        : [],
-      beneficiaryNamesSnapshot: normalizedType === "expense" && Array.isArray(beneficiaryIds) 
-        ? (await Promise.all(
-            beneficiaryIds
-              .filter(id => isValidObjectId(id))
-              .map(id => Beneficiary.findById(id).lean().then(b => b?.name || '').catch(() => ''))
-          )).filter(Boolean)
-        : [],
+      beneficiaryIds: resolvedBeneficiaryIds,
+      beneficiaryNamesSnapshot,
+      branch: targetBranch,
+      branchName: targetBranchName,
     });
 
     return NextResponse.json(entry, { status: 201 });

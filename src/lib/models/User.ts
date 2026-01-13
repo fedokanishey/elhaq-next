@@ -1,4 +1,6 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
+
+export type UserRole = 'superadmin' | 'admin' | 'member' | 'user';
 
 export interface IUser extends Document {
   clerkId: string;
@@ -6,7 +8,9 @@ export interface IUser extends Document {
   firstName?: string;
   lastName?: string;
   profileImageUrl?: string;
-  role: 'admin' | 'member' | 'user';
+  role: UserRole;
+  branch?: Types.ObjectId; // Reference to Branch model
+  branchName?: string; // Cached branch name for quick access
   createdAt: Date;
   updatedAt: Date;
 }
@@ -20,11 +24,23 @@ const UserSchema = new Schema<IUser>(
     profileImageUrl: String,
     role: {
       type: String,
-      enum: ['admin', 'member', 'user'],
+      enum: ['superadmin', 'admin', 'member', 'user'],
       default: 'user',
+    },
+    branch: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'Branch',
+      index: true 
+    },
+    branchName: {
+      type: String,
+      trim: true
     },
   },
   { timestamps: true }
 );
+
+// Index for efficient branch-based queries
+UserSchema.index({ branch: 1, role: 1 });
 
 export default mongoose.models.User || mongoose.model<IUser>('User', UserSchema);

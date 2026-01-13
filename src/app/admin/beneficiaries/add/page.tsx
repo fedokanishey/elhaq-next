@@ -11,7 +11,7 @@ export default function AddBeneficiaryPage() {
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-    if (isLoaded && role !== "admin") {
+    if (isLoaded && role !== "admin" && role !== "superadmin") {
       router.push("/");
     }
   }, [isLoaded, user, router]);

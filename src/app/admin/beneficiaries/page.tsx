@@ -12,6 +12,7 @@ import BeneficiariesPrintModal from "@/components/BeneficiariesPrintModal";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import BeneficiaryModal from "@/components/BeneficiaryModal";
+import { useBranchContext } from "@/contexts/BranchContext";
 
 interface Beneficiary {
   _id: string;
@@ -87,11 +88,16 @@ export default function AdminBeneficiaries() {
   };
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-  const isAdmin = role === "admin";
+  const isSuperAdmin = role === "superadmin";
+  const isAdmin = role === "admin" || isSuperAdmin;
 
-  // Fetch beneficiaries with SWR
+  // Get selected branch from context
+  const { selectedBranchId } = useBranchContext();
+  const branchParam = selectedBranchId ? `?branchId=${selectedBranchId}` : "";
+
+  // Fetch beneficiaries with SWR - include branchParam in key
   const { data, error, isLoading, mutate } = useSWR<{ beneficiaries: Beneficiary[] }>(
-    isLoaded && isAdmin ? "/api/beneficiaries" : null,
+    isLoaded && isAdmin ? `/api/beneficiaries${branchParam}` : null,
     fetcher,
     {
       revalidateOnFocus: false,

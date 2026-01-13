@@ -7,8 +7,9 @@ import TreasuryTransaction from "@/lib/models/TreasuryTransaction";
 import Loan from "@/lib/models/Loan";
 import WarehouseMovement from "@/lib/models/WarehouseMovement";
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { getAuthenticatedUser, getBranchFilterWithOverride } from "@/lib/auth-helpers";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { userId, sessionClaims } = await auth();
     
@@ -18,26 +19,20 @@ export async function GET() {
 
     await dbConnect();
 
-    // Check MongoDB for role first (Source of Truth)
-    const dbUser = await User.findOne({ clerkId: userId });
-    let isAuthorized = dbUser?.role === 'admin' || dbUser?.role === 'member';
-
-    // Fallback to Clerk metadata if not admin in DB (e.g. first login)
-    if (!isAuthorized) {
-        const role = (sessionClaims?.metadata as { role?: string })?.role;
-        if (role === 'admin' || role === 'member') isAuthorized = true;
-    }
-
-    if (!isAuthorized) {
-         // Double check with currentUser() as last resort
-         const clerkUser = await currentUser();
-         const role = clerkUser?.publicMetadata?.role;
-         if (role === 'admin' || role === 'member') isAuthorized = true;
-    }
-
-    if (!isAuthorized) {
+    // Get authenticated user with branch info
+    const authResult = await getAuthenticatedUser();
+    
+    // Check if authorized
+    if (!authResult.isAuthorized && !authResult.isSuperAdmin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Get branchId from query params (for SuperAdmin branch filtering)
+    const { searchParams } = new URL(request.url);
+    const branchIdOverride = searchParams.get("branchId");
+    
+    // Build branch filter based on user role and optional override
+    const branchFilter = getBranchFilterWithOverride(authResult, branchIdOverride);
 
     // Sync admin user if not exists (Robust Logic)
     const userEmail = (sessionClaims?.email as string) || (await currentUser())?.emailAddresses[0]?.emailAddress;
@@ -63,13 +58,17 @@ export async function GET() {
         }
     }
 
-    const initiatives = await Initiative.find({});
-    const beneficiaries = await Beneficiary.find({});
-    const usersCount = await User.countDocuments({});
+    // Apply branch filter to all queries
+    const initiatives = await Initiative.find(branchFilter);
+    const beneficiaries = await Beneficiary.find(branchFilter);
+    
+    // Users count - SuperAdmin sees all (or filtered branch), Admin sees users in their branch
+    const userBranchFilter = (authResult.isSuperAdmin && branchIdOverride) 
+      ? { branch: branchIdOverride }
+      : (authResult.isSuperAdmin ? {} : branchFilter);
+    const usersCount = await User.countDocuments(userBranchFilter);
 
-    console.log(`[Reports API] Initiatives Found: ${initiatives.length}`);
-    console.log(`[Reports API] Beneficiaries Found: ${beneficiaries.length}`);
-    console.log(`[Reports API] Users Found: ${usersCount}`);
+    console.log(`[Reports API] Branch: ${branchIdOverride || authResult.branchName || 'All'}, Initiatives: ${initiatives.length}, Beneficiaries: ${beneficiaries.length}`);
 
     const totalInitiatives = initiatives.length;
     const totalBeneficiaries = beneficiaries.length;
@@ -77,19 +76,15 @@ export async function GET() {
     // Calculate total amount spent on initiatives
     const totalAmountSpent = initiatives.reduce((sum, init) => sum + (init.totalAmount || 0), 0);
 
-    // Calculate remaining balance (total received - total spent)
-    const incomeTransactions = await TreasuryTransaction.find({ type: 'income' });
-    const expenseTransactions = await TreasuryTransaction.find({ type: 'expense' });
+    // Calculate remaining balance (total received - total spent) - filtered by branch
+    const incomeTransactions = await TreasuryTransaction.find({ type: 'income', ...branchFilter });
+    const expenseTransactions = await TreasuryTransaction.find({ type: 'expense', ...branchFilter });
     
-    console.log(`[Reports API] Income Transactions Found: ${incomeTransactions.length}`);
-    console.log(`[Reports API] Expense Transactions Found: ${expenseTransactions.length}`);
+    console.log(`[Reports API] Income Transactions: ${incomeTransactions.length}, Expense: ${expenseTransactions.length}`);
     
     const totalReceived = incomeTransactions.reduce((sum: number, transaction: any) => sum + (transaction.amount || 0), 0);
     const totalExpenses = expenseTransactions.reduce((sum: number, transaction: any) => sum + (transaction.amount || 0), 0);
     
-    console.log(`[Reports API] Total Received: ${totalReceived}, Total Expenses: ${totalExpenses}`);
-    
-    // If no treasury data exists, use 0 (will need to add treasury entries in admin panel)
     const remainingBalance = totalReceived - totalExpenses;
 
     // Calculate initiatives by status
@@ -100,13 +95,18 @@ export async function GET() {
       cancelled: initiatives.filter(i => i.status === 'cancelled').length,
     };
 
-    // --- Loan Stats ---
-    const activeLoansCount = await Loan.countDocuments({ status: "active", deletedAt: null });
-    const completedLoansCount = await Loan.countDocuments({ status: "completed", deletedAt: null });
+    // --- Loan Stats --- (filtered by branch)
+    const loanBranchFilter = { ...branchFilter, deletedAt: null };
+    const activeLoansCount = await Loan.countDocuments({ status: "active", ...loanBranchFilter });
+    const completedLoansCount = await Loan.countDocuments({ status: "completed", ...loanBranchFilter });
     
     // Aggregating quantities for Loans
+    const loanMatchStage = (authResult.isSuperAdmin && !branchIdOverride) 
+      ? { deletedAt: null }
+      : { deletedAt: null, ...branchFilter };
+    
     const loanStats = await Loan.aggregate([
-       { $match: { deletedAt: null } },
+       { $match: loanMatchStage },
        { 
          $group: { 
            _id: null, 
@@ -124,12 +124,14 @@ export async function GET() {
     const totalLoanPaid = loanStats[0]?.totalPaid || 0;
     const activeLoanBalance = loanStats[0]?.activeAmount || 0;
 
-    // --- Warehouse Stats ---
+    // --- Warehouse Stats --- (filtered by branch)
+    const warehouseMatchStage = authResult.isSuperAdmin 
+      ? { deletedAt: null }
+      : { deletedAt: null, branch: authResult.branch };
     
     // 1. Product Inventory Count (Unique items with >0 quantity)
-    // We reuse the logic from warehouse API or simplify it. Reusing aggregation is safest.
     const inventoryAgg = await WarehouseMovement.aggregate([
-      { $match: { category: "product", deletedAt: null } },
+      { $match: { ...warehouseMatchStage, category: "product" } },
       { 
         $group: { 
           _id: { itemName: "$itemName", type: "$type" }, 
@@ -153,7 +155,7 @@ export async function GET() {
 
     // 2. Cash Balance (Warehouse Cash)
     const cashAgg = await WarehouseMovement.aggregate([
-      { $match: { category: "cash", deletedAt: null } },
+      { $match: { ...warehouseMatchStage, category: "cash" } },
       { 
         $group: { 
           _id: "$type", 
@@ -176,7 +178,7 @@ export async function GET() {
     // The current Warehouse page doesn't explicitly show "Total Stock Inventory Value", only "Cash Balance".
     // I will compute "Total Product Value" based on inbound product values minus outbound product values to approximate.
     const productValueAgg = await WarehouseMovement.aggregate([
-      { $match: { category: "product", deletedAt: null } },
+      { $match: { ...warehouseMatchStage, category: "product" } },
       { 
         $group: { 
           _id: "$type", 
@@ -216,7 +218,9 @@ export async function GET() {
             notes: "Stock value is approximate based on recorded movement values",
             totalStockValue
         }
-      }
+      },
+      branch: authResult.branchName,
+      isSuperAdmin: authResult.isSuperAdmin,
     });
   } catch (error) {
     console.error("Error fetching reports:", error);
