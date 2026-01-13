@@ -180,7 +180,6 @@ export async function POST(req: Request) {
       // Assign to target branch
       branch: targetBranch,
       branchName: targetBranchName,
-      branchName: authResult.branchName,
     });
 
     await beneficiary.save();
