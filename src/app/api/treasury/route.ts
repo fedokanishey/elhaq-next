@@ -24,18 +24,15 @@ export async function GET(req: Request) {
     const limitParam = Number(searchParams.get("limit"));
     const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 50;
 
-    // Build match stage for aggregation
-    const matchStage = (authResult.isSuperAdmin && branchIdOverride) 
-      ? { branch: branchIdOverride } 
-      : (authResult.isSuperAdmin ? {} : { branch: authResult.branch });
-
+    // Use the same branchFilter for both transactions query and aggregation
+    // This ensures consistent results between transactions list and summary totals
     const [transactions, summary] = await Promise.all([
       TreasuryTransaction.find(branchFilter)
         .sort({ transactionDate: -1, createdAt: -1 })
         .limit(limit)
         .lean(),
       TreasuryTransaction.aggregate([
-        { $match: matchStage },
+        { $match: branchFilter },
         {
           $group: {
             _id: null,

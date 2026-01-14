@@ -42,9 +42,8 @@ export async function GET(req: Request) {
     const movements = await WarehouseMovement.find(query).sort({ date: -1 }).lean();
 
     // --- Aggregation Stats (filtered by branch) ---
-    const matchStage = (authResult.isSuperAdmin && branchIdOverride)
-      ? { deletedAt: null, branch: branchIdOverride }
-      : (authResult.isSuperAdmin ? { deletedAt: null } : { deletedAt: null, branch: authResult.branch });
+    // Use branchFilter for consistent results with the movements query
+    const matchStage = { deletedAt: null, ...branchFilter };
     
     // 1. Calculate Product Inventory
     const inventoryAgg = await WarehouseMovement.aggregate([
