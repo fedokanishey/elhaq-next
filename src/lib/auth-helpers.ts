@@ -76,12 +76,31 @@ export async function getAuthenticatedUser(): Promise<AuthResult> {
   const isMember = role === 'member';
   const isAuthorized = isSuperAdmin || isAdmin || isMember;
 
+  // Handle populated branch - extract _id if it's populated object
+  let branchId: Types.ObjectId | null = null;
+  let branchName: string | null = dbUser?.branchName || null;
+  
+  if (dbUser?.branch) {
+    // Check if branch is populated (object with _id) or just ObjectId
+    if (typeof dbUser.branch === 'object' && '_id' in dbUser.branch) {
+      // Populated branch object
+      const populatedBranch = dbUser.branch as { _id: Types.ObjectId; name?: string };
+      branchId = populatedBranch._id;
+      branchName = branchName || populatedBranch.name || null;
+    } else if (dbUser.branch instanceof Types.ObjectId || typeof dbUser.branch === 'string') {
+      // Direct ObjectId or string
+      branchId = dbUser.branch instanceof Types.ObjectId 
+        ? dbUser.branch 
+        : new Types.ObjectId(dbUser.branch as string);
+    }
+  }
+
   return {
     userId,
     user: dbUser,
     role,
-    branch: dbUser?.branch || null,
-    branchName: dbUser?.branchName || null,
+    branch: branchId,
+    branchName,
     isSuperAdmin,
     isAdmin,
     isMember,
