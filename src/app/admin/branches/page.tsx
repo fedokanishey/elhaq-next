@@ -31,6 +31,11 @@ export default function BranchesPage() {
     phone: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; branch: BranchData | null; password: string }>({
+    isOpen: false,
+    branch: null,
+    password: "",
+  });
 
   useEffect(() => {
     const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
@@ -110,20 +115,33 @@ export default function BranchesPage() {
   };
 
   const handleDelete = async (branch: BranchData) => {
-    if (!confirm(`هل أنت متأكد من حذف فرع "${branch.name}"؟`)) {
+    // Open password confirmation modal
+    setDeleteModal({ isOpen: true, branch, password: "" });
+  };
+
+  const confirmDelete = async () => {
+    if (deleteModal.password !== "admin") {
+      toast.error("كلمة السر غير صحيحة");
       return;
     }
 
+    const branch = deleteModal.branch;
+    if (!branch) return;
+
     try {
+      console.log("Deleting branch:", branch._id);
       const res = await fetch(`/api/branches/${branch._id}`, {
         method: "DELETE",
       });
 
+      const data = await res.json();
+      console.log("Delete response:", data);
+
       if (res.ok) {
         toast.success("تم حذف الفرع بنجاح");
+        setDeleteModal({ isOpen: false, branch: null, password: "" });
         fetchBranches();
       } else {
-        const data = await res.json();
         toast.error(data.error || "حدث خطأ أثناء حذف الفرع");
       }
     } catch (error) {
@@ -342,6 +360,64 @@ export default function BranchesPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal with Password */}
+        {deleteModal.isOpen && deleteModal.branch && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 flex items-center justify-center p-4">
+            <div className="bg-card rounded-xl shadow-xl max-w-md w-full p-6 border border-border">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-foreground">تأكيد الحذف</h2>
+                <button
+                  onClick={() => setDeleteModal({ isOpen: false, branch: null, password: "" })}
+                  className="p-2 hover:bg-muted rounded-full"
+                  aria-label="إغلاق"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-foreground">
+                  هل أنت متأكد من حذف فرع <strong>&quot;{deleteModal.branch.name}&quot;</strong>؟
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  هذا الإجراء لا يمكن التراجع عنه. أدخل كلمة السر للتأكيد.
+                </p>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    كلمة السر <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={deleteModal.password}
+                    onChange={(e) => setDeleteModal({ ...deleteModal, password: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+                    placeholder="أدخل كلمة السر"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteModal({ isOpen: false, branch: null, password: "" })}
+                    className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-muted transition-colors"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmDelete}
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    تأكيد الحذف
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
