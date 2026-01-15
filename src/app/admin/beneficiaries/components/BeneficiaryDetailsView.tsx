@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable @next/next/no-img-element */
 
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
@@ -22,6 +21,7 @@ import {
 } from "lucide-react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
+import CloudinaryImage from "@/components/CloudinaryImage";
 
 interface Child {
   _id?: string;
@@ -310,7 +310,17 @@ export default function BeneficiaryDetailsView({
             <div className="flex gap-4">
               <div className="w-28 h-28 rounded-lg overflow-hidden border border-border bg-muted">
                 {beneficiary.profileImage ? (
-                  <img src={beneficiary.profileImage} alt={beneficiary.name} className="w-full h-full object-cover" />
+                  <CloudinaryImage
+                    src={beneficiary.profileImage}
+                    alt={beneficiary.name}
+                    width="card"
+                    height={112}
+                    layout="card"
+                    crop="fill"
+                    gravity="face"
+                    quality="auto:good"
+                    className="w-full h-full"
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-2xl font-semibold text-primary">
                     {beneficiary.name.charAt(0)}
@@ -319,7 +329,17 @@ export default function BeneficiaryDetailsView({
               </div>
               <div className="w-28 h-28 rounded-lg overflow-hidden border border-border bg-muted">
                 {beneficiary.idImage ? (
-                  <img src={beneficiary.idImage} alt={spouse?.name || "صورة الزوج/الزوجة"} className="w-full h-full object-cover" />
+                  <CloudinaryImage
+                    src={beneficiary.idImage}
+                    alt={spouse?.name || "صورة الزوج/الزوجة"}
+                    width="card"
+                    height={112}
+                    layout="card"
+                    crop="fill"
+                    gravity="face"
+                    quality="auto:good"
+                    className="w-full h-full"
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground text-center px-2">
                     لا توجد صورة للزوج/الزوجة
@@ -535,7 +555,15 @@ export default function BeneficiaryDetailsView({
                 <div>
                   <p className="text-sm text-muted-foreground mb-3">الشهادة الطبية</p>
                   <div className="w-full h-40 rounded-lg overflow-hidden border border-border bg-muted">
-                    <img src={beneficiary.healthCertificationImage} alt="الشهادة الطبية" className="w-full h-full object-cover" />
+                    <CloudinaryImage
+                      src={beneficiary.healthCertificationImage}
+                      alt="الشهادة الطبية"
+                      width="detail"
+                      layout="detail"
+                      crop="limit"
+                      quality="auto:good"
+                      className="w-full h-full"
+                    />
                   </div>
                 </div>
               )}
@@ -543,7 +571,15 @@ export default function BeneficiaryDetailsView({
                 <div>
                   <p className="text-sm text-muted-foreground mb-3">💍 صورة قسيمة الزواج</p>
                   <div className="w-full h-40 rounded-lg overflow-hidden border border-border bg-muted">
-                    <img src={beneficiary.marriageCertificateImage} alt="قسيمة الزواج" className="w-full h-full object-cover" />
+                    <CloudinaryImage
+                      src={beneficiary.marriageCertificateImage}
+                      alt="قسيمة الزواج"
+                      width="detail"
+                      layout="detail"
+                      crop="limit"
+                      quality="auto:good"
+                      className="w-full h-full"
+                    />
                   </div>
                 </div>
               )}
@@ -797,9 +833,13 @@ export default function BeneficiaryDetailsView({
               </button>
               <div className="p-6">
                 <h3 className="text-lg font-semibold mb-4">الشهادة الطبية</h3>
-                <img
+                <CloudinaryImage
                   src={healthModalImage}
                   alt="الشهادة الطبية"
+                  width="full"
+                  layout="full"
+                  crop="limit"
+                  quality="auto:good"
                   className="w-full h-auto rounded-lg border border-border"
                 />
               </div>

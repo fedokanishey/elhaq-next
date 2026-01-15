@@ -271,6 +271,12 @@ export default function TreasuryPage() {
       return;
     }
 
+    // SuperAdmin must select a specific branch before adding transactions
+    if (isSuperAdmin && !selectedBranchId && !editingTransactionId) {
+      setError("يجب اختيار الفرع قبل إضافة العملية. اختر فرع من القائمة أعلاه.");
+      return;
+    }
+
     const amountNumber = Number(formData.amount);
     if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
       setError("قيمة المبلغ غير صحيحة");
@@ -545,8 +551,16 @@ export default function TreasuryPage() {
                 </p>
               </div>
 
+              {/* Branch selection warning for SuperAdmin */}
+              {isSuperAdmin && !selectedBranchId && !editingTransactionId && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 px-3 py-2 text-sm text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                  <span>⚠️</span>
+                  <span>يجب اختيار فرع محدد من القائمة أعلاه قبل إضافة عملية مالية</span>
+                </div>
+              )}
+
               {error && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="rounded-md border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-700 px-3 py-2 text-sm text-red-700 dark:text-red-300">
                   {error}
                 </div>
               )}

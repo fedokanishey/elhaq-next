@@ -105,6 +105,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid transaction payload" }, { status: 400 });
     }
 
+    // Determine target branch FIRST - before donor handling
+    const targetBranch = authResult.isSuperAdmin ? body.branch : authResult.branch;
+    const targetBranchName = authResult.isSuperAdmin ? body.branchName : authResult.branchName;
+
+    // For SuperAdmin: require explicit branch selection
+    if (authResult.isSuperAdmin && !targetBranch) {
+      return NextResponse.json({ 
+        error: "يجب اختيار الفرع قبل إضافة العملية" 
+      }, { status: 400 });
+    }
+
     let resolvedDonor: { _id: string; name: string } | null = null;
     const trimmedDonorName = typeof donorName === "string" ? donorName.trim() : "";
 
@@ -122,17 +133,16 @@ export async function POST(req: Request) {
 
       if (!resolvedDonor && trimmedDonorName) {
         const normalizedName = trimmedDonorName.toLowerCase();
-        // Search for donor within the same branch
-        const donorQuery = authResult.isSuperAdmin 
-          ? { nameNormalized: normalizedName }
-          : { nameNormalized: normalizedName, branch: authResult.branch };
+        // Search for donor within the TARGET branch (not user's branch)
+        const donorQuery = { nameNormalized: normalizedName, branch: targetBranch };
         let donor = await Donor.findOne(donorQuery);
         if (!donor) {
+          // Create donor in the TARGET branch
           donor = await Donor.create({
             name: trimmedDonorName,
             nameNormalized: normalizedName,
-            branch: authResult.branch,
-            branchName: authResult.branchName,
+            branch: targetBranch,
+            branchName: targetBranchName,
           });
         }
         resolvedDonor = { _id: donor._id.toString(), name: donor.name };
@@ -162,49 +172,6 @@ export async function POST(req: Request) {
           resolvedBeneficiaryIds.map((id: string) => Beneficiary.findById(id).lean().then(b => b?.name || '').catch(() => ''))
         )).filter(Boolean)
       : [];
-
-    // For SuperAdmin: if no branch provided, copy to ALL branches
-    if (authResult.isSuperAdmin && !body.branch) {
-      const Branch = (await import("@/lib/models/Branch")).default;
-      const allBranches = await Branch.find({ isActive: true }).lean();
-      
-      if (allBranches.length === 0) {
-        return NextResponse.json({ error: "لا توجد فروع نشطة" }, { status: 400 });
-      }
-      
-      const createdTransactions = [];
-      
-      for (const branch of allBranches) {
-        const entry = await TreasuryTransaction.create({
-          amount: normalizedAmount,
-          type: normalizedType,
-          description: description.trim(),
-          category: category?.trim() || "general",
-          reference: reference?.trim(),
-          transactionDate: transactionDate ? new Date(transactionDate) : new Date(),
-          createdBy: userId,
-          recordedBy: recordedBy?.trim(),
-          donorId: resolvedDonor?._id,
-          donorNameSnapshot: resolvedDonor?.name || trimmedDonorName || undefined,
-          beneficiaryIds: resolvedBeneficiaryIds,
-          beneficiaryNamesSnapshot,
-          branch: branch._id,
-          branchName: branch.name,
-        });
-        createdTransactions.push(entry);
-      }
-      
-      console.log(`✅ Created ${createdTransactions.length} treasury transactions for all branches`);
-      return NextResponse.json({ 
-        message: `تم إضافة المعاملة لـ ${createdTransactions.length} فرع`,
-        count: createdTransactions.length,
-        transaction: createdTransactions[0] 
-      }, { status: 201 });
-    }
-
-    // Single branch
-    const targetBranch = authResult.isSuperAdmin ? body.branch : authResult.branch;
-    const targetBranchName = authResult.isSuperAdmin ? body.branchName : authResult.branchName;
 
     const entry = await TreasuryTransaction.create({
       amount: normalizedAmount,

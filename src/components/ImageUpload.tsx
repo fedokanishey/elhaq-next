@@ -2,6 +2,7 @@
 
 import { CldUploadWidget } from "next-cloudinary";
 import { useState } from "react";
+import CloudinaryImage from "./CloudinaryImage";
 
 interface ImageUploadProps {
   onImageUpload: (imageUrl: string) => void;
@@ -19,14 +20,19 @@ export default function ImageUpload({
 
   return (
     <div className="space-y-4">
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
 
       {preview && (
-        <div className="relative w-32 h-32">
-          <img
+        <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-border">
+          <CloudinaryImage
             src={preview}
             alt="Preview"
-            className="w-full h-full object-cover rounded-lg"
+            width="card"
+            height={128}
+            layout="card"
+            crop="fill"
+            quality="auto"
+            className="w-full h-full"
           />
         </div>
       )}

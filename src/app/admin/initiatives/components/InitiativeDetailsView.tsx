@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable @next/next/no-img-element */
 
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
@@ -16,6 +15,7 @@ import {
   ZoomIn,
   Loader2,
 } from "lucide-react";
+import CloudinaryImage from "@/components/CloudinaryImage";
 
 interface BeneficiarySummary {
   _id: string;
@@ -501,7 +501,16 @@ export default function InitiativeDetailsView({
                   className="relative rounded-lg overflow-hidden border border-border cursor-pointer hover:opacity-80 transition-opacity"
                   onClick={() => setSelectedImage(image)}
                 >
-                  <img src={image} alt={initiative.name} className="w-full h-64 object-cover" />
+                  <CloudinaryImage
+                    src={image}
+                    alt={initiative.name || "صورة المبادرة"}
+                    width="detail"
+                    height={256}
+                    layout="detail"
+                    crop="fill"
+                    quality="auto"
+                    className="w-full h-64"
+                  />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/20 transition-colors">
                     <ZoomIn className="w-6 h-6 text-white opacity-0 hover:opacity-100" />
                   </div>
@@ -528,7 +537,17 @@ export default function InitiativeDetailsView({
                 <div key={beneficiary._id} className="border border-border rounded-lg p-4 flex flex-col items-center text-center gap-3 hover:bg-muted/50 transition-colors">
                   <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-border bg-muted flex items-center justify-center text-2xl font-semibold text-primary">
                     {beneficiary.profileImage ? (
-                      <img src={beneficiary.profileImage} alt={beneficiary.name} className="w-full h-full object-cover" />
+                      <CloudinaryImage
+                        src={beneficiary.profileImage}
+                        alt={beneficiary.name || "صورة المستفيد"}
+                        width="thumbnail"
+                        height={80}
+                        layout="thumbnail"
+                        crop="fill"
+                        gravity="face"
+                        quality="auto"
+                        className="w-full h-full"
+                      />
                     ) : (
                       beneficiary.name?.charAt(0) || "م"
                     )}
@@ -573,10 +592,15 @@ export default function InitiativeDetailsView({
           onClick={() => setSelectedImage(null)}
         >
           <div className="relative max-w-3xl max-h-[90vh] w-full" onClick={(e) => e.stopPropagation()}>
-            <img
+            <CloudinaryImage
               src={selectedImage}
               alt="صورة بحجم كامل"
-              className="w-full h-full object-contain rounded-lg"
+              width="full"
+              layout="full"
+              crop="limit"
+              quality="auto:good"
+              className="w-full h-full rounded-lg"
+              priority
             />
             <button
               onClick={() => setSelectedImage(null)}

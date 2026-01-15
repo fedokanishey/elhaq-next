@@ -382,7 +382,13 @@ function EditLoanModal({ isOpen, onClose, onSuccess, loan }: { isOpen: boolean; 
 }
 
 
-function AddCapitalModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess: () => void }) {
+function AddCapitalModal({ isOpen, onClose, onSuccess, branchId, branchName }: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onSuccess: () => void;
+  branchId?: string | null;
+  branchName?: string | null;
+}) {
   const [formData, setFormData] = useState({ amount: "", source: "", notes: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -392,17 +398,25 @@ function AddCapitalModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onCl
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setError("");
     try {
       const res = await fetch("/api/loans/capital", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, amount: Number(formData.amount) }),
+        body: JSON.stringify({ 
+          ...formData, 
+          amount: Number(formData.amount),
+          ...(branchId && { branch: branchId, branchName })
+        }),
       });
-      if (!res.ok) throw new Error("فشل إضافة الرصيد");
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "فشل إضافة الرصيد");
+      }
       onSuccess();
       onClose();
     } catch (err) {
-      setError("حدث خطأ أثناء الحفظ");
+      setError(err instanceof Error ? err.message : "حدث خطأ أثناء الحفظ");
     } finally {
       setSubmitting(false);
     }
@@ -412,6 +426,11 @@ function AddCapitalModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onCl
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-background rounded-lg shadow-lg w-full max-w-md p-6">
         <h2 className="text-xl font-bold mb-4">إضافة رصيد للصندوق</h2>
+        {branchName && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 p-2 rounded mb-3 text-sm">
+            سيتم إضافة الرصيد لفرع: <strong>{branchName}</strong>
+          </div>
+        )}
         {error && <div className="text-red-600 mb-2">{error}</div>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -491,8 +510,9 @@ function AddRepaymentModal({ isOpen, onClose, onSuccess, loan }: { isOpen: boole
   );
 }
 
-function CapitalHistoryModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { data, mutate, error } = useSWR(isOpen ? "/api/loans/capital" : null, fetcher);
+function CapitalHistoryModal({ isOpen, onClose, branchId }: { isOpen: boolean; onClose: () => void; branchId?: string | null }) {
+  const branchParam = branchId ? `?branchId=${branchId}` : "";
+  const { data, mutate, error } = useSWR(isOpen ? `/api/loans/capital${branchParam}` : null, fetcher);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ amount: "", source: "", notes: "" });
 
@@ -798,7 +818,9 @@ export default function GoodLoansPage() {
       <AddCapitalModal 
         isOpen={isAddCapitalOpen} 
         onClose={() => setIsAddCapitalOpen(false)} 
-        onSuccess={() => mutate()} 
+        onSuccess={() => mutate()}
+        branchId={isSuperAdmin ? selectedBranchId : null}
+        branchName={isSuperAdmin ? selectedBranch?.name : null}
       />
       {repaymentLoan && (
         <AddRepaymentModal 
@@ -816,7 +838,8 @@ export default function GoodLoansPage() {
       />
       <CapitalHistoryModal 
         isOpen={isHistoryOpen} 
-        onClose={() => setIsHistoryOpen(false)} 
+        onClose={() => setIsHistoryOpen(false)}
+        branchId={isSuperAdmin ? selectedBranchId : null}
       />
     </div>
   );

@@ -5,6 +5,7 @@ import LoanCapital from "@/lib/models/LoanCapital";
 import Beneficiary from "@/lib/models/Beneficiary";
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser, getBranchFilterWithOverride, getBranchFilter } from "@/lib/auth-helpers";
+import { Types } from "mongoose";
 
 export const dynamic = "force-dynamic";
 
@@ -46,12 +47,10 @@ export async function GET(req: Request) {
       .lean();
 
     // Calculate Summary Stats (filtered by branch)
-    // 1. Total Fund (Capital)
-    const capitalMatch = (authResult.isSuperAdmin && branchIdOverride)
-      ? { branch: branchIdOverride }
-      : (authResult.isSuperAdmin ? {} : { branch: authResult.branch });
+    // 1. Total Fund (Capital) - must use same filter as loans for consistency
+    const capitalFilter = getBranchFilterWithOverride(authResult, branchIdOverride);
     const capitalResult = await LoanCapital.aggregate([
-      { $match: capitalMatch },
+      { $match: capitalFilter },
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]);
     const totalFund = capitalResult[0]?.total || 0;
@@ -146,61 +145,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // For SuperAdmin: if no branch provided, copy to ALL branches
-    if (authResult.isSuperAdmin && !body.branch) {
-      const Branch = (await import("@/lib/models/Branch")).default;
-      const allBranches = await Branch.find({ isActive: true }).lean();
-      
-      if (allBranches.length === 0) {
-        return NextResponse.json({ error: "لا توجد فروع نشطة" }, { status: 400 });
-      }
-      
-      const createdLoans = [];
-      
-      for (const branch of allBranches) {
-        const loan = await Loan.create({
-          beneficiaryName,
-          phone,
-          nationalId,
-          amount,
-          startDate: startDate || new Date(),
-          dueDate,
-          notes,
-          createdBy: userId,
-          branch: branch._id,
-          branchName: branch.name,
-        });
-        createdLoans.push(loan);
-        
-        // If nationalId is provided, try to link with Beneficiary in this branch
-        if (nationalId) {
-          await Beneficiary.findOneAndUpdate(
-            { nationalId, branch: branch._id },
-            {
-              $set: {
-                loanDetails: {
-                  loanId: loan._id,
-                  amount: loan.amount,
-                  startDate: loan.startDate,
-                  status: loan.status,
-                }
-              }
-            }
-          );
-        }
-      }
-      
-      console.log(`✅ Created ${createdLoans.length} loans for all branches`);
-      return NextResponse.json({ 
-        message: `تم إضافة القرض لـ ${createdLoans.length} فرع`,
-        count: createdLoans.length,
-        loan: createdLoans[0] 
-      }, { status: 201 });
-    }
-
-    // Single branch
+    // Determine target branch
     const targetBranch = authResult.isSuperAdmin ? body.branch : authResult.branch;
     const targetBranchName = authResult.isSuperAdmin ? body.branchName : authResult.branchName;
+
+    // For SuperAdmin: require explicit branch selection
+    if (authResult.isSuperAdmin && !targetBranch) {
+      return NextResponse.json({ 
+        error: "يجب اختيار الفرع قبل إضافة القرض" 
+      }, { status: 400 });
+    }
 
     const loan = await Loan.create({
       beneficiaryName,

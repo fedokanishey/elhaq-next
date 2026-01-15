@@ -10,6 +10,7 @@ import {
   Trash2,
   MessageCircle,
 } from "lucide-react";
+import CloudinaryImage from "./CloudinaryImage";
 
 interface BeneficiaryCardProps {
   id: string;
@@ -116,10 +117,16 @@ export default function BeneficiaryCard({
     <div className="flex flex-col items-center gap-1">
       <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden border border-border bg-muted">
         {image ? (
-          <img
+          <CloudinaryImage
             src={image}
             alt={label || fallback || name}
-            className="w-full h-full object-cover"
+            width="thumbnail"
+            height={96}
+            layout="thumbnail"
+            crop="fill"
+            gravity="face"
+            quality="auto"
+            className="w-full h-full"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-primary font-semibold text-xl">

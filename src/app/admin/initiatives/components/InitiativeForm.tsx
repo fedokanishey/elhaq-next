@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable @next/next/no-img-element */
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -10,6 +9,7 @@ import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/
 import { useBranchContext } from "@/contexts/BranchContext";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
+import CloudinaryImage from "@/components/CloudinaryImage";
 
 export type InitiativeStatus = "planned" | "active" | "completed" | "cancelled";
 
@@ -491,7 +491,16 @@ export default function InitiativeForm({
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {formData.images.map((image) => (
                 <div key={image} className="relative group rounded-lg overflow-hidden border border-border">
-                  <img src={image} alt="صورة المبادرة" className="w-full h-28 object-cover" />
+                  <CloudinaryImage
+                    src={image}
+                    alt="صورة المبادرة"
+                    width="card"
+                    height={112}
+                    layout="card"
+                    crop="fill"
+                    quality="auto"
+                    className="w-full h-28"
+                  />
                   <button
                     type="button"
                     onClick={() => handleRemoveImage(image)}
