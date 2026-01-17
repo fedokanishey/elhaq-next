@@ -59,9 +59,11 @@ function AddLoanModal({ isOpen, onClose, onSuccess, maxAmount, branchId = null, 
   const [searchTerm, setSearchTerm] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  // Fetch beneficiaries for autocomplete
+  // Fetch beneficiaries for autocomplete - filter by branch
   const { data: beneficiariesData } = useSWR(
-    searchTerm.length >= 2 ? `/api/beneficiaries/search?q=${encodeURIComponent(searchTerm)}&limit=5` : null,
+    searchTerm.length >= 2 
+      ? `/api/beneficiaries/search?q=${encodeURIComponent(searchTerm)}&limit=5${branchId ? `&branchId=${branchId}` : ''}` 
+      : null,
     fetcher
   );
 

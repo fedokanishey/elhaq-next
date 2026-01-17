@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Beneficiary from "@/lib/models/Beneficiary";
+import { getAuthenticatedUser, getBranchFilterWithOverride } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -19,6 +20,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("q")?.trim() || "";
     const excludeId = searchParams.get("excludeId")?.trim();
+    const branchIdOverride = searchParams.get("branchId");
     const limitParam = Number(searchParams.get("limit"));
     const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 20) : 10;
 
@@ -27,9 +29,22 @@ export async function GET(req: Request) {
     }
 
     await dbConnect();
+    
+    // Get authenticated user for branch filtering
+    const authResult = await getAuthenticatedUser();
+    const branchFilter = getBranchFilterWithOverride(authResult, branchIdOverride);
+
+    console.log("🔍 Search beneficiaries:", {
+      query,
+      branchIdOverride,
+      userBranch: authResult.branch?.toString(),
+      isSuperAdmin: authResult.isSuperAdmin,
+      branchFilter: JSON.stringify(branchFilter),
+    });
 
     const regex = new RegExp(escapeRegex(query), "i");
     const filter: Record<string, unknown> = {
+      ...branchFilter,
       $or: [{ name: regex }, { nationalId: { $regex: query } }],
     };
 

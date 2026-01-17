@@ -18,6 +18,9 @@ import {
   Users,
   X,
   Loader2,
+  Receipt,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
@@ -109,6 +112,16 @@ interface InitiativeSummary {
   totalAmount?: number;
 }
 
+interface TreasuryTransactionSummary {
+  _id: string;
+  amount: number;
+  description: string;
+  category: string;
+  transactionDate: string;
+  beneficiaryCount: number;
+  shareAmount: number;
+}
+
 const EDUCATION_STAGE_LABELS: Record<string, string> = {
   kindergarten: "حضانه",
   primary: "ابتدائي",
@@ -164,6 +177,19 @@ const INITIATIVE_STATUS_STYLES: Record<string, string> = {
   cancelled: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-200",
 };
 
+const TRANSACTION_CATEGORY_LABELS: Record<string, string> = {
+  general: "عام",
+  aid: "مساعدة",
+  food: "طعام",
+  medical: "طبي",
+  education: "تعليم",
+  clothing: "ملابس",
+  housing: "سكن",
+  monthly: "شهرية",
+  seasonal: "موسمية",
+  emergency: "طوارئ",
+};
+
 interface BeneficiaryDetailsViewProps {
   beneficiaryId: string;
   isModal?: boolean;
@@ -179,15 +205,19 @@ export default function BeneficiaryDetailsView({
 }: BeneficiaryDetailsViewProps) {
   const { user, isLoaded } = useUser();
   const [healthModalImage, setHealthModalImage] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  const { data, error: swrError, isLoading } = useSWR(
-    beneficiaryId ? `/api/beneficiaries/${beneficiaryId}` : null,
+  const { data, error: swrError, isLoading, mutate } = useSWR(
+    beneficiaryId ? `/api/beneficiaries/${beneficiaryId}?year=${selectedYear}` : null,
     fetcher,
     { revalidateOnFocus: false }
   );
 
   const beneficiary = data?.beneficiary || data || null;
   const initiatives = data?.initiatives || [];
+  const treasuryTransactions: TreasuryTransactionSummary[] = data?.treasuryTransactions || [];
+  const totalReceivedThisYear = data?.totalReceivedThisYear || 0;
+  const transactionYear = data?.transactionYear || selectedYear;
   const error = swrError ? "فشل تحميل بيانات المستفيد" : "";
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
@@ -203,6 +233,11 @@ export default function BeneficiaryDetailsView({
     return `https://wa.me/${formatted}`;
     
   }, [beneficiary?.whatsapp]);
+
+  // Handle year change for treasury transactions
+  const handleYearChange = (direction: 'prev' | 'next') => {
+    setSelectedYear(prev => direction === 'prev' ? prev - 1 : prev + 1);
+  };
 
   if (!isLoaded || isLoading) {
     return (
@@ -804,6 +839,105 @@ export default function BeneficiaryDetailsView({
           ) : (
             <p className="text-sm text-muted-foreground">
               لم يتم ربط هذا المستفيد بأي مبادرات حتى الآن.
+            </p>
+          )}
+        </div>
+
+        {/* Treasury Transactions Section - Yearly Record */}
+        <div className="bg-card border border-border rounded-lg p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-primary" />
+              سجل المساعدات من الخزنة
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleYearChange('prev')}
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
+                title="السنة السابقة"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+              <span className="font-semibold text-foreground min-w-[60px] text-center">
+                {transactionYear}
+              </span>
+              <button
+                onClick={() => handleYearChange('next')}
+                disabled={selectedYear >= new Date().getFullYear()}
+                className="p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="السنة التالية"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Total Summary */}
+          {totalReceivedThisYear > 0 && (
+            <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                <Wallet className="w-5 h-5" />
+                <span className="font-semibold">
+                  إجمالي المساعدات في {transactionYear}: {formatCurrency(totalReceivedThisYear)} ج.م
+                </span>
+              </div>
+            </div>
+          )}
+
+          {treasuryTransactions.length > 0 ? (
+            <div className="overflow-x-auto rounded-xl border border-border/60">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 text-right font-medium">التاريخ</th>
+                    <th className="px-4 py-3 text-right font-medium">الوصف</th>
+                    <th className="px-4 py-3 text-right font-medium">التصنيف</th>
+                    <th className="px-4 py-3 text-right font-medium">الحصة</th>
+                    <th className="px-4 py-3 text-right font-medium">الإجمالي</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {treasuryTransactions.map((tx: TreasuryTransactionSummary, index: number) => (
+                    <tr
+                      key={tx._id}
+                      className={`${index % 2 === 0 ? "bg-background" : "bg-muted/10"} border-t border-border/60`}
+                    >
+                      <td className="px-4 py-3 text-foreground">
+                        {new Intl.DateTimeFormat("ar-EG", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        }).format(new Date(tx.transactionDate))}
+                      </td>
+                      <td className="px-4 py-3 text-foreground font-medium">
+                        {tx.description}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-secondary text-secondary-foreground">
+                          {TRANSACTION_CATEGORY_LABELS[tx.category] || tx.category}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-foreground">
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          {formatCurrency(tx.shareAmount)} ج.م
+                        </span>
+                        {tx.beneficiaryCount > 1 && (
+                          <span className="text-xs text-muted-foreground block">
+                            (1/{tx.beneficiaryCount})
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatCurrency(tx.amount)} ج.م
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              لا توجد مساعدات مسجلة من الخزنة لهذا المستفيد في عام {transactionYear}.
             </p>
           )}
         </div>

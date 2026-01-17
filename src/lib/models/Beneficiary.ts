@@ -203,6 +203,7 @@ const BeneficiarySchema = new Schema<IBeneficiary>(
     loanDetails: {
       loanId: Schema.Types.ObjectId,
       amount: Number,
+      remainingAmount: Number,
       startDate: Date,
       status: { type: String, enum: ['active', 'completed', 'defaulted'] },
     },

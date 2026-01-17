@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import dbConnect from "@/lib/mongodb";
 import Beneficiary from "@/lib/models/Beneficiary";
 import Initiative from "@/lib/models/Initiative";
+import TreasuryTransaction from "@/lib/models/TreasuryTransaction";
 import { NextResponse } from "next/server";
 import {
   sanitizeBeneficiaryPayload,
@@ -20,6 +21,9 @@ export async function GET(
   try {
     await dbConnect();
     const { id } = await params;
+    const { searchParams } = new URL(req.url);
+    const year = searchParams.get("year");
+    
     const beneficiary = await Beneficiary.findById(id)
       .populate("relationships.relative", "name nationalId phone whatsapp")
       .lean();
@@ -39,7 +43,42 @@ export async function GET(
       .select("name status date totalAmount")
       .lean();
 
-    return NextResponse.json({ beneficiary: beneficiaryWithCategory, initiatives });
+    // Fetch treasury transactions (expenses) that include this beneficiary
+    // Filter by year if provided
+    const currentYear = year ? parseInt(year) : new Date().getFullYear();
+    const startOfYear = new Date(currentYear, 0, 1); // January 1st
+    const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59); // December 31st
+    
+    const treasuryTransactions = await TreasuryTransaction.find({
+      beneficiaryIds: id,
+      type: "expense",
+      transactionDate: { $gte: startOfYear, $lte: endOfYear },
+    })
+      .sort({ transactionDate: -1 })
+      .select("amount description category transactionDate beneficiaryNamesSnapshot beneficiaryIds")
+      .lean();
+
+    // Calculate share for each transaction (amount / number of beneficiaries)
+    const transactionsWithShare = treasuryTransactions.map((tx: any) => ({
+      _id: tx._id,
+      amount: tx.amount,
+      description: tx.description,
+      category: tx.category,
+      transactionDate: tx.transactionDate,
+      beneficiaryCount: tx.beneficiaryIds?.length || 1,
+      shareAmount: tx.beneficiaryIds?.length > 0 ? Math.round(tx.amount / tx.beneficiaryIds.length) : tx.amount,
+    }));
+
+    // Calculate total received this year
+    const totalReceivedThisYear = transactionsWithShare.reduce((sum: number, tx: any) => sum + tx.shareAmount, 0);
+
+    return NextResponse.json({ 
+      beneficiary: beneficiaryWithCategory, 
+      initiatives,
+      treasuryTransactions: transactionsWithShare,
+      totalReceivedThisYear,
+      transactionYear: currentYear,
+    });
   } catch (error) {
     console.error("Error fetching beneficiary:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
@@ -79,6 +118,21 @@ export async function PUT(
       relativeNationalId: r.relativeNationalId,
       relative: r.relative ? r.relative.toString() : undefined,
     }));
+
+    // Check if nationalId is being changed and if it already exists in the same branch
+    if (rest.nationalId && rest.nationalId !== beneficiary.nationalId) {
+      const existingBeneficiary = await Beneficiary.findOne({
+        nationalId: rest.nationalId,
+        branch: beneficiary.branch,
+        _id: { $ne: id },
+      });
+      if (existingBeneficiary) {
+        return NextResponse.json(
+          { error: "رقم المستفيد موجود بالفعل في هذا الفرع" },
+          { status: 400 }
+        );
+      }
+    }
 
     beneficiary.set(rest);
     beneficiary.set("children", children);

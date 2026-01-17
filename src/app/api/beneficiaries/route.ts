@@ -123,6 +123,20 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "لا توجد فروع نشطة" }, { status: 400 });
       }
       
+      // Check for existing nationalId in any branch first
+      const existingInBranches = await Beneficiary.find({
+        nationalId: rest.nationalId,
+        branch: { $in: allBranches.map(b => b._id) },
+      }).populate("branch", "name").lean();
+      
+      if (existingInBranches.length > 0) {
+        const branchNames = existingInBranches.map((b: any) => b.branch?.name || "غير معروف").join(", ");
+        return NextResponse.json(
+          { error: `رقم المستفيد "${rest.nationalId}" موجود بالفعل في: ${branchNames}` },
+          { status: 400 }
+        );
+      }
+      
       const createdBeneficiaries = [];
       
       for (const branch of allBranches) {
@@ -160,6 +174,19 @@ export async function POST(req: Request) {
     // Single branch (either SuperAdmin selected a branch, or regular admin/member)
     const targetBranch = authResult.isSuperAdmin ? rawBody.branch : authResult.branch;
     const targetBranchName = authResult.isSuperAdmin ? rawBody.branchName : authResult.branchName;
+
+    // Check if nationalId already exists in the target branch
+    const existingBeneficiary = await Beneficiary.findOne({
+      nationalId: rest.nationalId,
+      branch: targetBranch,
+    });
+    
+    if (existingBeneficiary) {
+      return NextResponse.json(
+        { error: `رقم المستفيد "${rest.nationalId}" موجود بالفعل في هذا الفرع` },
+        { status: 400 }
+      );
+    }
 
     console.log("📝 Creating beneficiary:", {
       name: rest.name,
@@ -206,10 +233,22 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("❌ Error creating beneficiary:", error);
     
-    // Check if it's a duplicate nationalId error
+    // Check if it's a duplicate nationalId error (MongoDB E11000)
     if (error instanceof Error && error.message.includes("E11000")) {
+      // Try to extract the duplicate key value
+      const match = error.message.match(/dup key: \{ ([^}]+) \}/);
+      const keyInfo = match ? match[1] : "";
+      
+      // Check if old unique index on nationalId only (not compound with branch)
+      if (error.message.includes("nationalId_1") && !error.message.includes("branch")) {
+        return NextResponse.json(
+          { error: "يوجد index قديم في قاعدة البيانات. يرجى تشغيل /api/debug/fix-indexes لإصلاح المشكلة." },
+          { status: 400 }
+        );
+      }
+      
       return NextResponse.json(
-        { error: "رقم المستفيد موجود بالفعل" },
+        { error: `رقم المستفيد موجود بالفعل في هذا الفرع` },
         { status: 400 }
       );
     }

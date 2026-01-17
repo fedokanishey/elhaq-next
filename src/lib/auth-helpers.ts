@@ -110,7 +110,7 @@ export async function getAuthenticatedUser(): Promise<AuthResult> {
 
 /**
  * Build branch filter for queries
- * SuperAdmin can see all branches, others only see their own branch or data without branch (legacy)
+ * SuperAdmin can see all branches, others only see their own branch
  */
 export function getBranchFilter(authResult: AuthResult): Record<string, unknown> {
   if (authResult.isSuperAdmin) {
@@ -118,14 +118,8 @@ export function getBranchFilter(authResult: AuthResult): Record<string, unknown>
   }
   
   if (authResult.branch) {
-    // User has branch - see their branch data AND legacy data without branch
-    return { 
-      $or: [
-        { branch: authResult.branch },
-        { branch: { $exists: false } },
-        { branch: null }
-      ]
-    };
+    // User has branch - see ONLY their branch data (no legacy data)
+    return { branch: authResult.branch };
   }
   
   // If user has no branch assigned, show data without branch (legacy data)

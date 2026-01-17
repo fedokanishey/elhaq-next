@@ -33,6 +33,7 @@ interface BeneficiaryCardProps {
   category?: "A" | "B" | "C" | "D";
   loanDetails?: {
     amount: number;
+    remainingAmount?: number;
     status: string;
   };
   onEdit?: () => void;
@@ -196,10 +197,10 @@ export default function BeneficiaryCard({
                     </span>
                   )}
 
-                  {/* Active Loan Badge */}
-                 {loanDetails && loanDetails.status === 'active' && (
+                  {/* Active Loan Badge - Show only if there's remaining amount */}
+                 {loanDetails && loanDetails.status === 'active' && (loanDetails.remainingAmount ?? loanDetails.amount) > 0 && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-                      🤝 قرض: {loanDetails.amount.toLocaleString()} ج.م
+                      🤝 متبقي: {(loanDetails.remainingAmount ?? loanDetails.amount).toLocaleString()} ج.م
                     </span>
                  )}
               </div>

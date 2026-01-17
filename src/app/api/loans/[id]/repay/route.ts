@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import dbConnect from "@/lib/mongodb";
 import Loan from "@/lib/models/Loan";
+import Beneficiary from "@/lib/models/Beneficiary";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -33,9 +34,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // Update total amountPaid
     loan.amountPaid = (loan.amountPaid || 0) + Number(amount);
+    
+    // Calculate remaining amount
+    const remainingAmount = Math.max(0, loan.amount - loan.amountPaid);
 
-    // Update status if fully paid
-    if (loan.amountPaid >= loan.amount) {
+    // Update beneficiary's loanDetails with remaining amount
+    if (loan.nationalId) {
+      const updateData: Record<string, any> = {
+        "loanDetails.remainingAmount": remainingAmount,
+      };
+      
+      // Update status if fully paid
+      if (loan.amountPaid >= loan.amount) {
+        loan.status = "completed";
+        updateData["loanDetails.status"] = "completed";
+      }
+      
+      await Beneficiary.findOneAndUpdate(
+        { nationalId: loan.nationalId, branch: loan.branch },
+        { $set: updateData }
+      );
+    } else if (loan.amountPaid >= loan.amount) {
+      // No nationalId but still mark loan as completed
       loan.status = "completed";
     }
 

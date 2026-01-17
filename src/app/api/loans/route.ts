@@ -178,6 +178,7 @@ export async function POST(req: Request) {
             loanDetails: {
               loanId: loan._id,
               amount: loan.amount,
+              remainingAmount: loan.amount, // Initially, remaining = total amount
               startDate: loan.startDate,
               status: loan.status,
             }
