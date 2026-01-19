@@ -98,6 +98,7 @@ export default function TreasuryPage() {
   const [beneficiaryFilters, setBeneficiaryFilters] = useState<BeneficiaryFilterCriteria>({});
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
   const [formData, setFormData] = useState<TreasuryFormState>(createDefaultFormState);
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
   const [showMonthlyAllowancePrint, setShowMonthlyAllowancePrint] = useState(false);
@@ -408,6 +409,11 @@ export default function TreasuryPage() {
   const sortedTransactions = useMemo(() => {
     let result = [...(treasuryData?.transactions || [])];
 
+    // Apply type filter
+    if (typeFilter !== "all") {
+      result = result.filter((txn) => txn.type === typeFilter);
+    }
+
     // Apply date filter
     if (dateFrom) {
       const fromDate = new Date(dateFrom);
@@ -467,13 +473,29 @@ export default function TreasuryPage() {
     });
 
     return sorted;
-  }, [treasuryData?.transactions, debouncedSearch, sortDesc, dateFrom, dateTo]);
+  }, [treasuryData?.transactions, debouncedSearch, sortDesc, dateFrom, dateTo, typeFilter]);
 
   const formattedTotals = useMemo(() => ({
     balance: formatCurrency(totals.balance),
     income: formatCurrency(totals.incomeTotal),
     expense: formatCurrency(totals.expenseTotal),
   }), [totals]);
+
+  // Calculate filtered totals for display
+  const filteredTotals = useMemo(() => {
+    const incomeTotal = sortedTransactions
+      .filter(txn => txn.type === "income")
+      .reduce((sum, txn) => sum + txn.amount, 0);
+    const expenseTotal = sortedTransactions
+      .filter(txn => txn.type === "expense")
+      .reduce((sum, txn) => sum + txn.amount, 0);
+    return {
+      incomeTotal,
+      expenseTotal,
+      total: incomeTotal - expenseTotal,
+      count: sortedTransactions.length,
+    };
+  }, [sortedTransactions]);
 
   // donors state is populated by loadDonors and used to populate donor pages
 
@@ -848,6 +870,49 @@ export default function TreasuryPage() {
                 </div>
               </div>
 
+              {/* Type filter tabs */}
+              <div className="flex items-center gap-2 p-1 bg-muted rounded-lg">
+                <button
+                  onClick={() => setTypeFilter("all")}
+                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    typeFilter === "all"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  type="button"
+                >
+                  الكل
+                </button>
+                <button
+                  onClick={() => setTypeFilter("income")}
+                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    typeFilter === "income"
+                      ? "bg-emerald-500 text-white shadow-sm"
+                      : "text-muted-foreground hover:text-emerald-600"
+                  }`}
+                  type="button"
+                >
+                  <span className="flex items-center justify-center gap-1">
+                    <ArrowDownCircle className="w-4 h-4" />
+                    الوارد
+                  </span>
+                </button>
+                <button
+                  onClick={() => setTypeFilter("expense")}
+                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    typeFilter === "expense"
+                      ? "bg-rose-500 text-white shadow-sm"
+                      : "text-muted-foreground hover:text-rose-600"
+                  }`}
+                  type="button"
+                >
+                  <span className="flex items-center justify-center gap-1">
+                    <ArrowUpCircle className="w-4 h-4" />
+                    الصادر
+                  </span>
+                </button>
+              </div>
+
               <SearchFilterBar
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
@@ -882,17 +947,67 @@ export default function TreasuryPage() {
                 </div>
               </div>
 
-              {(dateFrom || dateTo) && (
-                <button
-                  onClick={() => {
-                    setDateFrom("");
-                    setDateTo("");
-                  }}
-                  className="text-sm text-primary hover:text-primary/80 flex items-center gap-1"
-                  type="button"
-                >
-                  ✕ مسح فلتر التاريخ
-                </button>
+              {(dateFrom || dateTo || typeFilter !== "all") && (
+                <div className="flex flex-wrap items-center gap-3">
+                  {(dateFrom || dateTo) && (
+                    <button
+                      onClick={() => {
+                        setDateFrom("");
+                        setDateTo("");
+                      }}
+                      className="text-sm text-primary hover:text-primary/80 flex items-center gap-1"
+                      type="button"
+                    >
+                      ✕ مسح فلتر التاريخ
+                    </button>
+                  )}
+                  {typeFilter !== "all" && (
+                    <button
+                      onClick={() => setTypeFilter("all")}
+                      className="text-sm text-primary hover:text-primary/80 flex items-center gap-1"
+                      type="button"
+                    >
+                      ✕ مسح فلتر النوع
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Filtered summary */}
+              {(dateFrom || dateTo || typeFilter !== "all" || debouncedSearch) && sortedTransactions.length > 0 && (
+                <div className="bg-muted/50 rounded-lg p-4 border border-border">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="text-sm text-muted-foreground">
+                      <span className="font-medium text-foreground">{filteredTotals.count}</span> عملية
+                      {typeFilter === "income" && " وارد"}
+                      {typeFilter === "expense" && " صادر"}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4 text-sm">
+                      {(typeFilter === "all" || typeFilter === "income") && filteredTotals.incomeTotal > 0 && (
+                        <div className="flex items-center gap-2">
+                          <ArrowDownCircle className="w-4 h-4 text-emerald-500" />
+                          <span className="text-muted-foreground">الوارد:</span>
+                          <span className="font-bold text-emerald-600">{formatCurrency(filteredTotals.incomeTotal)} ج.م</span>
+                        </div>
+                      )}
+                      {(typeFilter === "all" || typeFilter === "expense") && filteredTotals.expenseTotal > 0 && (
+                        <div className="flex items-center gap-2">
+                          <ArrowUpCircle className="w-4 h-4 text-rose-500" />
+                          <span className="text-muted-foreground">الصادر:</span>
+                          <span className="font-bold text-rose-600">{formatCurrency(filteredTotals.expenseTotal)} ج.م</span>
+                        </div>
+                      )}
+                      {typeFilter === "all" && filteredTotals.incomeTotal > 0 && filteredTotals.expenseTotal > 0 && (
+                        <div className="flex items-center gap-2 border-r border-border pr-4">
+                          <span className="text-muted-foreground">الصافي:</span>
+                          <span className={`font-bold ${filteredTotals.total >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                            {filteredTotals.total >= 0 ? "+" : ""}{formatCurrency(filteredTotals.total)} ج.م
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
