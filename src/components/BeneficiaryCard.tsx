@@ -89,6 +89,27 @@ export default function BeneficiaryCard({
     return `https://wa.me/${normalized}`;
   }, [whatsapp]);
   // ==============================
+  const CallLink = useMemo(() => {
+    if (!whatsapp) return null;
+
+    let normalized = whatsapp.replace(/\D/g, ""); // إزالة أي شيء ليس رقمًا
+
+    if (!normalized) return null;
+
+    // إذا الرقم يبدأ بـ 00 → صيغة دولية 00
+    if (normalized.startsWith("00")) {
+      normalized = normalized.slice(2);
+    }
+    // إذا يبدأ بـ 0 → رقم محلي مصري
+    else if (normalized.startsWith("0")) {
+      normalized = "20" + normalized.slice(1);
+    }
+    // إذا يبدأ بـ 20 فهذا دولي وجاهز
+
+    return `${normalized}`;
+  }, [ whatsapp ] );
+  // ==============================
+
 
   const handleActionClick = (
     e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>,
@@ -211,9 +232,9 @@ export default function BeneficiaryCard({
           <div className="flex flex-wrap items-center gap-2">
             <span>{phone}</span>
 
-            {phone && (
+            {CallLink && (
               <a
-                href={`tel:${phone}`}
+                href={`tel:${CallLink}`}
                 onClick={(e) => handleActionClick(e)}
                 className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700"
               >
