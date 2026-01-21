@@ -9,6 +9,7 @@ import {
   Edit,
   Trash2,
   MessageCircle,
+  Phone,
 } from "lucide-react";
 import CloudinaryImage from "./CloudinaryImage";
 
@@ -209,6 +210,17 @@ export default function BeneficiaryCard({
 
           <div className="flex flex-wrap items-center gap-2">
             <span>{phone}</span>
+
+            {phone && (
+              <a
+                href={`tel:${phone}`}
+                onClick={(e) => handleActionClick(e)}
+                className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700"
+              >
+                <Phone className="w-3 h-3" />
+                اتصال
+              </a>
+            )}
 
             {whatsappLink && (
               <a

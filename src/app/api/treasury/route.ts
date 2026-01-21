@@ -22,15 +22,19 @@ export async function GET(req: Request) {
     const branchFilter = getBranchFilterWithOverride(authResult, branchIdOverride);
 
     const limitParam = Number(searchParams.get("limit"));
-    const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 50;
+    const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 0; // 0 means no limit
 
     // Use the same branchFilter for both transactions query and aggregation
     // This ensures consistent results between transactions list and summary totals
     const [transactions, summary] = await Promise.all([
-      TreasuryTransaction.find(branchFilter)
-        .sort({ transactionDate: -1, createdAt: -1 })
-        .limit(limit)
-        .lean(),
+      limit > 0 
+        ? TreasuryTransaction.find(branchFilter)
+            .sort({ transactionDate: -1, createdAt: -1 })
+            .limit(limit)
+            .lean()
+        : TreasuryTransaction.find(branchFilter)
+            .sort({ transactionDate: -1, createdAt: -1 })
+            .lean(),
       TreasuryTransaction.aggregate([
         { $match: branchFilter },
         {
