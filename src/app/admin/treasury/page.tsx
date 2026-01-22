@@ -427,6 +427,8 @@ export default function TreasuryPage() {
       transactionDate: transaction.transactionDate?.split("T")[0] || new Date().toISOString().split("T")[0],
       donorName: transaction.donorNameSnapshot || "",
       donorId: transaction.donorId,
+      notebookName: transaction.notebookNameSnapshot || "",
+      notebookId: transaction.notebookId,
       beneficiaryIds: transaction.beneficiaryIds || [],
     });
     setEditingTransactionId(transactionId);
