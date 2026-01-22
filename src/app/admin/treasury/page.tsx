@@ -186,8 +186,8 @@ export default function TreasuryPage() {
   const [showDonorSuggestions, setShowDonorSuggestions] = useState(false);
   const filteredDonors = useMemo(() => {
     const term = (formData.donorName || "").trim().toLowerCase();
-    if (!term) return donors.slice(0, 6);
-    return donors.filter((d: DonorSummary) => d.name.toLowerCase().includes(term)).slice(0, 6);
+    if (!term) return donors; // Show all donors
+    return donors.filter((d: DonorSummary) => d.name.toLowerCase().includes(term));
   }, [donors, formData.donorName]);
 
   const [showNotebookSuggestions, setShowNotebookSuggestions] = useState(false);
@@ -692,7 +692,7 @@ export default function TreasuryPage() {
               </div>
 
               {formData.type === "income" && (
-                <div>
+                <div className="relative">
                   <label htmlFor="donorName" className="block text-sm font-medium text-muted-foreground mb-1">
                     اسم المتبرع <span className="text-red-500">*</span>
                   </label>
@@ -705,10 +705,14 @@ export default function TreasuryPage() {
                     value={formData.donorName}
                         onChange={handleInputChange}
                         onFocus={() => setShowDonorSuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowDonorSuggestions(false), 200)}
                         autoComplete="off"
                   />
                       {showDonorSuggestions && filteredDonors.length > 0 && (
-                        <div className="border border-border rounded-md mt-2 bg-card max-h-40 overflow-auto z-50">
+                        <div className="absolute w-full border border-border rounded-md mt-1 bg-card max-h-64 overflow-y-auto z-50 shadow-lg">
+                          <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/50 border-b border-border sticky top-0">
+                            🧾 المتبرعون ({filteredDonors.length})
+                          </div>
                           {filteredDonors.map((d: DonorSummary) => (
                             <button
                               key={d._id}
@@ -718,10 +722,10 @@ export default function TreasuryPage() {
                                 setFormData((prev) => ({ ...prev, donorName: d.name, donorId: d._id }));
                                 setShowDonorSuggestions(false);
                               }}
-                              className="w-full text-right px-4 py-2 hover:bg-muted text-foreground flex justify-between items-center"
+                              className="w-full text-right px-4 py-2.5 hover:bg-muted text-foreground flex justify-between items-center border-b border-border/50 last:border-0"
                             >
-                              <span>{d.name}</span>
-                              <span className="text-xs text-muted-foreground">{d.totalDonated?.toLocaleString("ar-EG") || 0} ج.م</span>
+                              <span className="font-medium">{d.name}</span>
+                              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">{d.totalDonated?.toLocaleString("ar-EG") || 0} ج.م</span>
                             </button>
                           ))}
                         </div>
