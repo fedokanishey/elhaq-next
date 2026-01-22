@@ -102,7 +102,7 @@ export default function BeneficiaryCard({
     }
     // إذا يبدأ بـ 0 → رقم محلي مصري
     else if (normalized.startsWith("0")) {
-      normalized = "20" + normalized.slice(1);
+      normalized = "+20" + normalized.slice(1);
     }
     // إذا يبدأ بـ 20 فهذا دولي وجاهز
 

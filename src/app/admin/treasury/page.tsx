@@ -30,6 +30,8 @@ interface TreasuryTransaction {
   recordedBy?: string;
   donorId?: string;
   donorNameSnapshot?: string;
+  notebookId?: string;
+  notebookNameSnapshot?: string;
   beneficiaryIds?: string[];
   beneficiaryNamesSnapshot?: string[];
   createdAt: string;
@@ -41,6 +43,14 @@ interface DonorSummary {
   totalDonated: number;
   donationsCount: number;
   lastDonationDate?: string;
+}
+
+interface NotebookSummary {
+  _id: string;
+  name: string;
+  transactionsCount: number;
+  totalAmount: number;
+  lastUsedDate?: string;
 }
 
 interface BeneficiarySummary {
@@ -70,6 +80,8 @@ type TreasuryFormState = {
   transactionDate: string;
   donorName: string;
   donorId?: string;
+  notebookName: string;
+  notebookId?: string;
   beneficiaryIds: string[];
 };
 
@@ -82,6 +94,8 @@ const createDefaultFormState = (): TreasuryFormState => ({
   transactionDate: new Date().toISOString().split("T")[0],
   donorName: "",
   donorId: "",
+  notebookName: "",
+  notebookId: "",
   beneficiaryIds: [],
 });
 
@@ -135,6 +149,12 @@ export default function TreasuryPage() {
     { revalidateOnFocus: false }
   );
 
+  const { data: notebooksData } = useSWR(
+    isLoaded && canAccess ? `/api/notebooks?limit=200${branchParam ? `&${branchParam}` : ""}` : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
   const { data: beneficiariesData } = useSWR(
     isLoaded && canAccess ? `/api/beneficiaries?limit=500${branchParam ? `&${branchParam}` : ""}` : null,
     fetcher,
@@ -143,6 +163,7 @@ export default function TreasuryPage() {
 
   const totals = useMemo(() => treasuryData?.totals || { incomeTotal: 0, expenseTotal: 0, balance: 0 }, [treasuryData]);
   const donors = useMemo(() => donorsData?.donors || [], [donorsData]);
+  const notebooks = useMemo(() => notebooksData?.notebooks || [], [notebooksData]);
   const beneficiaries = useMemo(() => (beneficiariesData?.beneficiaries || []).map((b: BeneficiarySummary) => ({
     _id: b._id,
     name: b.name,
@@ -168,6 +189,13 @@ export default function TreasuryPage() {
     if (!term) return donors.slice(0, 6);
     return donors.filter((d: DonorSummary) => d.name.toLowerCase().includes(term)).slice(0, 6);
   }, [donors, formData.donorName]);
+
+  const [showNotebookSuggestions, setShowNotebookSuggestions] = useState(false);
+  const filteredNotebooks = useMemo(() => {
+    const term = (formData.notebookName || "").trim().toLowerCase();
+    if (!term) return notebooks.slice(0, 10); // Show more notebooks when empty
+    return notebooks.filter((n: NotebookSummary) => n.name.toLowerCase().includes(term)).slice(0, 10);
+  }, [notebooks, formData.notebookName]);
 
   const filteredBeneficiaries = useMemo(() => {
     let result = beneficiaries;
@@ -255,8 +283,14 @@ export default function TreasuryPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value, ...(name === "donorName" ? { donorId: "" } : {}) }));
+    setFormData((prev) => ({ 
+      ...prev, 
+      [name]: value, 
+      ...(name === "donorName" ? { donorId: "" } : {}),
+      ...(name === "notebookName" ? { notebookId: "" } : {})
+    }));
     if (name === "donorName") setShowDonorSuggestions(true);
+    if (name === "notebookName") setShowNotebookSuggestions(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -524,6 +558,12 @@ export default function TreasuryPage() {
               >
                 🧾 قائمة المتبرعين ({donors.length})
               </Link>
+              <Link
+                href="/admin/notebooks"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+              >
+                📓 الدفاتر ({notebooks.length})
+              </Link>
               <button
                 onClick={() => {
                   console.log("Button clicked - Opening print modal");
@@ -684,6 +724,65 @@ export default function TreasuryPage() {
                           ))}
                         </div>
                       )}
+                </div>
+              )}
+
+              {formData.type === "income" && (
+                <div className="relative">
+                  <label htmlFor="notebookName" className="block text-sm font-medium text-muted-foreground mb-1">
+                    الدفتر <span className="text-xs text-muted-foreground">(اختياري)</span>
+                  </label>
+                  <input
+                    id="notebookName"
+                    name="notebookName"
+                    type="text"
+                    placeholder="اضغط لاختيار دفتر أو اكتب اسم دفتر جديد"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    value={formData.notebookName}
+                    onChange={handleInputChange}
+                    onFocus={() => setShowNotebookSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowNotebookSuggestions(false), 200)}
+                    autoComplete="off"
+                  />
+                  {showNotebookSuggestions && (
+                    <div className="absolute w-full border border-border rounded-md mt-1 bg-card max-h-48 overflow-auto z-50 shadow-lg">
+                      {notebooks.length === 0 ? (
+                        <div className="px-4 py-3 text-sm text-muted-foreground text-center">
+                          لا توجد دفاتر بعد - اكتب اسم دفتر جديد
+                        </div>
+                      ) : filteredNotebooks.length === 0 ? (
+                        <div className="px-4 py-3 text-sm text-muted-foreground text-center">
+                          لا يوجد دفتر بهذا الاسم - اضغط Enter لإضافته كدفتر جديد
+                        </div>
+                      ) : (
+                        <>
+                          <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/50 border-b border-border">
+                            📓 الدفاتر المتاحة ({filteredNotebooks.length})
+                          </div>
+                          {filteredNotebooks.map((n: NotebookSummary) => (
+                            <button
+                              key={n._id}
+                              type="button"
+                              onMouseDown={(ev) => ev.preventDefault()}
+                              onClick={() => {
+                                setFormData((prev) => ({ ...prev, notebookName: n.name, notebookId: n._id }));
+                                setShowNotebookSuggestions(false);
+                              }}
+                              className="w-full text-right px-4 py-2.5 hover:bg-muted text-foreground flex justify-between items-center border-b border-border/50 last:border-0"
+                            >
+                              <span className="font-medium">{n.name}</span>
+                              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">{n.transactionsCount || 0} عملية</span>
+                            </button>
+                          ))}
+                          {formData.notebookName && !filteredNotebooks.some((n: NotebookSummary) => n.name.toLowerCase() === formData.notebookName.toLowerCase()) && (
+                            <div className="px-4 py-2 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-t border-border">
+                              ✨ سيتم إنشاء دفتر جديد: &quot;{formData.notebookName}&quot;
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1058,6 +1157,13 @@ export default function TreasuryPage() {
                           <div className="mt-2 text-sm">
                             <Link href={`/admin/donors/${txn.donorId}`} className="text-primary text-sm">
                               {txn.donorNameSnapshot || "متبرع"}
+                            </Link>
+                          </div>
+                        )}
+                        {txn.notebookId && txn.notebookNameSnapshot && (
+                          <div className="mt-1 text-sm">
+                            <Link href={`/admin/notebooks`} className="text-amber-600 dark:text-amber-400 text-sm flex items-center gap-1">
+                              <span>📓</span> {txn.notebookNameSnapshot}
                             </Link>
                           </div>
                         )}

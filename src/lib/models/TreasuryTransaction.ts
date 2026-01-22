@@ -11,6 +11,8 @@ export interface ITreasuryTransaction extends Document {
   recordedBy?: string;
   donorId?: Schema.Types.ObjectId;
   donorNameSnapshot?: string;
+  notebookId?: Schema.Types.ObjectId;
+  notebookNameSnapshot?: string;
   beneficiaryIds?: Schema.Types.ObjectId[];
   beneficiaryNamesSnapshot?: string[];
   branch?: mongoose.Types.ObjectId; // Reference to Branch model
@@ -64,6 +66,15 @@ const TreasuryTransactionSchema = new Schema<ITreasuryTransaction>(
       index: true,
     },
     donorNameSnapshot: {
+      type: String,
+      trim: true,
+    },
+    notebookId: {
+      type: Schema.Types.ObjectId,
+      ref: "Notebook",
+      index: true,
+    },
+    notebookNameSnapshot: {
       type: String,
       trim: true,
     },

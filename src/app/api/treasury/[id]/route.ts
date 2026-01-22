@@ -4,6 +4,7 @@ import dbConnect from "@/lib/mongodb";
 import TreasuryTransaction from "@/lib/models/TreasuryTransaction";
 import Donor from "@/lib/models/Donor";
 import Beneficiary from "@/lib/models/Beneficiary";
+import Notebook from "@/lib/models/Notebook";
 import { isValidObjectId } from "mongoose";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,8 @@ export async function PUT(
       transactionDate,
       donorName,
       donorId,
+      notebookName,
+      notebookId,
       beneficiaryIds,
     } = body;
 
@@ -82,6 +85,16 @@ export async function PUT(
       });
     }
 
+    // Reverse old notebook stats if existed
+    if (oldTransaction.type === "income" && oldTransaction.notebookId) {
+      await Notebook.findByIdAndUpdate(oldTransaction.notebookId, {
+        $inc: {
+          transactionsCount: -1,
+          totalAmount: -oldTransaction.amount,
+        },
+      });
+    }
+
     // Update new donor if this is income
     if (type === "income" && donorId) {
       const donor = await Donor.findByIdAndUpdate(
@@ -100,6 +113,19 @@ export async function PUT(
       }
     }
 
+    // Update new notebook stats if this is income
+    if (type === "income" && notebookId) {
+      await Notebook.findByIdAndUpdate(notebookId, {
+        $inc: {
+          transactionsCount: 1,
+          totalAmount: amount,
+        },
+        $set: {
+          lastUsedDate: transactionDate ? new Date(transactionDate) : new Date(),
+        },
+      });
+    }
+
     // Update the transaction
     const updatedTransaction = await TreasuryTransaction.findByIdAndUpdate(
       id,
@@ -112,6 +138,8 @@ export async function PUT(
         transactionDate,
         donorId: type === "income" ? donorId : undefined,
         donorNameSnapshot: type === "income" ? donorName : undefined,
+        notebookId: type === "income" ? notebookId : undefined,
+        notebookNameSnapshot: type === "income" ? notebookName : undefined,
         beneficiaryIds: type === "expense" ? beneficiaryIds : [],
         beneficiaryNamesSnapshot:
           type === "expense" ? beneficiaryNamesSnapshot : [],
@@ -164,6 +192,16 @@ export async function DELETE(
         $inc: {
           totalDonated: -transaction.amount,
           donationsCount: -1,
+        },
+      });
+    }
+
+    // If it's an income transaction, reverse the notebook's totals
+    if (transaction.type === "income" && transaction.notebookId) {
+      await Notebook.findByIdAndUpdate(transaction.notebookId, {
+        $inc: {
+          transactionsCount: -1,
+          totalAmount: -transaction.amount,
         },
       });
     }

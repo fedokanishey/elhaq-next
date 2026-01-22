@@ -4,6 +4,7 @@ import dbConnect from "@/lib/mongodb";
 import TreasuryTransaction from "@/lib/models/TreasuryTransaction";
 import Donor from "@/lib/models/Donor";
 import Beneficiary from "@/lib/models/Beneficiary";
+import Notebook from "@/lib/models/Notebook";
 import { isValidObjectId } from "mongoose";
 import { getAuthenticatedUser, getBranchFilterWithOverride } from "@/lib/auth-helpers";
 
@@ -99,6 +100,8 @@ export async function POST(req: Request) {
       recordedBy,
       donorId,
       donorName,
+      notebookId,
+      notebookName,
       beneficiaryIds,
     } = body;
 
@@ -167,6 +170,49 @@ export async function POST(req: Request) {
         });
     }
 
+    // Resolve notebook for income transactions
+    let resolvedNotebook: { _id: string; name: string } | null = null;
+    const trimmedNotebookName = typeof notebookName === "string" ? notebookName.trim() : "";
+
+    if (normalizedType === "income" && (trimmedNotebookName || notebookId)) {
+      if (notebookId && isValidObjectId(notebookId)) {
+        const notebook = await Notebook.findById(notebookId).lean();
+        if (notebook) {
+          resolvedNotebook = { _id: notebook._id.toString(), name: notebook.name };
+        }
+      }
+
+      if (!resolvedNotebook && trimmedNotebookName) {
+        const normalizedName = trimmedNotebookName.toLowerCase();
+        // Search for notebook within the TARGET branch
+        const notebookQuery = { nameNormalized: normalizedName, branch: targetBranch };
+        let notebook = await Notebook.findOne(notebookQuery);
+        if (!notebook) {
+          // Create notebook in the TARGET branch
+          notebook = await Notebook.create({
+            name: trimmedNotebookName,
+            nameNormalized: normalizedName,
+            branch: targetBranch,
+            branchName: targetBranchName,
+          });
+        }
+        resolvedNotebook = { _id: notebook._id.toString(), name: notebook.name };
+      }
+
+      // Update notebook stats
+      if (resolvedNotebook) {
+        await Notebook.findByIdAndUpdate(resolvedNotebook._id, {
+          $inc: {
+            transactionsCount: 1,
+            totalAmount: normalizedAmount,
+          },
+          $set: {
+            lastUsedDate: transactionDate ? new Date(transactionDate) : new Date(),
+          },
+        });
+      }
+    }
+
     // Resolve beneficiary names snapshot
     const resolvedBeneficiaryIds = normalizedType === "expense" && Array.isArray(beneficiaryIds) 
       ? beneficiaryIds.filter((id: string) => isValidObjectId(id))
@@ -188,6 +234,8 @@ export async function POST(req: Request) {
       recordedBy: recordedBy?.trim(),
       donorId: resolvedDonor?._id,
       donorNameSnapshot: resolvedDonor?.name || trimmedDonorName || undefined,
+      notebookId: resolvedNotebook?._id,
+      notebookNameSnapshot: resolvedNotebook?.name || trimmedNotebookName || undefined,
       beneficiaryIds: resolvedBeneficiaryIds,
       beneficiaryNamesSnapshot,
       branch: targetBranch,
