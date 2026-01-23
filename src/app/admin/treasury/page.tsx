@@ -489,6 +489,7 @@ export default function TreasuryPage() {
           normalize(txn.reference),
           normalize(txn.amount),
           normalize(txn.donorNameSnapshot),
+          normalize(txn.notebookNameSnapshot),
           normalize(txn.type),
           (txn.beneficiaryNamesSnapshot || [])
             .map((name: string) => normalize(name))
@@ -1021,7 +1022,7 @@ export default function TreasuryPage() {
               <SearchFilterBar
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
-                placeholder="ابحث عن وصف أو فئة أو متبرع أو مستفيد..."
+                placeholder="ابحث عن وصف أو فئة أو متبرع أو مستفيد أو الدفتر..."
                 onClearSearch={() => setSearchTerm("")}
               />
 

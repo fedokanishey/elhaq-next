@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { X, Loader2, Printer } from "lucide-react";
-
-type ReportType = "monthly" | "hospital" | "sheikh_ibrahim";
+import { useState, useMemo, useEffect } from "react";
+import { X, Loader2, Printer, ChevronDown } from "lucide-react";
+import { useBranchContext } from "@/contexts/BranchContext";
 
 interface AllowanceBeneficiary {
   _id: string;
@@ -21,41 +20,62 @@ interface MonthlyAllowancePrintModalProps {
   beneficiaries: AllowanceBeneficiary[];
 }
 
-const REPORT_TYPES: { value: ReportType; label: string; listMatch: string }[] = [
-  { value: "monthly", label: "كشف الشهرية", listMatch: "كشف الشهرية" },
-  { value: "hospital", label: "كشف المستشفى", listMatch: "كشف المستشفى" },
-  { value: "sheikh_ibrahim", label: "كشف الشيخ ابراهيم", listMatch: "كشف الشيخ ابراهيم" },
-];
-
 export default function MonthlyAllowancePrintModal({
   isOpen,
   onClose,
   beneficiaries,
 }: MonthlyAllowancePrintModalProps) {
   const [printing, setPrinting] = useState(false);
-  const [selectedReportType, setSelectedReportType] = useState<ReportType>("monthly");
+  const [selectedListName, setSelectedListName] = useState<string>("الكشف العام");
   const [customAmounts, setCustomAmounts] = useState<Record<string, number>>({});
+  const [availableLists, setAvailableLists] = useState<string[]>(["الكشف العام"]);
+  const [loadingLists, setLoadingLists] = useState(false);
+  
+  const { selectedBranchId } = useBranchContext();
 
-  const selectedReport = REPORT_TYPES.find((r) => r.value === selectedReportType) || REPORT_TYPES[0];
+  // Fetch available list names for this branch
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const fetchListNames = async () => {
+      setLoadingLists(true);
+      try {
+        let url = "/api/beneficiaries/list-names?q=";
+        if (selectedBranchId) {
+          url += `&branchId=${encodeURIComponent(selectedBranchId)}`;
+        }
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          const lists = data.listNames || ["الكشف العام"];
+          setAvailableLists(lists.length > 0 ? lists : ["الكشف العام"]);
+          // Set default selection to first list if current selection not in list
+          if (!lists.includes(selectedListName)) {
+            setSelectedListName(lists[0] || "الكشف العام");
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch list names:", err);
+        setAvailableLists(["الكشف العام"]);
+      } finally {
+        setLoadingLists(false);
+      }
+    };
+    
+    fetchListNames();
+  }, [isOpen, selectedBranchId]);
 
-  // Filter beneficiaries based on selected report type
+  // Filter beneficiaries based on selected list name
   const filteredBeneficiaries = useMemo(() => {
-    if (selectedReportType === "monthly") {
-      // For monthly, filter by receivesMonthlyAllowance OR by listNames containing monthly-related lists
-      return beneficiaries.filter((b) => {
-        if (b.receivesMonthlyAllowance) return true;
-        const lists = b.listNames?.length ? b.listNames : (b.listName ? [b.listName] : []);
-        // Match both "كشف الشهرية" and "شهرية عادية" for backward compatibility
-        return lists.some((name: string) => name.includes("شهرية"));
-      });
-    } else {
-      // For other reports, filter by listNames matching the report type
-      return beneficiaries.filter((b) => {
-        const lists = b.listNames?.length ? b.listNames : (b.listName ? [b.listName] : []);
-        return lists.some((name: string) => name.includes(selectedReport.listMatch));
-      });
-    }
-  }, [beneficiaries, selectedReportType, selectedReport.listMatch]);
+    return beneficiaries.filter((b) => {
+      const lists = b.listNames?.length ? b.listNames : (b.listName ? [b.listName] : []);
+      // Check if beneficiary is in the selected list
+      return lists.some((name: string) => name === selectedListName || name.includes(selectedListName));
+    });
+  }, [beneficiaries, selectedListName]);
+
+  // Check if this is the monthly allowance list
+  const isMonthlyList = selectedListName.includes("شهرية") || selectedListName === "كشف الشهرية";
 
   // Sort by nationalId (internal beneficiary number)
   const sortedBeneficiaries = useMemo(() => {
@@ -69,7 +89,7 @@ export default function MonthlyAllowancePrintModal({
   if (!isOpen) return null;
 
   // Calculate total for all reports
-  const totalAllowance = selectedReportType === "monthly"
+  const totalAllowance = isMonthlyList
     ? sortedBeneficiaries.reduce((sum, b) => sum + (b.monthlyAllowanceAmount || 0), 0)
     : sortedBeneficiaries.reduce((sum, b) => sum + (customAmounts[b._id] || 0), 0);
 
@@ -83,7 +103,7 @@ export default function MonthlyAllowancePrintModal({
 
   const handlePrint = async () => {
     if (beneficiaries.length === 0) {
-      alert("لا يوجد مستفيدين يتقاضون شهريات");
+      alert("لا يوجد مستفيدين في هذا الكشف");
       return;
     }
     
@@ -159,7 +179,7 @@ export default function MonthlyAllowancePrintModal({
           // For non-monthly reports, use custom amounts if entered
           const getAmountText = (ben?: AllowanceBeneficiary) => {
             if (!ben) return "";
-            if (selectedReportType === "monthly") {
+            if (isMonthlyList) {
               return ben.monthlyAllowanceAmount?.toString() || "";
             }
             // Use custom amount for non-monthly reports
@@ -227,7 +247,7 @@ export default function MonthlyAllowancePrintModal({
       });
 
       const blob = await Packer.toBlob(doc);
-      const reportName = selectedReport.label.replace(/\s+/g, "_");
+      const reportName = selectedListName.replace(/\s+/g, "_");
       saveAs(blob, `${reportName}_${new Date().toISOString().split("T")[0]}.docx`);
 
       // إغلاق المودال بعد الطباعة
@@ -259,26 +279,31 @@ export default function MonthlyAllowancePrintModal({
 
         {/* Content */}
         <div className="p-6 space-y-6 overflow-y-auto max-h-[60vh]">
-          {/* Report Type Selector */}
+          {/* Report Type Selector - Now a Dropdown */}
           <div className="bg-muted/50 border border-border rounded-lg p-4">
-            <h3 className="font-semibold text-foreground mb-3">اختر نوع الكشف:</h3>
-            <div className="flex flex-wrap gap-2">
-              {REPORT_TYPES.map((rt) => (
-                <button
-                  key={rt.value}
-                  type="button"
-                  onClick={() => setSelectedReportType(rt.value)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                    selectedReportType === rt.value
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-background border border-border text-foreground hover:border-primary"
-                  }`}
+            <h3 className="font-semibold text-foreground mb-3">اختر الكشف:</h3>
+            <div className="relative">
+              {loadingLists ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>جاري تحميل الكشوفات...</span>
+                </div>
+              ) : (
+                <select
+                  value={selectedListName}
+                  onChange={(e) => setSelectedListName(e.target.value)}
+                  className="w-full px-4 py-3 pr-10 border border-border rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary appearance-none cursor-pointer"
                 >
-                  {rt.label}
-                </button>
-              ))}
+                  {availableLists.map((listName) => (
+                    <option key={listName} value={listName}>
+                      {listName}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
             </div>
-            {selectedReportType !== "monthly" && (
+            {!isMonthlyList && (
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
                 ملاحظة: حقل المبلغ سيكون فارغاً للكتابة يدوياً
               </p>
@@ -291,7 +316,7 @@ export default function MonthlyAllowancePrintModal({
                 تنبيه: لا يوجد مستفيدين في هذا الكشف
               </p>
               <p className="text-muted-foreground mt-2">
-                تأكد من أن هناك مستفيدين مسجلين في &quot;{selectedReport.label}&quot;
+                تأكد من أن هناك مستفيدين مسجلين في &quot;{selectedListName}&quot;
               </p>
             </div>
           ) : (
@@ -300,8 +325,8 @@ export default function MonthlyAllowancePrintModal({
                 <h3 className="font-semibold text-foreground mb-3">معلومات الطباعة:</h3>
                 <ul className="space-y-2 text-sm text-foreground">
                   <li className="flex items-center gap-2">
-                    <span className="font-medium">نوع الكشف:</span>
-                    <span className="text-primary font-bold">{selectedReport.label}</span>
+                    <span className="font-medium">الكشف:</span>
+                    <span className="text-primary font-bold">{selectedListName}</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <span className="font-medium">عدد المستفيدين:</span>
@@ -336,7 +361,7 @@ export default function MonthlyAllowancePrintModal({
                       <span className="font-medium flex-1">
                         {index + 1}. {b.name}
                       </span>
-                      {selectedReportType === "monthly" ? (
+                      {isMonthlyList ? (
                         <span className="text-green-600 dark:text-green-400 font-bold">
                           {b.monthlyAllowanceAmount || 0} ج.م
                         </span>
@@ -370,7 +395,7 @@ export default function MonthlyAllowancePrintModal({
         <div className="flex items-center gap-3 p-6 border-t border-border bg-muted/30">
           <button
             onClick={handlePrint}
-            disabled={printing || beneficiaries.length === 0}
+            disabled={printing || sortedBeneficiaries.length === 0}
             className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
             type="button"
           >
@@ -382,7 +407,7 @@ export default function MonthlyAllowancePrintModal({
             ) : (
               <>
                 <Printer className="w-5 h-5" />
-                طباعة {selectedReport.label}
+                طباعة {selectedListName}
               </>
             )}
           </button>

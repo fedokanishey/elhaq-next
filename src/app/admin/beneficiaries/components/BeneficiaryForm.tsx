@@ -257,6 +257,7 @@ export default function BeneficiaryForm({
   const [manualPriority, setManualPriority] = useState(false);
   const [listNameSuggestions, setListNameSuggestions] = useState<string[]>([]);
   const [showListNameSuggestions, setShowListNameSuggestions] = useState(false);
+  const [listNameSearchTerm, setListNameSearchTerm] = useState("");
 
   // Swap State
   const [showSwapModal, setShowSwapModal] = useState(false);
@@ -371,20 +372,43 @@ export default function BeneficiaryForm({
   };
 
   const handleListNameSearch = async (value: string) => {
-    if (value.trim().length >= 2) {
-      try {
-        const res = await fetch(`/api/beneficiaries/list-names?q=${encodeURIComponent(value.trim())}`);
-        if (res.ok) {
-          const data = await res.json();
-          setListNameSuggestions(data.listNames || []);
-          setShowListNameSuggestions(true);
-        }
-      } catch (err) {
-        console.error(err);
+    const trimmedValue = value.trim();
+    const defaultLists = ["الكشف العام"];
+    
+    try {
+      // Build URL with branch filter for SuperAdmin
+      let url = `/api/beneficiaries/list-names?q=${encodeURIComponent(trimmedValue)}`;
+      if (selectedBranchId) {
+        url += `&branchId=${encodeURIComponent(selectedBranchId)}`;
       }
-    } else {
-      setListNameSuggestions([]);
-      setShowListNameSuggestions(false);
+      
+      // Always call API to get existing list names from database
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        const dbListNames = data.listNames || [];
+        
+        // Combine defaults with database list names, removing duplicates
+        const combined = [...new Set([...defaultLists, ...dbListNames])];
+        
+        // If there's a search term, filter the combined list
+        if (trimmedValue.length > 0) {
+          const filtered = combined.filter(name => name.includes(trimmedValue));
+          setListNameSuggestions(filtered.length > 0 ? filtered : combined);
+        } else {
+          setListNameSuggestions(combined);
+        }
+        setShowListNameSuggestions(true);
+      } else {
+        // Fallback to defaults if API fails
+        setListNameSuggestions(defaultLists);
+        setShowListNameSuggestions(true);
+      }
+    } catch (err) {
+      console.error(err);
+      // Fallback to defaults on error
+      setListNameSuggestions(defaultLists);
+      setShowListNameSuggestions(true);
     }
   };
 
@@ -1278,13 +1302,32 @@ export default function BeneficiaryForm({
                   <input
                     id="beneficiary-list-search"
                     type="text"
-                    onChange={(e) => handleListNameSearch(e.target.value)}
+                    value={listNameSearchTerm}
+                    onChange={(e) => {
+                      setListNameSearchTerm(e.target.value);
+                      handleListNameSearch(e.target.value);
+                    }}
                     onFocus={() => handleListNameSearch("")}
                     onBlur={() => setTimeout(() => setShowListNameSuggestions(false), 200)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const trimmed = listNameSearchTerm.trim();
+                        if (trimmed && !formData.listNames.includes(trimmed)) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            listNames: [...prev.listNames, trimmed],
+                          }));
+                          setListNameSearchTerm("");
+                          setShowListNameSuggestions(false);
+                        }
+                      }
+                    }}
                     placeholder="ابحث عن كشف أو أضف كشف جديد..."
                     className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary"
                   />
-                  {showListNameSuggestions && listNameSuggestions.length > 0 && (
+                  {/* Show dropdown when focused OR when there's search text */}
+                  {(showListNameSuggestions || listNameSearchTerm.trim()) && (
                     <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
                       {listNameSuggestions.map((name, idx) => {
                         const isSelected = formData.listNames.includes(name);
@@ -1292,7 +1335,10 @@ export default function BeneficiaryForm({
                           <button
                             key={idx}
                             type="button"
-                            onClick={() => handleToggleListName(name)}
+                            onClick={() => {
+                              handleToggleListName(name);
+                              setListNameSearchTerm("");
+                            }}
                             className={`w-full px-4 py-2 text-right hover:bg-muted transition flex items-center justify-between ${
                               isSelected ? "bg-primary/10 text-primary" : "text-foreground"
                             }`}
@@ -1302,13 +1348,37 @@ export default function BeneficiaryForm({
                           </button>
                         );
                       })}
+                      {/* Show option to add new list name if typed text doesn't match any suggestion */}
+                      {listNameSearchTerm.trim() && !listNameSuggestions.includes(listNameSearchTerm.trim()) && !formData.listNames.includes(listNameSearchTerm.trim()) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const trimmed = listNameSearchTerm.trim();
+                            console.log("🔍 Adding new list name:", trimmed);
+                            console.log("🔍 Current listNames before:", formData.listNames);
+                            setFormData((prev) => {
+                              const newListNames = [...prev.listNames, trimmed];
+                              console.log("🔍 New listNames after:", newListNames);
+                              return {
+                                ...prev,
+                                listNames: newListNames,
+                              };
+                            });
+                            setListNameSearchTerm("");
+                            setShowListNameSuggestions(false);
+                          }}
+                          className="w-full px-4 py-2 text-right hover:bg-muted transition flex items-center justify-between text-primary border-t border-border"
+                        >
+                          <span>+ إضافة &quot;{listNameSearchTerm.trim()}&quot; ككشف جديد</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
                 
-                {/* Quick add predefined lists */}
+                {/* Quick add default list */}
                 <div className="flex flex-wrap gap-2 mt-3">
-                  {["كشف الشهرية", "كشف المستشفى", "كشف الشيخ ابراهيم", "الكشف العام"].map((name) => {
+                  {["الكشف العام"].map((name) => {
                     const isSelected = formData.listNames.includes(name);
                     return (
                       <button
@@ -1326,7 +1396,7 @@ export default function BeneficiaryForm({
                     );
                   })}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">اختر كشف أو أكثر من الخيارات أعلاه أو ابحث عن كشف موجود</p>
+                <p className="text-xs text-muted-foreground mt-2">اختر الكشف العام أو ابحث عن كشف موجود أو أضف كشف جديد</p>
               </div>
 
               <div className="sm:col-span-2">

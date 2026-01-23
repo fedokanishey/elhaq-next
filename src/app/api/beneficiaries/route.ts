@@ -106,7 +106,13 @@ export async function POST(req: Request) {
     }
 
     const rawBody = await req.json();
+    
+    console.log("🔍 API received rawBody.listNames:", rawBody.listNames);
+    
     const payload = sanitizeBeneficiaryPayload(rawBody);
+    
+    console.log("🔍 API sanitized payload.listNames:", payload.listNames);
+    
     const { relationships, ...rest } = payload;
     const resolvedRelationships = await buildRelationshipReferences(relationships);
 
