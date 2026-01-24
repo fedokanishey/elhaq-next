@@ -20,7 +20,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const { id } = await params;
     const body = await req.json();
-    let { type, category, itemName, description, quantity, value, date } = body;
+    let { type, category, itemName, description, quantity, value, date, unit } = body;
 
     await dbConnect();
 
@@ -67,6 +67,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     existingMovement.description = description;
     existingMovement.quantity = quantity;
     existingMovement.value = value;
+    existingMovement.unit = unit;
     if (date) existingMovement.date = date; // Allow updating date if provided
 
     await existingMovement.save();

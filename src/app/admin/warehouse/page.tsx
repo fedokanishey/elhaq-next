@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
-import { Loader2, Archive, ArrowDownCircle, ArrowUpCircle, Filter, Package, DollarSign, Trash2, Edit } from "lucide-react";
+import { Loader2, Archive, ArrowDownCircle, ArrowUpCircle, Package, DollarSign, Trash2, Edit } from "lucide-react";
 import StatCard from "@/components/StatCard";
 import SearchFilterBar from "@/components/SearchFilterBar";
 import { useBranchContext } from "@/contexts/BranchContext";
@@ -20,11 +20,13 @@ interface WarehouseMovement {
   description: string;
   quantity?: number;
   value?: number;
+  unit?: "كيلو" | "كرتونة" | "شكارة" | "طن";
   date: string;
+  branch?: string;
+  branchName?: string;
 }
 
 // --- Components ---
-
 
 function RecordMovementModal({ 
   isOpen, 
@@ -35,6 +37,7 @@ function RecordMovementModal({
   initialData = null,
   branchId = null,
   branchName = null,
+  allBranches = [],
 }: { 
   isOpen: boolean; 
   onClose: () => void; 
@@ -44,20 +47,25 @@ function RecordMovementModal({
   initialData?: WarehouseMovement | null;
   branchId?: string | null;
   branchName?: string | null;
+  allBranches?: { _id: string; name: string }[];
 }) {
   const [formData, setFormData] = useState({
-    type: "inbound",
-    category: "product",
+    type: "inbound" as "inbound" | "outbound",
+    category: "product" as "cash" | "product",
     itemName: "",
     description: "",
     quantity: "",
     value: "",
+    unit: "كيلو" as "كيلو" | "كرتونة" | "شكارة" | "طن",
+    date: new Date().toISOString().split('T')[0],
+    branch: "",
+    branchName: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   // Populate form when initialData changes or modal opens
-  useMemo(() => {
+  useEffect(() => {
     if (initialData) {
       setFormData({
         type: initialData.type,
@@ -66,6 +74,10 @@ function RecordMovementModal({
         description: initialData.description,
         quantity: initialData.quantity?.toString() || "",
         value: initialData.value?.toString() || "",
+        unit: initialData.unit || "كيلو",
+        date: new Date(initialData.date).toISOString().split('T')[0],
+        branch: initialData.branch || branchId || "",
+        branchName: initialData.branchName || branchName || "",
       });
     } else {
        // Reset form for new entry
@@ -76,9 +88,13 @@ function RecordMovementModal({
         description: "",
         quantity: "",
         value: "",
+        unit: "كيلو",
+        date: new Date().toISOString().split('T')[0],
+        branch: branchId || "",
+        branchName: branchName || "",
       });
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, branchId, branchName]);
 
   if (!isOpen) return null;
 
@@ -87,19 +103,6 @@ function RecordMovementModal({
     setSubmitting(true);
     setError("");
     
-    // Client-side quick validation logic (same as before)
-    if (formData.type === 'outbound') {
-      if (formData.category === 'cash') {
-        // If editing, we should technically add back the old value before checking, but simple check is okay for now
-        // or just let backend handle it
-        if (Number(formData.value) > (cashBalance + (initialData?.category === 'cash' && initialData?.type ==='outbound' ? (initialData.value || 0) : 0))) {
-          // Relaxed client check for edit
-        }
-      } else if (formData.category === 'product') {
-        // Similar logic for inventory
-      }
-    }
-
     try {
       const url = initialData ? `/api/warehouse/${initialData._id}` : "/api/warehouse";
       const method = initialData ? "PUT" : "POST";
@@ -111,11 +114,9 @@ function RecordMovementModal({
           ...formData,
           quantity: formData.quantity ? Number(formData.quantity) : undefined,
           value: formData.value ? Number(formData.value) : undefined,
-          // Include branch for SuperAdmin when a specific branch is selected
-          ...(branchId && !initialData ? {
-            branch: branchId,
-            branchName: branchName || null,
-          } : {}),
+          // Use selected branch in form
+          branch: formData.branch || undefined,
+          branchName: formData.branchName || undefined,
         }),
       });
       
@@ -133,28 +134,66 @@ function RecordMovementModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-background rounded-lg shadow-lg w-full max-w-md p-6">
+      <div className="bg-background rounded-lg shadow-lg w-full max-w-md p-6 overflow-y-auto max-h-[90vh]">
         <h2 className="text-xl font-bold mb-4">{initialData ? "تعديل حركة" : "تسجيل حركة مخزن"}</h2>
         {error && <div className="text-red-500 mb-3 text-sm font-medium bg-red-50 p-2 rounded">{error}</div>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <label className="block text-sm font-medium mb-1">التاريخ</label>
+              <input 
+                type="date"
+                required
+                className="w-full border rounded p-2 bg-background"
+                value={formData.date}
+                onChange={e => setFormData({...formData, date: e.target.value})}
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium mb-1">نوع الحركة</label>
               <select 
                 className="w-full border rounded p-2 bg-background"
                 value={formData.type}
-                onChange={e => setFormData({...formData, type: e.target.value})}
+                onChange={e => setFormData({...formData, type: e.target.value as "inbound" | "outbound"})}
               >
                 <option value="inbound">وارد (إضافة)</option>
                 <option value="outbound">صادر (سحب)</option>
               </select>
             </div>
+          </div>
+          
+          {/* Branch selection for SuperAdmin when no branch is pre-selected */}
+          {allBranches && allBranches.length > 0 && !branchId && (
+            <div>
+              <label className="block text-sm font-medium mb-1">الفرع</label>
+              <select 
+                required
+                className="w-full border rounded p-2 bg-background"
+                value={formData.branch}
+                onChange={e => {
+                  const selectedBranch = allBranches.find(b => b._id === e.target.value);
+                  setFormData({
+                    ...formData, 
+                    branch: e.target.value,
+                    branchName: selectedBranch?.name || ""
+                  });
+                }}
+              >
+                <option value="">اختر الفرع...</option>
+                {allBranches.map(b => (
+                  <option key={b._id} value={b._id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">الفئة</label>
               <select 
                 className="w-full border rounded p-2 bg-background"
                 value={formData.category}
-                onChange={e => setFormData({...formData, category: e.target.value})}
+                onChange={e => setFormData({...formData, category: e.target.value as "cash" | "product"})}
               >
                 <option value="product">منتج / عيني</option>
                 <option value="cash">نقدي</option>
@@ -202,27 +241,48 @@ function RecordMovementModal({
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">الكمية (اختياري)</label>
-              <input 
-                type="number" 
-                className="w-full border rounded p-2 bg-background"
-                value={formData.quantity}
-                onChange={e => setFormData({...formData, quantity: e.target.value})}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">القيمة {formData.category === 'cash' ? '(المبلغ)' : 'التقديرية'} </label>
-              <input 
-                type="number" 
-                className="w-full border rounded p-2 bg-background"
-                value={formData.value}
-                onChange={e => setFormData({...formData, value: e.target.value})}
-              />
-               {formData.type === 'outbound' && formData.category === 'cash' && (
-                  <p className="text-xs text-muted-foreground mt-1">الرصيد المتاح: {cashBalance.toLocaleString()} ج.م</p>
-               )}
-            </div>
+            {formData.category === 'product' ? (
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-1">الكمية</label>
+                  <input 
+                    required
+                    type="number" 
+                    className="w-full border rounded p-2 bg-background"
+                    value={formData.quantity}
+                    onChange={e => setFormData({...formData, quantity: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">الوحدة</label>
+                  <select 
+                    required
+                    className="w-full border rounded p-2 bg-background"
+                    value={formData.unit}
+                    onChange={e => setFormData({...formData, unit: e.target.value as any})}
+                  >
+                    <option value="كيلو">كيلو</option>
+                    <option value="كرتونة">كرتونة</option>
+                    <option value="شكارة">شكارة</option>
+                    <option value="طن">طن</option>
+                  </select>
+                </div>
+              </>
+            ) : (
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">المبلغ</label>
+                <input 
+                  required
+                  type="number" 
+                  className="w-full border rounded p-2 bg-background"
+                  value={formData.value}
+                  onChange={e => setFormData({...formData, value: e.target.value})}
+                />
+                 {formData.type === 'outbound' && (
+                    <p className="text-xs text-muted-foreground mt-1">الرصيد المتاح: {cashBalance.toLocaleString()} ج.م</p>
+                 )}
+              </div>
+            )}
           </div>
           <div className="flex gap-2 justify-end mt-4">
             <button type="button" onClick={onClose} className="px-4 py-2 border rounded">إلغاء</button>
@@ -238,25 +298,27 @@ export default function WarehousePage() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
   const { selectedBranchId } = useBranchContext();
+  
+  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  const isSuperAdmin = role === "superadmin";
+
   const branchParam = selectedBranchId ? `?branchId=${selectedBranchId}` : "";
   
-  // Fetch branch details if SuperAdmin has selected a branch
+  // Fetch branch details for SuperAdmin
   const { data: branchesData } = useSWR(
-    selectedBranchId ? "/api/branches" : null,
+    isLoaded && isSuperAdmin ? "/api/branches" : null,
     fetcher,
     { revalidateOnFocus: false }
   );
   
   const selectedBranch = branchesData?.branches?.find((b: { _id: string; name: string }) => b._id === selectedBranchId);
   
-  const { data, error, mutate } = useSWR(isLoaded ? `/api/warehouse${branchParam}` : null, fetcher);
+  const { data, mutate } = useSWR(isLoaded ? `/api/warehouse${branchParam}` : null, fetcher);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filterType, setFilterType] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [editItem, setEditItem] = useState<WarehouseMovement | null>(null);
 
-  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-  const isSuperAdmin = role === "superadmin";
   useEffect(() => {
     if (isLoaded && role !== "admin" && role !== "member" && role !== "superadmin") {
       router.push("/");
@@ -266,7 +328,7 @@ export default function WarehousePage() {
   const isAdmin = role === "admin" || isSuperAdmin;
 
   const movements: WarehouseMovement[] = data?.movements || [];
-  const inventory: { itemName: string; quantity: number }[] = data?.stats?.productInventory || [];
+  const inventory: { itemName: string; quantity: number; unit?: string }[] = data?.stats?.productInventory || [];
   const cashBalance: number = data?.stats?.cashBalance || 0;
 
   const filteredMovements = useMemo(() => {
@@ -395,7 +457,7 @@ export default function WarehousePage() {
                          <span className="font-bold text-lg">{item.itemName}</span>
                       </div>
                       <div className="text-right">
-                         <span className="block text-2xl font-bold text-primary">{item.quantity}</span>
+                         <span className="block text-2xl font-bold text-primary">{item.quantity} {item.unit || ""}</span>
                          <span className="text-xs text-muted-foreground">الكمية المتاحة</span>
                       </div>
                     </div>
@@ -425,6 +487,12 @@ export default function WarehousePage() {
                         </span>
                         <span>•</span>
                         <span>{new Date(item.date).toLocaleDateString("ar-EG")}</span>
+                        {isSuperAdmin && item.branchName && (
+                          <>
+                            <span>•</span>
+                            <span className="bg-muted px-2 rounded text-xs">{item.branchName}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -432,7 +500,9 @@ export default function WarehousePage() {
 
                   <div className="flex items-center justify-between sm:justify-end gap-6 pl-2">
                     <div className="text-left">
-                      {item.quantity && <p className="text-sm font-medium">{item.quantity} قطعة</p>}
+                      {item.category === 'product' && item.quantity && (
+                        <p className="text-sm font-medium">{item.quantity} {item.unit || "قطعة"}</p>
+                      )}
                       {item.value && <p className="text-sm text-muted-foreground">{item.value.toLocaleString()} ج.م</p>}
                     </div>
                     {isAdmin && (
@@ -481,6 +551,7 @@ export default function WarehousePage() {
         initialData={editItem}
         branchId={isSuperAdmin ? selectedBranchId : null}
         branchName={isSuperAdmin ? selectedBranch?.name : null}
+        allBranches={isSuperAdmin ? branchesData?.branches : []}
       />
     </div>
   );

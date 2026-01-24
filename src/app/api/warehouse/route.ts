@@ -51,24 +51,28 @@ export async function GET(req: Request) {
       { 
         $group: { 
           _id: { itemName: "$itemName", type: "$type" }, 
-          totalQuantity: { $sum: "$quantity" } 
+          totalQuantity: { $sum: "$quantity" },
+          unit: { $first: "$unit" } // Get the unit from the first document
         } 
       },
     ]);
 
-    const inventoryMap: Record<string, number> = {};
+    const inventoryMap: Record<string, { quantity: number; unit: string }> = {};
     inventoryAgg.forEach(item => {
       const name = item._id.itemName;
       const qty = item.totalQuantity;
+      const unit = item.unit || "";
       if (!item._id.itemName) return;
 
-      if (!inventoryMap[name]) inventoryMap[name] = 0;
-      if (item._id.type === "inbound") inventoryMap[name] += qty;
-      else inventoryMap[name] -= qty;
+      if (!inventoryMap[name]) inventoryMap[name] = { quantity: 0, unit };
+      if (item._id.type === "inbound") inventoryMap[name].quantity += qty;
+      else inventoryMap[name].quantity -= qty;
+      // Keep the most recent unit
+      if (unit) inventoryMap[name].unit = unit;
     });
 
     const productInventory = Object.entries(inventoryMap)
-      .map(([name, qty]) => ({ itemName: name, quantity: qty }))
+      .map(([name, data]) => ({ itemName: name, quantity: data.quantity, unit: data.unit }))
       .filter(item => item.quantity > 0);
 
     // 2. Calculate Cash Balance
@@ -130,7 +134,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    let { type, category, itemName, description, quantity, value, date } = body;
+    let { type, category, itemName, description, quantity, value, date, unit } = body;
 
     // Validate request
     if (!type || !category || !description) {
@@ -182,41 +186,6 @@ export async function POST(req: Request) {
        }
     }
 
-    // For SuperAdmin: if no branch provided, copy to ALL branches
-    if (authResult.isSuperAdmin && !body.branch) {
-      const Branch = (await import("@/lib/models/Branch")).default;
-      const allBranches = await Branch.find({ isActive: true }).lean();
-      
-      if (allBranches.length === 0) {
-        return NextResponse.json({ error: "لا توجد فروع نشطة" }, { status: 400 });
-      }
-      
-      const createdMovements = [];
-      
-      for (const branch of allBranches) {
-        const movement = await WarehouseMovement.create({
-          type,
-          category,
-          itemName,
-          description,
-          quantity,
-          value,
-          date: date || new Date(),
-          recordedBy: userId,
-          branch: branch._id,
-          branchName: branch.name,
-        });
-        createdMovements.push(movement);
-      }
-      
-      console.log(`✅ Created ${createdMovements.length} warehouse movements for all branches`);
-      return NextResponse.json({ 
-        message: `تم إضافة الحركة لـ ${createdMovements.length} فرع`,
-        count: createdMovements.length,
-        movement: createdMovements[0] 
-      }, { status: 201 });
-    }
-
     // Single branch
     const targetBranch = authResult.isSuperAdmin ? body.branch : authResult.branch;
     const targetBranchName = authResult.isSuperAdmin ? body.branchName : authResult.branchName;
@@ -228,6 +197,7 @@ export async function POST(req: Request) {
       description,
       quantity,
       value,
+      unit,
       date: date || new Date(),
       recordedBy: userId,
       branch: targetBranch,

@@ -11,6 +11,7 @@ export interface IWarehouseMovement extends Document {
   recordedBy?: string;
   deletedAt?: Date;
   branch?: mongoose.Types.ObjectId; // Reference to Branch model
+  unit?: "كيلو" | "كرتونة" | "شكارة" | "طن"; // Unit for products
   branchName?: string; // Cached branch name
   createdAt: Date;
   updatedAt: Date;
@@ -41,6 +42,11 @@ const WarehouseMovementSchema = new Schema<IWarehouseMovement>(
       type: Schema.Types.ObjectId, 
       ref: 'Branch',
       index: true 
+    },
+    unit: {
+      type: String,
+      enum: ["كيلو", "كرتونة", "شكارة", "طن"],
+      index: true
     },
     branchName: {
       type: String,
