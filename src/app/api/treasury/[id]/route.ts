@@ -95,22 +95,58 @@ export async function PUT(
       });
     }
 
-    // Update new donor if this is income
-    if (type === "income" && donorId) {
-      const donor = await Donor.findByIdAndUpdate(
-        donorId,
-        {
-          $inc: {
-            totalDonated: amount,
-            donationsCount: 1,
-          },
-        },
-        { new: true }
-      );
+    // Resolve donor for income transactions (similar to POST logic)
+    let resolvedDonor: { _id: string; name: string } | null = null;
+    const trimmedDonorName = typeof donorName === "string" ? donorName.trim() : "";
 
-      if (!donor) {
-        return NextResponse.json({ error: "Donor not found" }, { status: 404 });
+    if (type === "income") {
+      if (!trimmedDonorName && !donorId) {
+        return NextResponse.json({ error: "يجب إضافة اسم المتبرع للوارد" }, { status: 400 });
       }
+
+      // Try to find donor by ID first
+      if (donorId && isValidObjectId(donorId)) {
+        const donor = await Donor.findById(donorId).lean();
+        if (donor) {
+          resolvedDonor = { _id: (donor._id as { toString(): string }).toString(), name: donor.name };
+        }
+      }
+
+      // If no donor found by ID, search or create by name
+      if (!resolvedDonor && trimmedDonorName) {
+        const normalizedName = trimmedDonorName.toLowerCase();
+        // Get branch from old transaction for consistency
+        const targetBranch = oldTransaction.branch;
+        const targetBranchName = oldTransaction.branchName;
+        
+        const donorQuery = { nameNormalized: normalizedName, branch: targetBranch };
+        let donor = await Donor.findOne(donorQuery);
+        if (!donor) {
+          // Create new donor in the same branch as the transaction
+          donor = await Donor.create({
+            name: trimmedDonorName,
+            nameNormalized: normalizedName,
+            branch: targetBranch,
+            branchName: targetBranchName,
+          });
+        }
+        resolvedDonor = { _id: donor._id.toString(), name: donor.name };
+      }
+
+      if (!resolvedDonor) {
+        return NextResponse.json({ error: "تعذر تحديد المتبرع" }, { status: 400 });
+      }
+
+      // Update donor stats
+      await Donor.findByIdAndUpdate(resolvedDonor._id, {
+        $inc: {
+          totalDonated: amount,
+          donationsCount: 1,
+        },
+        $set: {
+          lastDonationDate: transactionDate ? new Date(transactionDate) : new Date(),
+        },
+      });
     }
 
     // Update new notebook stats if this is income
@@ -136,8 +172,8 @@ export async function PUT(
         category: category?.trim() || "",
         reference: reference?.trim() || "",
         transactionDate,
-        donorId: type === "income" ? donorId : undefined,
-        donorNameSnapshot: type === "income" ? donorName : undefined,
+        donorId: type === "income" ? resolvedDonor?._id : undefined,
+        donorNameSnapshot: type === "income" ? resolvedDonor?.name : undefined,
         notebookId: type === "income" ? notebookId : undefined,
         notebookNameSnapshot: type === "income" ? notebookName : undefined,
         beneficiaryIds: type === "expense" ? beneficiaryIds : [],
