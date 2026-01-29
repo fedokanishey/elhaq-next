@@ -583,14 +583,11 @@ function ProductDetailsModal({
           </div>
         </div>
 
-        {/* Unit Cost */}
-        {product.currentQuantity > 0 && (
-          <div className="bg-muted/50 rounded-lg p-3 mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Calculator className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm">تكلفة الوحدة:</span>
-            </div>
-            <span className="font-bold">{unitCost.toFixed(2)} ج.م / {product.unit}</span>
+        {/* Product Notes */}
+        {product.notes && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 mb-4 border border-amber-200 dark:border-amber-800">
+            <h3 className="font-bold mb-2 text-amber-800 dark:text-amber-300">تفاصيل المنتج</h3>
+            <p className="text-sm text-amber-700 dark:text-amber-400 whitespace-pre-wrap">{product.notes}</p>
           </div>
         )}
 
