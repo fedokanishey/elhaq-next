@@ -512,6 +512,275 @@ function AddRepaymentModal({ isOpen, onClose, onSuccess, loan }: { isOpen: boole
   );
 }
 
+function LoanDetailsModal({ isOpen, onClose, loan, onRefresh }: { isOpen: boolean; onClose: () => void; loan: Loan | null; onRefresh?: () => void }) {
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ amount: "", date: "", notes: "" });
+  const [deleting, setDeleting] = useState<number | null>(null);
+
+  if (!isOpen || !loan) return null;
+
+  const total = loan.amount;
+  const paid = loan.amountPaid || 0;
+  const remaining = total - paid;
+  const progress = Math.min((paid / total) * 100, 100);
+
+  const startEditRepayment = (index: number) => {
+    const rep = loan.repayments[index];
+    setEditingIndex(index);
+    setEditForm({
+      amount: String(rep.amount),
+      date: new Date(rep.date).toISOString().split('T')[0],
+      notes: rep.notes || "",
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (editingIndex === null) return;
+    try {
+      const res = await fetch(`/api/loans/${loan._id}/repayments/${editingIndex}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: editForm.amount ? Number(editForm.amount) : 0,
+          date: editForm.date,
+          notes: editForm.notes,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "فشل التعديل");
+        return;
+      }
+      setEditingIndex(null);
+      onRefresh?.();
+    } catch {
+      alert("فشل التعديل");
+    }
+  };
+
+  const handleDeleteRepayment = async (index: number) => {
+    if (!confirm("هل أنت متأكد من حذف هذه العملية؟ سيتم خصم المبلغ من إجمالي المسدد.")) return;
+    setDeleting(index);
+    try {
+      const res = await fetch(`/api/loans/${loan._id}/repayments/${index}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "فشل الحذف");
+        return;
+      }
+      onRefresh?.();
+    } catch {
+      alert("فشل الحذف");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-background rounded-lg shadow-lg w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">تفاصيل القرض</h2>
+          <button onClick={onClose}><X className="w-5 h-5" /></button>
+        </div>
+
+        {/* Borrower Info */}
+        <div className="bg-muted/50 rounded-lg p-4 mb-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-muted-foreground">اسم المقترض</p>
+              <p className="font-bold text-lg">{loan.beneficiaryName}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">الرقم القومي</p>
+              <p className="font-semibold">{loan.phone}</p>
+            </div>
+            {loan.nationalId && (
+              <div>
+                <p className="text-sm text-muted-foreground">رقم المستفيد</p>
+                <p className="font-semibold">{loan.nationalId}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-sm text-muted-foreground">الحالة</p>
+              <span className={`px-2 py-1 rounded text-xs font-medium ${loan.status === 'completed' ? 'bg-green-100 text-green-700' : loan.status === 'defaulted' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                {loan.status === 'completed' ? 'تم السداد' : loan.status === 'defaulted' ? 'متعثر' : 'نشط'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Loan Amounts */}
+        <div className="bg-muted/50 rounded-lg p-4 mb-4">
+          <h3 className="font-bold mb-3 flex items-center gap-2">
+            <PiggyBank className="w-5 h-5" /> معلومات القرض
+          </h3>
+          <div className="grid grid-cols-3 gap-4 mb-3">
+            <div className="text-center p-3 bg-background rounded-lg border border-border">
+              <p className="text-xs text-muted-foreground">مبلغ القرض</p>
+              <p className="font-bold text-lg text-blue-600">{total.toLocaleString()} ج.م</p>
+            </div>
+            <div className="text-center p-3 bg-background rounded-lg border border-border">
+              <p className="text-xs text-muted-foreground">المدفوع</p>
+              <p className="font-bold text-lg text-green-600">{paid.toLocaleString()} ج.م</p>
+            </div>
+            <div className="text-center p-3 bg-background rounded-lg border border-border">
+              <p className="text-xs text-muted-foreground">المتبقي</p>
+              <p className="font-bold text-lg text-amber-600">{remaining.toLocaleString()} ج.م</p>
+            </div>
+          </div>
+          <div className="h-3 w-full bg-secondary rounded-full overflow-hidden">
+            <div className="h-full bg-primary transition-all duration-500" style={{ width: `${progress}%` }} />
+          </div>
+          <p className="text-xs text-center text-muted-foreground mt-1">نسبة السداد: {progress.toFixed(1)}%</p>
+        </div>
+
+        {/* Dates */}
+        <div className="bg-muted/50 rounded-lg p-4 mb-4">
+          <h3 className="font-bold mb-3 flex items-center gap-2">
+            <Calendar className="w-5 h-5" /> التواريخ
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-muted-foreground">تاريخ البدء</p>
+              <p className="font-semibold">{new Date(loan.startDate).toLocaleDateString("ar-EG")}</p>
+            </div>
+            {loan.dueDate && (
+              <div>
+                <p className="text-sm text-muted-foreground">تاريخ الاستحقاق</p>
+                <p className="font-semibold">{new Date(loan.dueDate).toLocaleDateString("ar-EG")}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Loan Notes */}
+        {loan.notes && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 mb-4 border border-amber-200 dark:border-amber-800">
+            <h3 className="font-bold mb-2 text-amber-800 dark:text-amber-300">ملاحظات القرض</h3>
+            <p className="text-sm text-amber-700 dark:text-amber-400 whitespace-pre-wrap">{loan.notes}</p>
+          </div>
+        )}
+
+        {/* Repayment History */}
+        <div className="bg-muted/50 rounded-lg p-4">
+          <h3 className="font-bold mb-3 flex items-center gap-2">
+            <CheckCircle className="w-5 h-5" /> سجل عمليات السداد ({loan.repayments?.length || 0})
+          </h3>
+          {(!loan.repayments || loan.repayments.length === 0) ? (
+            <p className="text-center text-muted-foreground py-4">لا توجد عمليات سداد بعد</p>
+          ) : (
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {loan.repayments.map((repayment, index) => (
+                <div key={index} className="bg-background rounded-lg p-3 border border-border">
+                  {editingIndex === index ? (
+                    // Edit mode
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-muted-foreground">المبلغ</label>
+                          <input 
+                            type="number"
+                            className="w-full border rounded p-2 bg-background text-sm"
+                            value={editForm.amount}
+                            onChange={e => setEditForm({...editForm, amount: e.target.value})}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground">التاريخ</label>
+                          <input 
+                            type="date"
+                            className="w-full border rounded p-2 bg-background text-sm"
+                            value={editForm.date}
+                            onChange={e => setEditForm({...editForm, date: e.target.value})}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">ملاحظات</label>
+                        <input 
+                          className="w-full border rounded p-2 bg-background text-sm"
+                          value={editForm.notes}
+                          onChange={e => setEditForm({...editForm, notes: e.target.value})}
+                        />
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <button 
+                          onClick={() => setEditingIndex(null)}
+                          className="px-3 py-1 text-sm border rounded"
+                        >
+                          إلغاء
+                        </button>
+                        <button 
+                          onClick={handleSaveEdit}
+                          className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded"
+                        >
+                          حفظ
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    // View mode
+                    <>
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-2">
+                          <span className="bg-primary/10 text-primary px-2 py-1 rounded text-xs font-medium">
+                            #{index + 1}
+                          </span>
+                          <span className="font-bold text-green-600">{repayment.amount.toLocaleString()} ج.م</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(repayment.date).toLocaleDateString("ar-EG")}
+                          </span>
+                          <button 
+                            onClick={() => startEditRepayment(index)}
+                            className="p-1 hover:bg-muted rounded"
+                            title="تعديل"
+                          >
+                            <Edit className="w-4 h-4 text-muted-foreground" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteRepayment(index)}
+                            disabled={deleting === index}
+                            className="p-1 hover:bg-red-50 rounded group"
+                            title="حذف"
+                          >
+                            {deleting === index ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4 text-muted-foreground group-hover:text-red-600" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      {repayment.notes && (
+                        <div className="mt-2 pt-2 border-t border-border">
+                          <p className="text-sm text-muted-foreground">
+                            <span className="font-medium">ملاحظات:</span> {repayment.notes}
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end mt-4">
+          <button onClick={onClose} className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
+            إغلاق
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CapitalHistoryModal({ isOpen, onClose, branchId }: { isOpen: boolean; onClose: () => void; branchId?: string | null }) {
   const branchParam = branchId ? `?branchId=${branchId}` : "";
   const { data, mutate, error } = useSWR(isOpen ? `/api/loans/capital${branchParam}` : null, fetcher);
@@ -631,6 +900,7 @@ export default function GoodLoansPage() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [repaymentLoan, setRepaymentLoan] = useState<Loan | null>(null);
   const [editLoan, setEditLoan] = useState<Loan | null>(null);
+  const [detailsLoan, setDetailsLoan] = useState<Loan | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
@@ -779,7 +1049,11 @@ export default function GoodLoansPage() {
                         سداد دفعة
                       </button>
                     )}
-                    <button className="px-3 py-2 border border-border bg-background rounded-md hover:bg-muted transition-colors">
+                    <button 
+                      onClick={() => setDetailsLoan(loan)}
+                      className="px-3 py-2 border border-border bg-background rounded-md hover:bg-muted transition-colors"
+                      title="تفاصيل القرض"
+                    >
                       <ChevronRight className="w-5 h-5 text-muted-foreground" />
                     </button>
                     {isAdmin && (
@@ -842,6 +1116,12 @@ export default function GoodLoansPage() {
         isOpen={isHistoryOpen} 
         onClose={() => setIsHistoryOpen(false)}
         branchId={isSuperAdmin ? selectedBranchId : null}
+      />
+      <LoanDetailsModal
+        isOpen={!!detailsLoan}
+        onClose={() => setDetailsLoan(null)}
+        loan={detailsLoan}
+        onRefresh={() => mutate()}
       />
     </div>
   );

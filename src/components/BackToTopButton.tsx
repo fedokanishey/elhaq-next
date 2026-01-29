@@ -33,8 +33,8 @@ export default function BackToTopButton() {
   return (
     <button
       onClick={scrollToTop}
-      className={`fixed left-6 bottom-6 z-50 flex items-center justify-center w-12 h-12 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all duration-300 ${
-        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12 pointer-events-none"
+      className={`fixed left-6 bottom-6 z-50 flex items-center justify-center w-12 h-12 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 hover:opacity-100 transition-all duration-300 ${
+        isVisible ? "opacity-60 translate-y-0" : "opacity-0 translate-y-12 pointer-events-none"
       }`}
       title="الذهاب إلى أعلى الصفحة"
       aria-label="الذهاب إلى أعلى الصفحة"
