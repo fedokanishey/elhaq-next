@@ -831,30 +831,30 @@ export default function WarehousePage() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard 
             title="إجمالي المنتجات" 
             value={`${stats.totalProducts}`} 
             icon={<Package className="w-6 h-6" />} 
-            colorClass="bg-blue-50 text-blue-700 border-blue-200" 
+            colorClass="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800" 
           />
           <StatCard 
             title="إجمالي التكاليف" 
             value={`${stats.totalCost.toLocaleString()} ج.م`} 
             icon={<TrendingDown className="w-6 h-6" />} 
-            colorClass="bg-rose-50 text-rose-700 border-rose-200" 
+            colorClass="bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800" 
           />
           <StatCard 
             title="إجمالي الإيرادات" 
             value={`${stats.totalRevenue.toLocaleString()} ج.م`} 
             icon={<TrendingUp className="w-6 h-6" />} 
-            colorClass="bg-emerald-50 text-emerald-700 border-emerald-200" 
+            colorClass="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800" 
           />
           <StatCard 
             title="صافي الربح" 
             value={`${stats.netProfit.toLocaleString()} ج.م`} 
             icon={<DollarSign className="w-6 h-6" />} 
-            colorClass={stats.netProfit >= 0 ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"} 
+            colorClass={stats.netProfit >= 0 ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800" : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800"} 
           />
         </div>
 

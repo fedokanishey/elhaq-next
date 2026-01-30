@@ -5,7 +5,6 @@ import Beneficiary from "@/lib/models/Beneficiary";
 import User from "@/lib/models/User";
 import TreasuryTransaction from "@/lib/models/TreasuryTransaction";
 import Loan from "@/lib/models/Loan";
-import WarehouseMovement from "@/lib/models/WarehouseMovement";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { getAuthenticatedUser, getBranchFilterWithOverride } from "@/lib/auth-helpers";
 
@@ -124,76 +123,24 @@ export async function GET(request: Request) {
     const totalLoanPaid = loanStats[0]?.totalPaid || 0;
     const activeLoanBalance = loanStats[0]?.activeAmount || 0;
 
-    // --- Warehouse Stats --- (filtered by branch)
-    const warehouseMatchStage = authResult.isSuperAdmin 
-      ? { deletedAt: null }
-      : { deletedAt: null, branch: authResult.branch };
+    // --- Warehouse Stats --- (using new Products model)
+    const productQuery = (authResult.isSuperAdmin && !branchIdOverride) 
+      ? { deletedAt: null, status: "active" }
+      : { deletedAt: null, status: "active", ...branchFilter };
     
-    // 1. Product Inventory Count (Unique items with >0 quantity)
-    const inventoryAgg = await WarehouseMovement.aggregate([
-      { $match: { ...warehouseMatchStage, category: "product" } },
-      { 
-        $group: { 
-          _id: { itemName: "$itemName", type: "$type" }, 
-          totalQuantity: { $sum: "$quantity" } 
-        } 
-      },
-    ]);
-
-    const inventoryMap: Record<string, number> = {};
-    inventoryAgg.forEach(item => {
-      const name = item._id.itemName;
-      const qty = item.totalQuantity;
-      if (!name) return;
-      if (!inventoryMap[name]) inventoryMap[name] = 0;
-      if (item._id.type === "inbound") inventoryMap[name] += qty;
-      else inventoryMap[name] -= qty;
-    });
+    // Import Product model dynamically to avoid issues if not imported at top
+    const Product = (await import("@/lib/models/Product")).default;
     
-    // Count items with positive stock
-    const inventoryItemsCount = Object.values(inventoryMap).filter(q => q > 0).length;
-
-    // 2. Cash Balance (Warehouse Cash)
-    const cashAgg = await WarehouseMovement.aggregate([
-      { $match: { ...warehouseMatchStage, category: "cash" } },
-      { 
-        $group: { 
-          _id: "$type", 
-          totalValue: { $sum: "$value" } 
-        } 
-      },
-    ]);
+    const products = await Product.find(productQuery).lean();
     
-    let cashInbound = 0;
-    let cashOutbound = 0;
-    cashAgg.forEach(item => {
-      if (item._id === "inbound") cashInbound = item.totalValue;
-      if (item._id === "outbound") cashOutbound = item.totalValue;
-    });
-    const warehouseCashBalance = cashInbound - cashOutbound;
-
-    // 3. Estimated Stock Value (Warehouse Value)
-    // This is tricky as we don't store per-item value always, but we can sum 'product' inbound value - outbound value?
-    // Or just fetch total inbound value of products vs outbound? 
-    // The current Warehouse page doesn't explicitly show "Total Stock Inventory Value", only "Cash Balance".
-    // I will compute "Total Product Value" based on inbound product values minus outbound product values to approximate.
-    const productValueAgg = await WarehouseMovement.aggregate([
-      { $match: { ...warehouseMatchStage, category: "product" } },
-      { 
-        $group: { 
-          _id: "$type", 
-          totalValue: { $sum: "$value" } 
-        } 
-      },
-    ]);
-     let productInboundVal = 0;
-    let productOutboundVal = 0;
-    productValueAgg.forEach(item => {
-      // Note: Value is optional for items, so this might be partial data, but better than nothing
-      if (item._id === "inbound") productInboundVal = item.totalValue || 0;
-      if (item._id === "outbound") productOutboundVal = item.totalValue || 0;
-    });
-    const totalStockValue = productInboundVal - productOutboundVal;
+    // Calculate stats from products (matching warehouse page logic)
+    const inventoryItemsCount = products.length;
+    const totalCost = products.reduce((sum: number, p: any) => sum + (p.totalCost || 0), 0);
+    const totalRevenue = products.reduce((sum: number, p: any) => sum + (p.totalRevenue || 0), 0);
+    const netProfit = totalRevenue - totalCost;
+    
+    console.log(`[Reports API] Products Query:`, JSON.stringify(productQuery));
+    console.log(`[Reports API] Products Count:`, products.length, `Total Cost:`, totalCost, `Total Revenue:`, totalRevenue);
 
 
     return NextResponse.json({
@@ -214,9 +161,9 @@ export async function GET(request: Request) {
         },
         warehouse: {
             itemsCount: inventoryItemsCount,
-            cashBalance: warehouseCashBalance,
-            notes: "Stock value is approximate based on recorded movement values",
-            totalStockValue
+            cashBalance: netProfit, // صافي الربح = الإيرادات - التكاليف
+            totalStockValue: totalCost, // إجمالي تكلفة المخزون
+            totalRevenue: totalRevenue, // إجمالي الإيرادات
         }
       },
       branch: authResult.branchName,
