@@ -593,7 +593,7 @@ function ProductDetailsModal({
   const [editingOp, setEditingOp] = useState<ProductOperation | null>(null);
   const [editForm, setEditForm] = useState({ description: "", quantity: "", amount: "", date: "" });
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [operationFilter, setOperationFilter] = useState<"all" | "purchase" | "sale" | "donation">("all");
+  const [operationFilter, setOperationFilter] = useState<"all" | "purchase" | "expense" | "sale" | "donation">("all");
 
   const product: Product | null = data?.product;
   const operations: ProductOperation[] = data?.operations || [];
@@ -762,7 +762,7 @@ function ProductDetailsModal({
           
           {/* Operations Filter */}
           <div className="flex gap-2 mb-3 flex-wrap">
-            {(["all", "purchase", "sale", "donation"] as const).map(filterType => (
+            {(["all", "purchase", "expense", "sale", "donation"] as const).map(filterType => (
               <button
                 key={filterType}
                 onClick={() => setOperationFilter(filterType)}
@@ -772,7 +772,7 @@ function ProductDetailsModal({
                     : "bg-muted text-muted-foreground hover:bg-muted/80"
                 }`}
               >
-                {filterType === "all" ? "الكل" : filterType === "purchase" ? "شراء" : filterType === "sale" ? "بيع" : "تبرع"}
+                {filterType === "all" ? "الكل" : filterType === "purchase" ? "شراء" : filterType === "expense" ? "مصروف" : filterType === "sale" ? "بيع" : "تبرع"}
                 {filterType !== "all" && (
                   <span className="mr-1 opacity-70">
                     ({operations.filter(op => op.type === filterType).length})
@@ -784,7 +784,7 @@ function ProductDetailsModal({
 
           {filteredOperations.length === 0 ? (
             <p className="text-center text-muted-foreground py-6">
-              {operationFilter === "all" ? "لا توجد عمليات بعد" : `لا توجد عمليات ${operationFilter === "purchase" ? "شراء" : operationFilter === "sale" ? "بيع" : "تبرع"}`}
+              {operationFilter === "all" ? "لا توجد عمليات بعد" : `لا توجد عمليات ${operationFilter === "purchase" ? "شراء" : operationFilter === "expense" ? "مصروف" : operationFilter === "sale" ? "بيع" : "تبرع"}`}
             </p>
           ) : (
             <div className="space-y-2 max-h-80 overflow-y-auto">
