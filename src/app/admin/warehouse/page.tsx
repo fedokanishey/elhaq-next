@@ -237,6 +237,153 @@ function AddProductModal({
   );
 }
 
+// --- Edit Product Modal ---
+function EditProductModal({ 
+  isOpen, 
+  onClose, 
+  onSuccess,
+  product,
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onSuccess: () => void;
+  product: Product | null;
+}) {
+  const [formData, setFormData] = useState({
+    name: "",
+    category: "raw" as "raw" | "finished" | "byproduct",
+    unit: "كيلو",
+    notes: "",
+    status: "active" as "active" | "depleted" | "archived",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (isOpen && product) {
+      setFormData({
+        name: product.name,
+        category: product.category,
+        unit: product.unit,
+        notes: product.notes || "",
+        status: product.status,
+      });
+      setError("");
+    }
+  }, [isOpen, product]);
+
+  if (!isOpen || !product) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const res = await fetch(`/api/products/${product._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "فشل تعديل المنتج");
+
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-background rounded-lg shadow-lg w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">تعديل المنتج</h2>
+          <button onClick={onClose}><X className="w-5 h-5" /></button>
+        </div>
+        
+        {error && <div className="text-red-500 mb-3 text-sm bg-red-50 p-2 rounded">{error}</div>}
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">اسم المنتج *</label>
+            <input 
+              required
+              className="w-full border rounded p-2 bg-background"
+              placeholder="مثال: شعير، رز، سكر..."
+              value={formData.name}
+              onChange={e => setFormData({...formData, name: e.target.value})}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">النوع</label>
+              <select 
+                className="w-full border rounded p-2 bg-background"
+                value={formData.category}
+                onChange={e => setFormData({...formData, category: e.target.value as any})}
+              >
+                <option value="raw">خام</option>
+                <option value="finished">جاهز</option>
+                <option value="byproduct">منتج فرعي</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">الوحدة</label>
+              <select 
+                className="w-full border rounded p-2 bg-background"
+                value={formData.unit}
+                onChange={e => setFormData({...formData, unit: e.target.value})}
+              >
+                <option value="كيلو">كيلو</option>
+                <option value="طن">طن</option>
+                <option value="كرتونة">كرتونة</option>
+                <option value="شكارة">شكارة</option>
+                <option value="قطعة">قطعة</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">الحالة</label>
+            <select 
+              className="w-full border rounded p-2 bg-background"
+              value={formData.status}
+              onChange={e => setFormData({...formData, status: e.target.value as any})}
+            >
+              <option value="active">نشط</option>
+              <option value="depleted">نافد</option>
+              <option value="archived">مؤرشف</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">ملاحظات</label>
+            <textarea 
+              className="w-full border rounded p-2 bg-background"
+              rows={2}
+              value={formData.notes}
+              onChange={e => setFormData({...formData, notes: e.target.value})}
+            />
+          </div>
+
+          <div className="flex gap-2 justify-end mt-4">
+            <button type="button" onClick={onClose} className="px-4 py-2 border rounded">إلغاء</button>
+            <button type="submit" disabled={submitting} className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90">
+              {submitting ? "جاري الحفظ..." : "حفظ التعديلات"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // --- Add Operation Modal ---
 function AddOperationModal({ 
   isOpen, 
@@ -446,11 +593,18 @@ function ProductDetailsModal({
   const [editingOp, setEditingOp] = useState<ProductOperation | null>(null);
   const [editForm, setEditForm] = useState({ description: "", quantity: "", amount: "", date: "" });
   const [deleting, setDeleting] = useState<string | null>(null);
-
-  if (!isOpen || !productId) return null;
+  const [operationFilter, setOperationFilter] = useState<"all" | "purchase" | "sale" | "donation">("all");
 
   const product: Product | null = data?.product;
   const operations: ProductOperation[] = data?.operations || [];
+
+  // Filter operations based on selected type
+  const filteredOperations = useMemo(() => {
+    if (operationFilter === "all") return operations;
+    return operations.filter(op => op.type === operationFilter);
+  }, [operations, operationFilter]);
+
+  if (!isOpen || !productId) return null;
 
   const getTypeLabel = (type: string) => {
     switch (type) {
@@ -605,11 +759,36 @@ function ProductDetailsModal({
           <h3 className="font-bold mb-3 flex items-center gap-2">
             <Archive className="w-5 h-5" /> سجل العمليات ({operations.length})
           </h3>
-          {operations.length === 0 ? (
-            <p className="text-center text-muted-foreground py-6">لا توجد عمليات بعد</p>
+          
+          {/* Operations Filter */}
+          <div className="flex gap-2 mb-3 flex-wrap">
+            {(["all", "purchase", "sale", "donation"] as const).map(filterType => (
+              <button
+                key={filterType}
+                onClick={() => setOperationFilter(filterType)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  operationFilter === filterType 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                {filterType === "all" ? "الكل" : filterType === "purchase" ? "شراء" : filterType === "sale" ? "بيع" : "تبرع"}
+                {filterType !== "all" && (
+                  <span className="mr-1 opacity-70">
+                    ({operations.filter(op => op.type === filterType).length})
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {filteredOperations.length === 0 ? (
+            <p className="text-center text-muted-foreground py-6">
+              {operationFilter === "all" ? "لا توجد عمليات بعد" : `لا توجد عمليات ${operationFilter === "purchase" ? "شراء" : operationFilter === "sale" ? "بيع" : "تبرع"}`}
+            </p>
           ) : (
             <div className="space-y-2 max-h-80 overflow-y-auto">
-              {operations.map((op) => (
+              {filteredOperations.map((op) => (
                 <div key={op._id} className="bg-muted/30 rounded-lg p-3 border border-border">
                   {editingOp?._id === op._id ? (
                     // Edit mode
@@ -752,6 +931,7 @@ export default function WarehousePage() {
   );
 
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [isEditProductOpen, setIsEditProductOpen] = useState(false);
   const [isAddOperationOpen, setIsAddOperationOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -800,6 +980,11 @@ export default function WarehousePage() {
   const openAddOperation = (product: Product) => {
     setSelectedProduct(product);
     setIsAddOperationOpen(true);
+  };
+
+  const openEditProduct = (product: Product) => {
+    setSelectedProduct(product);
+    setIsEditProductOpen(true);
   };
 
   if (!isLoaded) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
@@ -958,6 +1143,15 @@ export default function WarehousePage() {
                     </button>
                     {isAdmin && (
                       <button 
+                        onClick={() => openEditProduct(product)}
+                        className="px-3 py-2 border border-border bg-background rounded-md hover:bg-blue-50 hover:border-blue-200 group"
+                        title="تعديل"
+                      >
+                        <Edit className="w-5 h-5 text-muted-foreground group-hover:text-blue-600" />
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button 
                         onClick={() => handleDelete(product._id)}
                         className="px-3 py-2 border border-border bg-background rounded-md hover:bg-red-50 hover:border-red-200 group"
                         title="حذف"
@@ -981,6 +1175,20 @@ export default function WarehousePage() {
         branchId={isSuperAdmin ? selectedBranchId : null}
         branchName={isSuperAdmin ? selectedBranch?.name : null}
         allBranches={isSuperAdmin ? branchesData?.branches : []}
+      />
+
+      <EditProductModal
+        isOpen={isEditProductOpen}
+        onClose={() => {
+          setIsEditProductOpen(false);
+          setSelectedProduct(null);
+        }}
+        onSuccess={() => {
+          mutate();
+          setIsEditProductOpen(false);
+          setSelectedProduct(null);
+        }}
+        product={selectedProduct}
       />
       
       <AddOperationModal
