@@ -213,6 +213,10 @@ export default function AdminBeneficiaries() {
       result = result.filter((b) => (b.status || "active") === filters.status);
     }
 
+    if (filters.maritalStatus) {
+      result = result.filter((b) => b.maritalStatus === filters.maritalStatus);
+    }
+
     if (filters.listName) {
       const normalizedListName = filters.listName.toLowerCase().trim();
       result = result.filter((b) => {

@@ -66,6 +66,36 @@ export default function BeneficiariesPrintModal({
     }));
   };
 
+  // Translation helper function
+  const getArabicLabel = (field: string, value: string | number | undefined): string => {
+    if (!value && value !== 0) return "-";
+    const valueStr = String(value);
+    const translations: Record<string, Record<string, string>> = {
+      healthStatus: {
+        "healthy": "صحي",
+        "sick": "مريض",
+      },
+      housingType: {
+        "owned": "مملوك",
+        "rented": "مستأجر",
+      },
+      maritalStatus: {
+        "single": "أعزب/عزباء",
+        "married": "متزوج/متزوجة",
+        "divorced": "مطلق/مطلقة",
+        "widowed": "أرمل/أرملة",
+      },
+      employment: {
+        "employed": "موظف",
+        "self-employed": "عامل حر",
+        "unemployed": "عاطل",
+        "student": "طالب",
+        "retired": "متقاعد",
+      },
+    };
+    return translations[field]?.[valueStr] || valueStr;
+  };
+
   const handleExport = async () => {
     if (beneficiaries.length === 0) {
       alert("لا يوجد مستفيدون للتصدير");
@@ -74,9 +104,10 @@ export default function BeneficiariesPrintModal({
 
     setExporting(true);
     try {
-      const html2pdf = (await import("html2pdf.js")).default;
+      const { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, TextRun } = await import("docx");
+      const { saveAs } = await import("file-saver");
 
-      // Prepare table headers
+      // Build column headers based on selection
       const columnHeaders: Array<{ key: string; label: string }> = [
         { key: "index", label: "#" },
       ];
@@ -95,208 +126,182 @@ export default function BeneficiariesPrintModal({
       if (exportColumns.rentalCost) columnHeaders.push({ key: "rentalCost", label: "الإيجار" });
       if (exportColumns.notes) columnHeaders.push({ key: "notes", label: "ملاحظات" });
 
-      // Translation helper function
-      const getArabicLabel = (field: string, value: string | number | undefined): string => {
-        if (!value && value !== 0) return "-";
-        const valueStr = String(value);
-        const translations: Record<string, Record<string, string>> = {
-          healthStatus: {
-            "healthy": "صحي",
-            "sick": "مريض",
-          },
-          housingType: {
-            "owned": "مملوك",
-            "rented": "مستأجر",
-          },
-          maritalStatus: {
-            "single": "أعزب/عزباء",
-            "married": "متزوج/متزوجة",
-            "divorced": "مطلق/مطلقة",
-            "widowed": "أرمل/أرملة",
-          },
-          employment: {
-            "employed": "موظف",
-            "self-employed": "عامل حر",
-            "unemployed": "عاطل",
-            "student": "طالب",
-            "retired": "متقاعد",
-          },
-        };
-        return translations[field]?.[valueStr] || valueStr;
-      };
+      // Pagination: 30 beneficiaries per page for Word
+      const BENEFICIARIES_PER_PAGE = 30;
+      const totalBeneficiaries = beneficiaries.length;
+      const totalPages = Math.ceil(totalBeneficiaries / BENEFICIARIES_PER_PAGE);
 
-      // Build table rows HTML
-      let tableRows = "";
-      beneficiaries.forEach((beneficiary, index) => {
-        let rowHtml = "<tr>";
-        columnHeaders.forEach((col) => {
-          let cellValue = "-";
-          if (col.key === "index") {
-            cellValue = String(index + 1);
-          } else if (col.key === "spouse") {
-            cellValue = beneficiary.spouse?.name || "-";
-          } else if (col.key === "income" || col.key === "rentalCost") {
-            const value = beneficiary[col.key as keyof Beneficiary];
-            cellValue = value ? String(value) : "-";
-          } else if (
-            col.key === "healthStatus" ||
-            col.key === "housingType" ||
-            col.key === "maritalStatus" ||
-            col.key === "employment"
-          ) {
-            const value = beneficiary[col.key as keyof Beneficiary];
-            cellValue = getArabicLabel(col.key, value as string | number | undefined);
-          } else {
-            const value = beneficiary[col.key as keyof Beneficiary];
-            cellValue = String(value || "-");
-          }
-          const isIndex = col.key === "index" ? 'class="row-index"' : "";
-          rowHtml += `<td ${isIndex}>${cellValue}</td>`;
+      // Calculate column width based on number of columns
+      const totalWidth = 9500; // Total table width in DXA
+      const colWidth = Math.floor(totalWidth / columnHeaders.length);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sections: any[] = [];
+
+      for (let pageNum = 0; pageNum < totalPages; pageNum++) {
+        const startIndex = pageNum * BENEFICIARIES_PER_PAGE;
+        const endIndex = Math.min(startIndex + BENEFICIARIES_PER_PAGE, totalBeneficiaries);
+        const pageBeneficiaries = beneficiaries.slice(startIndex, endIndex);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const tableRows: any[] = [];
+
+        // Header row
+        tableRows.push(
+          new TableRow({
+            children: columnHeaders.map((col) =>
+              new TableCell({
+                children: [new Paragraph({ text: col.label, alignment: AlignmentType.CENTER, bidirectional: true })],
+                width: { size: colWidth, type: WidthType.DXA },
+                shading: { fill: "d0d0d0" },
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                verticalAlign: AlignmentType.CENTER as any,
+              })
+            ),
+          })
+        );
+
+        // Data rows
+        pageBeneficiaries.forEach((beneficiary, index) => {
+          const globalIndex = startIndex + index + 1;
+          tableRows.push(
+            new TableRow({
+              children: columnHeaders.map((col) => {
+                let cellValue = "-";
+                if (col.key === "index") {
+                  cellValue = String(globalIndex);
+                } else if (col.key === "income" || col.key === "rentalCost" || col.key === "priority" || col.key === "familyMembers") {
+                  const value = beneficiary[col.key as keyof Beneficiary];
+                  cellValue = value !== undefined && value !== null ? String(value) : "-";
+                } else if (
+                  col.key === "healthStatus" ||
+                  col.key === "housingType" ||
+                  col.key === "maritalStatus" ||
+                  col.key === "employment"
+                ) {
+                  const value = beneficiary[col.key as keyof Beneficiary];
+                  cellValue = getArabicLabel(col.key, value as string | number | undefined);
+                } else {
+                  const value = beneficiary[col.key as keyof Beneficiary];
+                  cellValue = String(value || "-");
+                }
+
+                return new TableCell({
+                  children: [new Paragraph({ 
+                    text: cellValue, 
+                    alignment: col.key === "index" ? AlignmentType.CENTER : AlignmentType.RIGHT, 
+                    bidirectional: true 
+                  })],
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  verticalAlign: AlignmentType.CENTER as any,
+                });
+              }),
+            })
+          );
         });
-        rowHtml += "</tr>";
-        tableRows += rowHtml;
+
+        // Create table
+        const table = new Table({
+          rows: tableRows,
+          width: { size: totalWidth, type: WidthType.DXA },
+          alignment: AlignmentType.CENTER,
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 2, color: "000000" },
+            bottom: { style: BorderStyle.SINGLE, size: 2, color: "000000" },
+            left: { style: BorderStyle.SINGLE, size: 2, color: "000000" },
+            right: { style: BorderStyle.SINGLE, size: 2, color: "000000" },
+            insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "666666" },
+            insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "666666" },
+          },
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pageContent: any[] = [];
+
+        // Header
+        pageContent.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "مؤسسة دعوة الحق",
+                bold: true,
+                size: 32,
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 100 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: title,
+                bold: true,
+                size: 28,
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 100 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `قائمة المستفيدين (${totalBeneficiaries} مستفيد) - صفحة ${pageNum + 1} من ${totalPages}`,
+                bold: true,
+                size: 22,
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 200 },
+          })
+        );
+
+        // Table
+        pageContent.push(table);
+
+        // Footer
+        const reportDate = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+        pageContent.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `تاريخ التقرير: ${reportDate}`,
+                size: 18,
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 300 },
+          })
+        );
+
+        // Add section
+        sections.push({
+          children: pageContent,
+          properties: {
+            page: {
+              margin: {
+                top: 720,
+                right: 720,
+                bottom: 720,
+                left: 720,
+              },
+            },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            textDirection: "rightToLeft" as any,
+            bidi: true,
+          },
+        });
+      }
+
+      const doc = new Document({
+        sections,
       });
 
-      // Build table headers HTML
-      let headerHtml = "";
-      columnHeaders.forEach((h) => {
-        headerHtml += `<th>${h.label}</th>`;
-      });
-
-      // Create HTML content
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html lang="ar" dir="rtl">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              * { margin: 0; padding: 0; }
-              body {
-                font-family: Arial, sans-serif;
-                direction: rtl;
-                text-align: right;
-                padding: 20px;
-                color: #000000;
-                margin-bottom: 30px;
-              }
-              .header {
-                text-align: center;
-                margin-bottom: 20px;
-              }
-              .header h1 {
-                font-size: 18px;
-                font-weight: bold;
-                margin-bottom: 5px;
-                color: #000000;
-              }
-              .header h2 {
-                font-size: 14px;
-                font-weight: bold;
-                margin-bottom: 10px;
-                color: #000000;
-              }
-              .info {
-                margin-bottom: 20px;
-              }
-              .info h3 {
-                font-size: 12px;
-                font-weight: bold;
-                margin-bottom: 8px;
-                text-decoration: underline;
-                color: #000000;
-              }
-              .info p {
-                font-size: 11px;
-                line-height: 1.6;
-                color: #000000;
-              }
-              table {
-                width: 100%;
-                border-collapse: collapse;
-                margin: 20px 0;
-              }
-              thead {
-                background-color: #d0d0d0;
-              }
-              th {
-                border: 1px solid #333;
-                padding: 8px;
-                font-size: 10px;
-                font-weight: bold;
-                text-align: center;
-                color: #000000;
-              }
-              td {
-                border: 1px solid #666;
-                padding: 6px;
-                font-size: 10px;
-                text-align: right;
-                color: #000000;
-              }
-              .row-index {
-                text-align: center;
-                width: 30px;
-                color: #000000;
-              }
-              .footer {
-                text-align: center;
-                font-size: 9px;
-                color: #000000;
-                margin-top: 30px;
-                padding: 15px;
-                border-top: 1px solid #ccc;
-              }
-              h3 {
-                color: #000000;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>مؤسسة دعوة الحق</h1>
-              <h2>${title}</h2>
-            </div>
-
-            <h3 style="margin-bottom: 10px;">قائمة المستفيدين (${beneficiaries.length} مستفيد)</h3>
-
-            <table>
-              <thead>
-                <tr>
-                  ${headerHtml}
-                </tr>
-              </thead>
-              <tbody>
-                ${tableRows}
-              </tbody>
-            </table>
-
-            <div class="footer">
-              <p>تاريخ التقرير: ${new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}</p>
-            </div>
-          </body>
-        </html>
-      `;
-
-      // Create PDF from HTML
-      const element = document.createElement("div");
-      element.innerHTML = htmlContent;
-      document.body.appendChild(element);
-
-      const opt = {
-        margin: 10,
-        filename: `تقرير_${title}.pdf`,
-        image: { type: "jpeg" as const, quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { orientation: "landscape" as const, unit: "mm" as const, format: "a4" },
-      };
-
-      await html2pdf().set(opt).from(element).save();
-      document.body.removeChild(element);
+      const blob = await Packer.toBlob(doc);
+      saveAs(blob, `${title}.docx`);
       onClose();
     } catch (err) {
-      console.error("PDF export error:", err);
-      alert("فشل تصدير ملف PDF");
+      console.error("Word export error:", err);
+      alert("فشل تصدير ملف Word");
     } finally {
       setExporting(false);
     }
@@ -378,7 +383,7 @@ export default function BeneficiariesPrintModal({
             ) : (
               <>
                 <Download className="w-4 h-4" />
-                تصدير PDF
+                تصدير Word
               </>
             )}
           </button>

@@ -8,6 +8,7 @@ export interface BeneficiaryFilterCriteria {
   healthStatus?: "healthy" | "sick" | "";
   housingType?: "owned" | "rented" | "";
   status?: "active" | "cancelled" | "pending" | "";
+  maritalStatus?: "single" | "married" | "divorced" | "widowed" | "";
   listName?: string;
   priorityMin?: number;
   priorityMax?: number;
@@ -29,6 +30,7 @@ const defaultFilters: BeneficiaryFilterCriteria = {
   healthStatus: "",
   housingType: "",
   status: "",
+  maritalStatus: "",
   listName: "",
   priorityMin: 1,
   priorityMax: 10,
@@ -92,6 +94,7 @@ export default function BeneficiaryFilterPanel({
     filters.healthStatus ||
     filters.housingType ||
     filters.status ||
+    filters.maritalStatus ||
     filters.listName ||
     filters.employment ||
     filters.priorityMin !== 1 ||
@@ -174,6 +177,27 @@ export default function BeneficiaryFilterPanel({
           <option value="active">نشط</option>
           <option value="pending">انتظار</option>
           <option value="cancelled">ملغى</option>
+        </select>
+      </div>
+
+      {/* Marital Status */}
+      <div>
+        <label htmlFor="marital-status-filter" className="block text-sm font-medium text-foreground mb-1">
+          الحالة الاجتماعية
+        </label>
+        <select
+          id="marital-status-filter"
+          value={filters.maritalStatus || ""}
+          onChange={(e) => handleChange("maritalStatus", e.target.value || "")}
+          title="اختر الحالة الاجتماعية"
+          aria-label="تصفية حسب الحالة الاجتماعية"
+          className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+        >
+          <option value="">الكل</option>
+          <option value="single">أعزب/عزباء</option>
+          <option value="married">متزوج/متزوجة</option>
+          <option value="divorced">مطلق/مطلقة</option>
+          <option value="widowed">أرمل/أرملة</option>
         </select>
       </div>
 

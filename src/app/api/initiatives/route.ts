@@ -8,21 +8,29 @@ export async function GET(request: Request) {
   try {
     await dbConnect();
     
-    const authResult = await getAuthenticatedUser();
-    
     // Get branchId from query params (for SuperAdmin branch filtering)
     const { searchParams } = new URL(request.url);
     const branchIdOverride = searchParams.get("branchId");
     
-    const branchFilter = getBranchFilterWithOverride(authResult, branchIdOverride);
+    let authResult;
+    let branchFilter: Record<string, unknown> = {};
+    
+    try {
+      authResult = await getAuthenticatedUser();
+      branchFilter = getBranchFilterWithOverride(authResult, branchIdOverride);
+    } catch (authError) {
+      // Auth failed - this is a public request, show all initiatives
+      console.log("Public access to initiatives (no auth)");
+      authResult = null;
+    }
     
     const initiatives = await Initiative.find(branchFilter)
       .sort({ date: -1 })
       .populate("branch", "name code");
     return NextResponse.json({ 
       initiatives,
-      branch: authResult.branchName,
-      isSuperAdmin: authResult.isSuperAdmin,
+      branch: authResult?.branchName ?? null,
+      isSuperAdmin: authResult?.isSuperAdmin ?? false,
     });
   } catch (error) {
     console.error("Error fetching initiatives:", error);
