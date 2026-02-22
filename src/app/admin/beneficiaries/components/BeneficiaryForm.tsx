@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ImageUpload from "@/components/ImageUpload";
 import { calculatePriority } from "@/lib/utils/calculatePriority";
-import { ArrowLeft, ArrowRightLeft, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, AlertTriangle, Camera, Loader2 } from "lucide-react";
 import { useBranchContext } from "@/contexts/BranchContext";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
@@ -264,6 +264,69 @@ export default function BeneficiaryForm({
   const [swapTargetId, setSwapTargetId] = useState("");
   const [swapError, setSwapError] = useState("");
   const [swapping, setSwapping] = useState(false);
+
+  // AI Camera State
+  const [isScanningId, setIsScanningId] = useState(false);
+  const [scanningChildIndex, setScanningChildIndex] = useState<number | null>(null);
+
+  const handleScanId = async (e: React.ChangeEvent<HTMLInputElement>, type: 'beneficiary' | 'child', childIndex?: number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (type === 'beneficiary') setIsScanningId(true);
+    else if (childIndex !== undefined) setScanningChildIndex(childIndex);
+
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Data = reader.result as string;
+        
+        const res = await fetch('/api/extract-id-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64Data, type })
+        });
+
+        if (!res.ok) {
+           const errData = await res.json();
+           throw new Error(errData.error || "Failed to scan");
+        }
+
+        const { data } = await res.json();
+        
+        if (type === 'beneficiary') {
+           setFormData(prev => ({
+              ...prev,
+              name: data.name || prev.name,
+              phone: data.nationalId || prev.phone, // "الرقم القومي" field
+              address: data.address || prev.address,
+              employment: data.employment || prev.employment,
+              maritalStatus: data.maritalStatus ? (data.maritalStatus === 'single' || data.maritalStatus === 'married' || data.maritalStatus === 'divorced' || data.maritalStatus === 'widowed' ? data.maritalStatus : prev.maritalStatus) : prev.maritalStatus,
+           }));
+           alert("تم استخراج البيانات بنجاح، يرجى مراجعتها وتعديلها إذا لزم الأمر.");
+        } else if (childIndex !== undefined) {
+           setFormData(prev => {
+              const children = [...prev.children];
+              children[childIndex] = {
+                 ...children[childIndex],
+                 name: data.name || children[childIndex].name,
+                 nationalId: data.nationalId || children[childIndex].nationalId,
+              };
+              return { ...prev, children };
+           });
+           alert("تم استخراج بيانات الابن بنجاح.");
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+      alert("حدث خطأ أثناء فحص البطاقة. تأكد من إعداد مفتاح API بشكل صحيح.");
+    } finally {
+      if (type === 'beneficiary') setIsScanningId(false);
+      else setScanningChildIndex(null);
+      e.target.value = ''; // Reset input
+    }
+  };
 
   const handleSwap = async () => {
     if (!swapTargetId || !beneficiaryId) return;
@@ -923,6 +986,16 @@ export default function BeneficiaryForm({
         )}
 
         <form onSubmit={handleSubmit} className={isModal ? "space-y-6" : "bg-card border border-border rounded-lg shadow-sm p-6 space-y-6"}>
+          
+          {/* Scan Beneficiary ID */}
+          <div className="flex justify-end mt-2 -mb-2">
+             <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isScanningId ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20'}`}>
+                {isScanningId ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                {isScanningId ? "جاري فحص البطاقة..." : "استخراج البيانات من البطاقة (AI)"}
+                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleScanId(e, 'beneficiary')} disabled={isScanningId} />
+             </label>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="beneficiary-name" className="block text-sm font-medium text-foreground mb-2">
@@ -1650,6 +1723,15 @@ export default function BeneficiaryForm({
                     key={child._id ?? index}
                     className="grid grid-cols-1 sm:grid-cols-2 gap-4 border border-border rounded-lg p-4 bg-muted/50"
                   >
+                    <div className="sm:col-span-2 flex justify-between items-center mb-1">
+                       <span className="text-sm font-medium text-muted-foreground">بيانات الابن #{index + 1}</span>
+                       <label className={`cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${scanningChildIndex === index ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-secondary/20 text-secondary-foreground hover:bg-secondary/30 border border-secondary/20'}`}>
+                          {scanningChildIndex === index ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
+                          {scanningChildIndex === index ? "جاري الفحص..." : "استخراج البيانات"}
+                          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleScanId(e, 'child', index)} disabled={scanningChildIndex !== null} />
+                       </label>
+                    </div>
+
                     <div>
                       <label htmlFor={`child-name-${index}`} className="block text-sm font-medium text-foreground mb-2">
                         اسم الابن

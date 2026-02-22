@@ -38,6 +38,13 @@ interface BeneficiaryOption {
   housingType?: "owned" | "rented";
   employment?: string;
   priority?: number;
+  listName?: string;
+  listNames?: string[];
+  maritalStatus?: string;
+  acceptsMarriage?: boolean;
+  receivesMonthlyAllowance?: boolean;
+  category?: "A" | "B" | "C" | "D";
+  status?: "active" | "cancelled" | "pending";
 }
 
 interface BeneficiaryApiRecord {
@@ -51,6 +58,13 @@ interface BeneficiaryApiRecord {
   housingType?: "owned" | "rented";
   employment?: string;
   priority?: number;
+  listName?: string;
+  listNames?: string[];
+  maritalStatus?: string;
+  acceptsMarriage?: boolean;
+  receivesMonthlyAllowance?: boolean;
+  category?: "A" | "B" | "C" | "D";
+  status?: "active" | "cancelled" | "pending";
   children?: BeneficiaryChildSummary[];
 }
 
@@ -156,6 +170,13 @@ export default function InitiativeForm({
               housingType: item?.housingType,
               employment: item?.employment,
               priority: item?.priority,
+              listName: item?.listName,
+              listNames: item?.listNames,
+              maritalStatus: item?.maritalStatus,
+              acceptsMarriage: item?.acceptsMarriage,
+              receivesMonthlyAllowance: item?.receivesMonthlyAllowance,
+              category: item?.category,
+              status: item?.status,
               children: Array.isArray(item?.children)
                 ? item.children.map((child: BeneficiaryChildSummary) => ({
                     _id: child?._id?.toString?.() ?? child?._id,
@@ -258,12 +279,55 @@ export default function InitiativeForm({
       });
     }
 
-    // Sort by nationalId
-    result.sort((a, b) => {
-      const aId = parseInt(a.nationalId || "0", 10);
-      const bId = parseInt(b.nationalId || "0", 10);
-      return sortByNationalId ? aId - bId : bId - aId;
-    });
+    // Accepts Marriage
+    if (beneficiaryFilters.acceptsMarriage) {
+      result = result.filter((b) => b.acceptsMarriage === true);
+    }
+
+    // Receives Monthly Allowance
+    if (beneficiaryFilters.receivesMonthlyAllowance) {
+      result = result.filter((b) => b.receivesMonthlyAllowance === true);
+    }
+
+    // Status Filter
+    if (beneficiaryFilters.status) {
+      result = result.filter((b) => (b.status || "active") === beneficiaryFilters.status);
+    }
+
+    // Marital Status Filter
+    if (beneficiaryFilters.maritalStatus) {
+      result = result.filter((b) => b.maritalStatus === beneficiaryFilters.maritalStatus);
+    }
+
+    // Category Filter
+    if (beneficiaryFilters.categories && beneficiaryFilters.categories.length > 0) {
+      result = result.filter((b) => {
+        const beneficiaryCategory = b.category || "C";
+        return beneficiaryFilters.categories!.includes(beneficiaryCategory);
+      });
+    }
+
+    // List Name Filter
+    if (beneficiaryFilters.listName) {
+      const normalizedListName = beneficiaryFilters.listName.toLowerCase().trim();
+      result = result.filter((b) => {
+        const lists = b.listNames?.length ? b.listNames : (b.listName ? [b.listName] : ["الكشف العام"]);
+        return lists.some((name: string) => name.toLowerCase().includes(normalizedListName));
+      });
+    }
+
+    // Sort by Date (for pending status) or National ID
+    // We don't have createdAt here readily, but let's just stick to the main sort for now
+    if (beneficiaryFilters.status === "pending") {
+      // Keep original order or simplest for pending, as we lack dates in the trimmed down model
+    } else {
+      // Sort by nationalId
+      result.sort((a, b) => {
+        const aId = parseInt(a.nationalId || "0", 10);
+        const bId = parseInt(b.nationalId || "0", 10);
+        return sortByNationalId ? aId - bId : bId - aId;
+      });
+    }
 
     return result;
   }, [beneficiaries, searchTerm, beneficiaryFilters, sortByNationalId]);
