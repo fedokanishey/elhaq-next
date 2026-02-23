@@ -614,6 +614,29 @@ export default function InitiativeForm({
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium text-muted-foreground">المستفيدون من المبادرة</label>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const isAllSelected = filteredBeneficiaries.length > 0 && filteredBeneficiaries.every(b => selectedBeneficiaries.some(s => s._id === b._id));
+                  if (isAllSelected) {
+                    setSelectedBeneficiaries(prev => prev.filter(s => !filteredBeneficiaries.some(b => b._id === s._id)));
+                  } else {
+                    setSelectedBeneficiaries(prev => {
+                      const newSelection = [...prev];
+                      filteredBeneficiaries.forEach(b => {
+                        if (!newSelection.some(s => s._id === b._id)) {
+                          newSelection.push(b);
+                        }
+                      });
+                      return newSelection;
+                    });
+                  }
+                }}
+                disabled={filteredBeneficiaries.length === 0}
+                className="px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded-md text-xs hover:bg-primary/20 transition-colors disabled:opacity-50"
+              >
+                {filteredBeneficiaries.length > 0 && filteredBeneficiaries.every(b => selectedBeneficiaries.some(s => s._id === b._id)) ? "إلغاء تحديد الكل" : "تحديد الكل"}
+              </button>
               <span className="text-xs text-muted-foreground">
                 {selectedBeneficiaries.length} مختار
               </span>

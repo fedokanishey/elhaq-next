@@ -797,9 +797,37 @@ export default function TreasuryPage() {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <label className="text-sm font-medium text-muted-foreground">المستفيدون من المبلغ</label>
-                    <span className="text-xs text-muted-foreground">
-                      {formData.beneficiaryIds.length} مختار
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const isAllSelected = filteredBeneficiaries.length > 0 && filteredBeneficiaries.every((b: BeneficiarySummary) => formData.beneficiaryIds.includes(b._id));
+                          if (isAllSelected) {
+                            setFormData(prev => ({
+                              ...prev,
+                              beneficiaryIds: prev.beneficiaryIds.filter(id => !filteredBeneficiaries.some((b: BeneficiarySummary) => b._id === id))
+                            }));
+                          } else {
+                            setFormData(prev => {
+                              const newSelection = [...prev.beneficiaryIds];
+                              filteredBeneficiaries.forEach((b: BeneficiarySummary) => {
+                                if (!newSelection.includes(b._id)) {
+                                  newSelection.push(b._id);
+                                }
+                              });
+                              return { ...prev, beneficiaryIds: newSelection };
+                            });
+                          }
+                        }}
+                        disabled={filteredBeneficiaries.length === 0}
+                        className="px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded-md text-xs hover:bg-primary/20 transition-colors disabled:opacity-50"
+                      >
+                        {filteredBeneficiaries.length > 0 && filteredBeneficiaries.every((b: BeneficiarySummary) => formData.beneficiaryIds.includes(b._id)) ? "إلغاء تحديد الكل" : "تحديد الكل"}
+                      </button>
+                      <span className="text-xs text-muted-foreground">
+                        {formData.beneficiaryIds.length} مختار
+                      </span>
+                    </div>
                   </div>
                   <div className="mb-3 flex flex-col sm:flex-row gap-3 items-start sm:items-end">
                     <div className="flex-1 w-full">
