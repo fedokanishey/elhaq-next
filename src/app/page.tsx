@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { ArrowRight, Heart, Shield, Users, LayoutDashboard, UserCircle, Image as ImageIcon, Wallet, BarChart3, HandCoins, Archive } from "lucide-react";
+import InstallPWA from "@/components/InstallPWA";
 
 interface InitiativePreview {
   _id: string;
@@ -187,6 +188,8 @@ export default function Home() {
           <p className="text-xl sm:text-2xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             نظام إدارة العمل الخيري الشامل. نساعدك في تنظيم وإدارة المبادرات الخيرية بكفاءة وشفافية.
           </p>
+
+          <InstallPWA />
 
           {!isLoaded ? (
             <div className="flex items-center justify-center h-12">

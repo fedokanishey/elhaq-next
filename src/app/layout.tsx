@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Navbar from "@/components/Navbar";
 import BackToTopButton from "@/components/BackToTopButton";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import PWARegister from "@/components/PWARegister";
 import { BranchProvider } from "@/contexts/BranchContext";
 import "./globals.css";
 
@@ -20,6 +21,18 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "دعوة الحق",
   description: "دعوة الحق - نظام إدارة العمل الخيري",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "دعوة الحق",
+  },
+  icons: [
+    { rel: "apple-touch-icon", url: "/icons/icon-192x192-v2.png" },
+  ],
+};
+
+export const viewport = {
+  themeColor: "#16a34a",
 };
 
 export default function RootLayout({
@@ -30,9 +43,13 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="ar" dir="rtl" suppressHydrationWarning>
+        <head>
+          <link rel="manifest" href="/manifest.json" />
+        </head>
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
         >
+          <PWARegister />
           <ThemeProvider
             attribute="class"
             defaultTheme="system"

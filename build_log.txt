@@ -1,0 +1,462 @@
+﻿
+> elhaq-next@0.1.0 build
+> next build
+
+node.exe : [baseline-bro
+wser-mapping] The data 
+in this module is over 
+two months old.  To 
+ensure accurate 
+Baseline data, please 
+update: `npm i baseline-
+browser-mapping@latest 
+-D`
+At line:1 char:1
++ & "C:\nvm4w\nodejs/nod
+e.exe" "C:\nvm4w\nodejs/
+node_modules/npm/bin/np 
+...
++ ~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo      
+        : NotSpecified  
+  : ([baseline-brows.   
+ ..ping@latest -D`:S    
+tring) [], RemoteEx    
+ception
+    + FullyQualifiedErr 
+   orId : NativeComman  
+  dError
+ 
+   Γû▓ Next.js 16.0.10 (Turbopack)
+   - Environments: .env.local
+
+ ΓÜá The "middleware" 
+file convention is 
+deprecated. Please use 
+"proxy" instead. Learn 
+more: https://nextjs.org
+/docs/messages/middlewar
+e-to-proxy
+   Creating an optimized production build ...
+[baseline-browser-mappin
+g] The data in this 
+module is over two 
+months old.  To ensure 
+accurate Baseline data, 
+please update: `npm i ba
+seline-browser-mapping@l
+atest -D`
+[baseline-browser-mappin
+g] The data in this 
+module is over two 
+months old.  To ensure 
+accurate Baseline data, 
+please update: `npm i ba
+seline-browser-mapping@l
+atest -D`
+
+[2m[2562.57ms][22m 
+[@tailwindcss/postcss] 
+src\app\globals.css
+[2m[   0.09ms][22m  
+[2m Γå│ [22mQuick 
+bail check
+[2m[  93.24ms][22m  
+[2m Γå│ [22mSetup 
+compiler
+[2m[   0.58ms][22m    
+[2m Γå│ [22mPostCSS 
+AST -> Tailwind CSS AST
+[2m[  92.62ms][22m    
+[2m Γå│ [22mCreate 
+compiler
+[2m[   0.22ms][22m  
+[2m Γå│ [22mRegister 
+full rebuild paths
+[2m[   5.45ms][22m  
+[2m Γå│ [22mSetup 
+scanner
+[2m[ 712.04ms][22m  
+[2m Γå│ [22mScan for 
+candidates
+[2m[1017.06ms][22m  
+[2m Γå│ [22mRegister 
+dependency messages
+[2m[ 393.86ms][22m  
+[2m Γå│ [22mBuild 
+utilities
+[2m[ 308.26ms][22m  
+[2m Γå│ 
+[22mOptimization
+[2m[   3.02ms][22m    
+[2m Γå│ [22mAST -> CSS
+[2m[ 101.90ms][22m    
+[2m Γå│ [22mLightning 
+CSS
+[2m[ 203.26ms][22m    
+[2m Γå│ [22mCSS -> 
+PostCSS AST
+[2m[  31.33ms][22m  
+[2m Γå│ [22mUpdate 
+PostCSS AST
+
+ Γ£ô Compiled successfully in 31.2s
+   Running TypeScript ...
+   Collecting page data using 7 workers ...
+[baseline-browser-mappin
+g] The data in this 
+module is over two 
+months old.  To ensure 
+accurate Baseline data, 
+please update: `npm i ba
+seline-browser-mapping@l
+atest -D`
+[baseline-browser-mappin
+g] The data in this 
+module is over two 
+months old.  To ensure 
+accurate Baseline data, 
+please update: `npm i ba
+seline-browser-mapping@l
+atest -D`
+[baseline-browser-mappin
+g] The data in this 
+module is over two 
+months old.  To ensure 
+accurate Baseline data, 
+please update: `npm i ba
+seline-browser-mapping@l
+atest -D`
+[baseline-browser-mappin
+g] The data in this 
+module is over two 
+months old.  To ensure 
+accurate Baseline data, 
+please update: `npm i ba
+seline-browser-mapping@l
+atest -D`
+[baseline-browser-mappin
+g] The data in this 
+module is over two 
+months old.  To ensure 
+accurate Baseline data, 
+please update: `npm i ba
+seline-browser-mapping@l
+atest -D`
+[baseline-browser-mappin
+g] The data in this 
+module is over two 
+months old.  To ensure 
+accurate Baseline data, 
+please update: `npm i ba
+seline-browser-mapping@l
+atest -D`
+[baseline-browser-mappin
+g] The data in this 
+module is over two 
+months old.  To ensure 
+accurate Baseline data, 
+please update: `npm i ba
+seline-browser-mapping@l
+atest -D`
+Γ£à INNGEST_SIGNING_KEY is present and has correct prefix.
+   Generating static pages using 7 workers (0/38) ...
+[baseline-browser-mappin
+g] The data in this 
+module is over two 
+months old.  To ensure 
+accurate Baseline data, 
+please update: `npm i ba
+seline-browser-mapping@l
+atest -D`
+[baseline-browser-mappin
+g] The data in this 
+module is over two 
+months old.  To ensure 
+accurate Baseline data, 
+please update: `npm i ba
+seline-browser-mapping@l
+atest -D`
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in 
+/admin/beneficiaries. 
+Please move it to 
+viewport export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in /admin/benefic
+iaries/add. Please move 
+it to viewport export 
+instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in 
+/admin/branches. Please 
+move it to viewport 
+export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in /_not-found. 
+Please move it to 
+viewport export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in 
+/admin/dashboard. 
+Please move it to 
+viewport export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in 
+/admin/initiatives/add. 
+Please move it to 
+viewport export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in 
+/admin/donors. Please 
+move it to viewport 
+export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+   Generating static pages using 7 workers (9/38) 
+Γ£à INNGEST_SIGNING_KEY is present and has correct prefix.
+   Generating static pages using 7 workers (18/38) 
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in 
+/beneficiaries. Please 
+move it to viewport 
+export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in /initiatives. 
+Please move it to 
+viewport export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in /profile. 
+Please move it to 
+viewport export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in /. Please 
+move it to viewport 
+export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+   Generating static pages using 7 workers (28/38) 
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in 
+/admin/initiatives. 
+Please move it to 
+viewport export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in /admin/loans. 
+Please move it to 
+viewport export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in 
+/admin/notebooks. 
+Please move it to 
+viewport export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in 
+/admin/reports. Please 
+move it to viewport 
+export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in 
+/admin/treasury. Please 
+move it to viewport 
+export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in /admin/users. 
+Please move it to 
+viewport export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+ ΓÜá Unsupported 
+metadata themeColor is 
+configured in metadata 
+export in 
+/admin/warehouse. 
+Please move it to 
+viewport export instead.
+Read more: https://nextj
+s.org/docs/app/api-refer
+ence/functions/generate-
+viewport
+ Γ£ô Generating static pages using 7 workers (38/38) in 2.4s
+   Finalizing page optimization ...
+
+Route (app)
+Γöî Γùï /
+Γö£ Γùï /_not-found
+Γö£ Γùï /admin/beneficiaries
+Γö£ ╞Æ /admin/beneficiaries/[id]
+Γö£ ╞Æ /admin/beneficiaries/[id]/edit
+Γö£ Γùï /admin/beneficiaries/add
+Γö£ Γùï /admin/branches
+Γö£ Γùï /admin/dashboard
+Γö£ Γùï /admin/donors
+Γö£ ╞Æ /admin/donors/[id]
+Γö£ Γùï /admin/initiatives
+Γö£ ╞Æ /admin/initiatives/[id]
+Γö£ ╞Æ /admin/initiatives/[id]/edit
+Γö£ Γùï /admin/initiatives/add
+Γö£ Γùï /admin/loans
+Γö£ Γùï /admin/notebooks
+Γö£ Γùï /admin/reports
+Γö£ Γùï /admin/treasury
+Γö£ Γùï /admin/users
+Γö£ Γùï /admin/warehouse
+Γö£ ╞Æ /api/beneficiaries
+Γö£ ╞Æ /api/beneficiaries/[id]
+Γö£ ╞Æ /api/beneficiaries/list-names
+Γö£ ╞Æ /api/beneficiaries/migrate-category
+Γö£ ╞Æ /api/beneficiaries/search
+Γö£ ╞Æ /api/beneficiaries/swap
+Γö£ ╞Æ /api/branches
+Γö£ ╞Æ /api/branches/[id]
+Γö£ ╞Æ /api/debug
+Γö£ ╞Æ /api/debug/check-users
+Γö£ ╞Æ /api/debug/clean-orphan-loans
+Γö£ ╞Æ /api/debug/cleanup-loans
+Γö£ ╞Æ /api/debug/fix-indexes
+Γö£ ╞Æ /api/debug/fix-loan-status
+Γö£ ╞Æ /api/debug/migrate-to-zarqa
+Γö£ ╞Æ /api/debug/my-auth
+Γö£ ╞Æ /api/debug/set-admin
+Γö£ ╞Æ /api/debug/set-superadmin
+Γö£ ╞Æ /api/donors
+Γö£ ╞Æ /api/donors/[id]
+Γö£ ╞Æ /api/donors/[id]/relink
+Γö£ ╞Æ /api/extract-id-data
+Γö£ ╞Æ /api/initiatives
+Γö£ ╞Æ /api/initiatives/[id]
+Γö£ ╞Æ /api/inngest
+Γö£ ╞Æ /api/loans
+Γö£ ╞Æ /api/loans/[id]
+Γö£ ╞Æ /api/loans/[id]/repay
+Γö£ ╞Æ /api/loans/[id]/repayments/[repaymentIndex]
+Γö£ ╞Æ /api/loans/capital
+Γö£ ╞Æ /api/loans/capital/[id]
+Γö£ ╞Æ /api/notebooks
+Γö£ ╞Æ /api/notebooks/[id]
+Γö£ ╞Æ /api/products
+Γö£ ╞Æ /api/products/[id]
+Γö£ ╞Æ /api/products/[id]/operations
+Γö£ ╞Æ /api/products/[id]/operations/[operationId]
+Γö£ ╞Æ /api/reports
+Γö£ ╞Æ /api/setup/init-branches
+Γö£ ╞Æ /api/setup/migrate-loans
+Γö£ ╞Æ /api/treasury
+Γö£ ╞Æ /api/treasury/[id]
+Γö£ ╞Æ /api/treasury/seed
+Γö£ ╞Æ /api/users
+Γö£ ╞Æ /api/users/[id]
+Γö£ ╞Æ /api/warehouse
+Γö£ ╞Æ /api/warehouse/[id]
+Γö£ Γùï /beneficiaries
+Γö£ ╞Æ /beneficiaries/[id]
+Γö£ Γùï /initiatives
+Γö£ ╞Æ /initiatives/[id]
+Γö£ Γùï /profile
+Γö£ ╞Æ /sign-in/[[...sign-in]]
+Γöö ╞Æ /sign-up/[[...sign-up]]
+
+
+╞Æ Proxy (Middleware)
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+
