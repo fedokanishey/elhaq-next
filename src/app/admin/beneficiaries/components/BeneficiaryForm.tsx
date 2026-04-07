@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -339,7 +339,7 @@ export default function BeneficiaryForm({
          setFormData(prev => ({
             ...prev,
             name: data.name || prev.name,
-            phone: data.nationalId || prev.phone, // "الرقم القومي" field
+            nationalId: data.nationalId || prev.nationalId,
             address: data.address || prev.address,
             employment: data.employment || prev.employment,
             maritalStatus: data.maritalStatus ? (data.maritalStatus === 'single' || data.maritalStatus === 'married' || data.maritalStatus === 'divorced' || data.maritalStatus === 'widowed' ? data.maritalStatus : prev.maritalStatus) : prev.maritalStatus,

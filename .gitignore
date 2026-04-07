@@ -46,3 +46,7 @@ public/sw.js.map
 public/workbox-*.js
 public/workbox-*.js.map
 public/swe-worker-*.js
+
+# Data Export and Excel Files
+Beneficiaries_DB_Export.json
+*.xlsx
