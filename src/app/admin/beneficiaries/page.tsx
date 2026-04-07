@@ -374,7 +374,6 @@ export default function AdminBeneficiaries() {
                   phone={beneficiary.phone}
                   whatsapp={beneficiary.whatsapp}
                   address={beneficiary.address}
-                  nationalId={beneficiary.nationalId}
                   familyMembers={beneficiary.familyMembers}
                   priority={beneficiary.priority}
                   profileImage={beneficiary.profileImage}
