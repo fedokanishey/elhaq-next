@@ -42,6 +42,7 @@ export interface SanitizedRelationship {
 }
 
 export interface SanitizedBeneficiaryPayload {
+  internalId?: string;
   name: string;
   nationalId: string;
   phone: string;
@@ -256,11 +257,16 @@ export const sanitizeBeneficiaryPayload = (
   const rawName = normalizeRequiredString(body?.name);
   ensureName(rawName, "اسم المستفيد");
 
-  const rawBeneficiaryId = normalizeRequiredString(body?.nationalId);
-  ensureNationalId(rawBeneficiaryId, "رقم المستفيد");
+  const internalId = normalizeRequiredString(body?.internalId);
+  if (internalId && !/^\d+$/.test(internalId)) {
+    throw new Error("رقم المستفيد الداخلي يجب أن يكون أرقاماً فقط");
+  }
 
-  const rawNationalId = normalizeRequiredString(body?.phone);
+  const rawNationalId = normalizeRequiredString(body?.nationalId);
   ensureNationalId(rawNationalId, "الرقم القومي");
+
+  const phone = normalizeRequiredString(body?.phone);
+  ensurePhone(phone, "رقم الموبايل");
 
   const rawWhatsapp = normalizeRequiredString(body?.whatsapp);
   ensurePhone(rawWhatsapp, "رقم الواتساب");
@@ -342,9 +348,10 @@ export const sanitizeBeneficiaryPayload = (
     : "C";
 
   return {
+    internalId: internalId || undefined,
     name: rawName,
-    nationalId: rawBeneficiaryId,
-    phone: rawNationalId,
+    nationalId: rawNationalId,
+    phone: phone,
     whatsapp: rawWhatsapp,
     address: rawAddress,
     familyMembers,

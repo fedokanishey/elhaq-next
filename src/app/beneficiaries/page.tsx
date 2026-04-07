@@ -376,6 +376,8 @@ export default function BeneficiariesPage() {
                   priority={beneficiary.priority}
                   profileImage={beneficiary.profileImage}
                   idImage={beneficiary.idImage}
+                  internalId={beneficiary.internalId}
+                  nationalId={beneficiary.nationalId}
                   maritalStatus={beneficiary.maritalStatus}
                   spouseName={beneficiary.spouse?.name}
                   receivesMonthlyAllowance={beneficiary.receivesMonthlyAllowance}

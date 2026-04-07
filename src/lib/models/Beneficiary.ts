@@ -105,6 +105,7 @@ const RelationshipSchema = new Schema<IRelationship>(
 
 export interface IBeneficiary extends Document {
   clerkId: string;
+  internalId?: string; // Adding internal ID
   name: string;
   nationalId: string;
   phone: string;
@@ -152,6 +153,7 @@ export interface IBeneficiary extends Document {
 const BeneficiarySchema = new Schema<IBeneficiary>(
   {
     clerkId: { type: String, required: true, index: true },
+    internalId: { type: String, unique: true, sparse: true, index: true },
     name: { type: String, required: true },
     nationalId: { type: String, required: true }, // Removed unique: true - using compound index with branch
     phone: { type: String, required: true },

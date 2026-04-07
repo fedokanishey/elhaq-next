@@ -23,6 +23,7 @@ interface BeneficiaryCardProps {
   priority: number;
   profileImage?: string;
   idImage?: string;
+  internalId?: string;
   nationalId?: string;
   maritalStatus?: string;
   spouseName?: string;
@@ -52,6 +53,7 @@ export default function BeneficiaryCard({
   priority,
   profileImage,
   idImage,
+  internalId,
   nationalId,
   maritalStatus,
   spouseName,
@@ -182,9 +184,9 @@ export default function BeneficiaryCard({
         </div>
 
         <div className="space-y-2 text-sm sm:text-base text-muted-foreground">
-          {nationalId && (
+          {internalId && (
             <div className="flex flex-col gap-1 w-full">
-              {nationalId && <span>رقم المستفيد: {nationalId}</span>}
+              <span>رقم المستفيد الداخلي: {internalId}</span>
               <div className="flex flex-wrap gap-2 mt-1">
                  {/* List Names Badge */}
                  {(listNames && listNames.length > 0 ? listNames : [listName]).filter(Boolean).map((ln, idx) => (

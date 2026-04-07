@@ -28,7 +28,7 @@ export async function GET(request: Request) {
 
     // Get all beneficiaries filtered by branch
     const beneficiaries = await Beneficiary.find(branchFilter)
-      .sort({ createdAt: -1 })
+      .sort({ internalId: 1 })
       .populate("relationships.relative", "name nationalId phone whatsapp")
       .populate("branch", "name code")
       .lean();

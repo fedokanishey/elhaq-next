@@ -52,6 +52,7 @@ export interface RelationshipEntry {
 }
 
 export interface BeneficiaryFormValues {
+  internalId: string;
   name: string;
   nationalId: string;
   phone: string;
@@ -108,7 +109,7 @@ export interface BeneficiaryFormProps {
 }
 
 const NAME_REGEX = /^[\u0600-\u06FFa-zA-Z]+(?:[\s'-][\u0600-\u06FFa-zA-Z]+)*$/;
-const NATIONAL_ID_REGEX = /^\d+$/;
+const NATIONAL_ID_REGEX = /^\d{14}$/;
 const PHONE_REGEX = /^\+?\d{10,20}$/;
 const ADDRESS_MIN_LENGTH = 5;
 
@@ -159,6 +160,7 @@ export const createEmptyRelationship = (): RelationshipEntry => ({
 });
 
 const createInitialFormValues = (): BeneficiaryFormValues => ({
+  internalId: "",
   name: "",
   nationalId: "",
   phone: "",
@@ -202,6 +204,7 @@ const cloneFormValues = (values: BeneficiaryFormValues): BeneficiaryFormValues =
 
   return {
     ...values,
+    internalId: values.internalId || "",
     status: values.status || "pending",
     statusDate: values.statusDate || new Date().toISOString().split('T')[0],
     listNames: normalizedListNames,
@@ -748,7 +751,8 @@ export default function BeneficiaryForm({
 
   const validateForm = (): string | null => {
     const name = formData.name.trim();
-    const beneficiaryIdValue = formData.nationalId.trim();
+    const internalId = formData.internalId.trim();
+    const nationalId = formData.nationalId.trim();
     const phone = formData.phone.trim();
     const whatsapp = formData.whatsapp.trim();
     const address = formData.address.trim();
@@ -757,8 +761,12 @@ export default function BeneficiaryForm({
       return "الاسم يجب أن يحتوي على أحرف فقط";
     }
 
-    if (!NATIONAL_ID_REGEX.test(beneficiaryIdValue)) {
-      return "رقم المستفيد يجب أن يكون أرقاماً فقط";
+    if (internalId && !/^\d+$/.test(internalId)) {
+      return "رقم المستفيد الداخلي يجب أن يكون أرقاماً فقط";
+    }
+
+    if (!NATIONAL_ID_REGEX.test(nationalId)) {
+      return "الرقم القومي يجب أن يتكون من 14 رقم";
     }
 
     if (!PHONE_REGEX.test(phone)) {
@@ -784,7 +792,7 @@ export default function BeneficiaryForm({
         return `اسم الابن رقم ${i + 1} يجب أن يحتوي على أحرف فقط`;
       }
       const childNationalId = child.nationalId?.trim();
-      if (childNationalId && !NATIONAL_ID_REGEX.test(childNationalId)) {
+      if (childNationalId && !/^\d+$/.test(childNationalId)) {
         return `الرقم القومي للابن رقم ${i + 1} يجب أن يكون أرقاماً فقط`;
       }
       if (child.maritalStatus === "married") {
@@ -793,7 +801,7 @@ export default function BeneficiaryForm({
           return `يرجى إدخال اسم الزوج/الزوجة للابن رقم ${i + 1}`;
         }
         const spouseNationalId = child.spouse?.nationalId?.trim();
-        if (spouseNationalId && !NATIONAL_ID_REGEX.test(spouseNationalId)) {
+        if (spouseNationalId && !/^\d+$/.test(spouseNationalId)) {
           return `الرقم القومي لزوج/زوجة الابن رقم ${i + 1} غير صالح`;
         }
       }
@@ -813,7 +821,7 @@ export default function BeneficiaryForm({
 
       if (
         relationship.relativeNationalId.trim() &&
-        !NATIONAL_ID_REGEX.test(relationship.relativeNationalId.trim())
+        !/^\d+$/.test(relationship.relativeNationalId.trim())
       ) {
         return `الرقم القومي لذي القرابة رقم ${i + 1} غير صالح`;
       }
@@ -871,6 +879,7 @@ export default function BeneficiaryForm({
 
     const payload = {
       ...formData,
+      internalId: formData.internalId.trim(),
       name: formData.name.trim(),
       nationalId: formData.nationalId.trim(),
       phone: formData.phone.trim(),
@@ -1060,8 +1069,8 @@ export default function BeneficiaryForm({
                 <input
                   id="beneficiary-id"
                   type="text"
-                  name="nationalId"
-                  value={formData.nationalId}
+                  name="internalId"
+                  value={formData.internalId}
                   onChange={handleChange}
                   required
                   inputMode="numeric"
@@ -1079,10 +1088,10 @@ export default function BeneficiaryForm({
                           const data = await res.json();
                           const beneficiaries = data.beneficiaries || [];
                           const maxId = beneficiaries.reduce((max: number, b: any) => {
-                            const id = parseInt(b.nationalId || "0", 10);
+                            const id = parseInt(b.internalId || "0", 10);
                             return id > max ? id : max;
                           }, 0);
-                          setFormData(prev => ({ ...prev, nationalId: String(maxId + 1) }));
+                          setFormData(prev => ({ ...prev, internalId: String(maxId + 1) }));
                         }
                       } catch (err) {
                         console.error("Failed to fetch beneficiaries:", err);
@@ -1108,12 +1117,30 @@ export default function BeneficiaryForm({
             </div>
 
             <div>
-              <label htmlFor="beneficiary-phone" className="block text-sm font-medium text-foreground mb-2">
+              <label htmlFor="beneficiary-national-id" className="block text-sm font-medium text-foreground mb-2">
                 الرقم القومي
               </label>
               <input
-                id="beneficiary-phone"
+                id="beneficiary-national-id"
                 type="text"
+                name="nationalId"
+                value={formData.nationalId}
+                onChange={handleChange}
+                required
+                inputMode="numeric"
+                pattern="\d{14}"
+                title="الرقم القومي يجب أن يتكون من 14 رقم"
+                className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="beneficiary-phone" className="block text-sm font-medium text-foreground mb-2">
+                رقم الموبايل
+              </label>
+              <input
+                id="beneficiary-phone"
+                type="tel"
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}

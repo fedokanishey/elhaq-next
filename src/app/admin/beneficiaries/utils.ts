@@ -1,6 +1,7 @@
 import { BeneficiaryFormValues, Child, RelationshipEntry, SpouseDetails, createEmptySpouse } from "./components/BeneficiaryForm";
 
 export const createBlankFormValues = (): BeneficiaryFormValues => ({
+  internalId: "",
   name: "",
   nationalId: "",
   phone: "",
@@ -85,6 +86,7 @@ export const mapBeneficiaryToForm = (record: any): BeneficiaryFormValues | undef
 
     return {
       ...createBlankFormValues(),
+      internalId: record?.internalId || "",
       name: record?.name || "",
       nationalId: record?.nationalId || "",
       phone: record?.phone || "",

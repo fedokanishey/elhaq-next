@@ -21,6 +21,7 @@ interface Beneficiary {
   whatsapp?: string;
   address: string;
   nationalId?: string;
+  internalId?: string;
   familyMembers: number;
   priority: number;
   profileImage?: string;
@@ -61,7 +62,7 @@ export default function AdminBeneficiaries() {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filters, setFilters] = useState<BeneficiaryFilterCriteria>({});
-  const [sortByNationalId, setSortByNationalId] = useState(true);
+  const [sortByInternalId, setSortByInternalId] = useState(true);
   const [showPrintModal, setShowPrintModal] = useState(false);
   
   // Modal State
@@ -233,7 +234,7 @@ export default function AdminBeneficiaries() {
       });
     }
 
-    // Sort by date (oldest first) if filtering by pending status, otherwise sort by nationalId
+    // Sort by date (oldest first) if filtering by pending status, otherwise sort by internalId
     if (filters.status === "pending") {
       result = [...result].sort((a, b) => {
         const dateA = new Date(a.statusDate || a.createdAt || 0).getTime();
@@ -241,16 +242,16 @@ export default function AdminBeneficiaries() {
         return dateA - dateB; // Oldest first
       });
     } else {
-      // Sort by nationalId
+      // Sort by internalId
       result = [...result].sort((a, b) => {
-        const aId = parseInt(a.nationalId || "0", 10);
-        const bId = parseInt(b.nationalId || "0", 10);
-        return sortByNationalId ? aId - bId : bId - aId;
+        const aId = parseInt((a as any).internalId || "0", 10);
+        const bId = parseInt((b as any).internalId || "0", 10);
+        return sortByInternalId ? aId - bId : bId - aId;
       });
     }
 
     return result;
-  }, [data?.beneficiaries, debouncedSearch, filters, sortByNationalId]);
+  }, [data?.beneficiaries, debouncedSearch, filters, sortByInternalId]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("هل أنت متأكد من حذف هذا المستفيد؟")) return;
@@ -333,12 +334,12 @@ export default function AdminBeneficiaries() {
             </div>
             <BeneficiaryFilterPanel onFilterChange={setFilters} variant="dropdown" />
             <button
-              onClick={() => setSortByNationalId(!sortByNationalId)}
+              onClick={() => setSortByInternalId(!sortByInternalId)}
               className="px-4 py-3 bg-card border border-border rounded-lg text-foreground hover:bg-muted transition-colors inline-flex items-center gap-2"
               type="button"
-              title={sortByNationalId ? "ترتيب تصاعدي - انقر للتبديل إلى تنازلي" : "ترتيب تنازلي - انقر للتبديل إلى تصاعدي"}
+              title={sortByInternalId ? "ترتيب تصاعدي - انقر للتبديل إلى تنازلي" : "ترتيب تنازلي - انقر للتبديل إلى تصاعدي"}
             >
-              <span className="text-sm">{sortByNationalId ? "↑" : "↓"}</span>
+              <span className="text-sm">{sortByInternalId ? "↑" : "↓"}</span>
               رقم المستفيد
             </button>
             <button
@@ -378,6 +379,8 @@ export default function AdminBeneficiaries() {
                   priority={beneficiary.priority}
                   profileImage={beneficiary.profileImage}
                   idImage={beneficiary.idImage}
+                  internalId={beneficiary.internalId}
+                  nationalId={beneficiary.nationalId}
                   maritalStatus={beneficiary.maritalStatus}
                   spouseName={beneficiary.spouse?.name}
                   receivesMonthlyAllowance={beneficiary.receivesMonthlyAllowance}

@@ -34,6 +34,7 @@ interface ApiChild {
 }
 
 const createBlankFormValues = (): BeneficiaryFormValues => ({
+  internalId: "",
   name: "",
   nationalId: "",
   phone: "",
@@ -141,6 +142,7 @@ export default function EditBeneficiaryPage() {
 
     return {
       ...createBlankFormValues(),
+      internalId: record?.internalId || "",
       name: record?.name || "",
       nationalId: record?.nationalId || "",
       phone: record?.phone || "",
