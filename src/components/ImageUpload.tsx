@@ -17,6 +17,12 @@ export default function ImageUpload({
 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const preview = currentImage || null;
+  const cloudinaryPreset =
+    process.env.NEXT_PUBLIC_CLOUDINARY_BENEFICIARIES_PRESET ||
+    process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ||
+    "elhaq_beneficiaries";
+  const cloudinaryFolder = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_FOLDER || "elhaq";
+  const cloudinarySignatureEndpoint = "/api/cloudinary/sign";
 
   return (
     <div className="space-y-4">
@@ -38,7 +44,9 @@ export default function ImageUpload({
       )}
 
       <CldUploadWidget
-        uploadPreset="elhaq_beneficiaries"
+        uploadPreset={cloudinaryPreset}
+        signatureEndpoint={cloudinarySignatureEndpoint}
+        options={{ folder: cloudinaryFolder }}
         onSuccess={(result: unknown) => {
           const uploadResult = result as { info: { secure_url: string } };
           const imageUrl = uploadResult.info.secure_url;

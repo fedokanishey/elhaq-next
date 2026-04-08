@@ -132,6 +132,8 @@ export default function InitiativeForm({
     process.env.NEXT_PUBLIC_CLOUDINARY_INITIATIVE_PRESET ||
     process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ||
     "elhaq_beneficiaries";
+  const cloudinaryFolder = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_FOLDER || "elhaq";
+  const cloudinarySignatureEndpoint = "/api/cloudinary/sign";
 
   useEffect(() => {
     if (initialValues) {
@@ -580,7 +582,8 @@ export default function InitiativeForm({
 
           <CldUploadWidget
             uploadPreset={cloudinaryPreset}
-            options={{ multiple: false }}
+            signatureEndpoint={cloudinarySignatureEndpoint}
+            options={{ multiple: false, folder: cloudinaryFolder }}
             onSuccess={(result) => {
               const info = result?.info as { secure_url?: string } | undefined;
               if (info?.secure_url) {
