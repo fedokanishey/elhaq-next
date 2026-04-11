@@ -232,7 +232,7 @@ export default function BeneficiaryCard({
           )}
 
           <div className="flex flex-wrap items-center gap-2">
-            <span>{phone}</span>
+            <span>{nationalId}</span>
 
             {CallLink && (
               <a

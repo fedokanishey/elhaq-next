@@ -235,7 +235,7 @@ export default function BeneficiariesPage() {
       });
     }
 
-    // Sort by date (oldest first) if filtering by pending status, otherwise sort by nationalId
+    // Sort by date (oldest first) if filtering by pending status, otherwise sort by internalId
     if (filters.status === "pending") {
       result = [...result].sort((a: Beneficiary, b: Beneficiary) => {
         const dateA = new Date(a.statusDate || a.createdAt || 0).getTime();
@@ -243,10 +243,10 @@ export default function BeneficiariesPage() {
         return dateA - dateB; // Oldest first
       });
     } else {
-      // Sort by nationalId
+      // Sort by internalId
       result = [...result].sort((a: Beneficiary, b: Beneficiary) => {
-        const aId = parseInt(a.nationalId || "0", 10);
-        const bId = parseInt(b.nationalId || "0", 10);
+        const aId = parseInt(a.internalId || "0", 10);
+        const bId = parseInt(b.internalId || "0", 10);
         return sortByNationalId ? aId - bId : bId - aId;
       });
     }
