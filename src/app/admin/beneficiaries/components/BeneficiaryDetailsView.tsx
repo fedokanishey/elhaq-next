@@ -73,6 +73,7 @@ interface RelationshipEntry {
 interface Beneficiary {
   _id: string;
   name: string;
+  internalId?: string;
   nationalId: string;
   phone: string;
   whatsapp: string;
@@ -292,9 +293,11 @@ export default function BeneficiaryDetailsView({
                 ← العودة لإدارة المستفيدين
               </Link>
               <h1 className="mt-3 text-3xl font-bold text-foreground">{beneficiary.name}</h1>
-              <p className="text-muted-foreground">
-                رقم المستفيد: {beneficiary.nationalId || "غير متوفر"}
-              </p>
+              {beneficiary.internalId && (
+                <p className="text-muted-foreground">
+                  رقم المستفيد: {beneficiary.internalId}
+                </p>
+              )}
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               {isAdmin && (
@@ -319,7 +322,9 @@ export default function BeneficiaryDetailsView({
           <div className="flex justify-between items-start mb-4">
              <div>
                 <h2 className="text-2xl font-bold text-foreground">{beneficiary.name}</h2>
-                <p className="text-muted-foreground">رقم المستفيد: {beneficiary.nationalId || "غير متوفر"}</p>
+                {beneficiary.internalId && (
+                  <p className="text-muted-foreground">رقم المستفيد: {beneficiary.internalId}</p>
+                )}
              </div>
              <div className="flex gap-2">
                  {isAdmin && onEdit && (
@@ -396,7 +401,7 @@ export default function BeneficiaryDetailsView({
               <div>
                 <dt className="text-sm text-muted-foreground">الرقم القومي</dt>
                 <dd className="mt-1 flex items-center gap-2 text-foreground">
-                  {beneficiary.phone}
+                  {beneficiary.nationalId}
                 </dd>
               </div>
               <div>
