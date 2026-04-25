@@ -15,5 +15,4 @@ if (!key) {
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [onUserCreated, onUserUpdated, onUserDeleted],
-  signingKey: key,
 });
