@@ -53,7 +53,7 @@ export default function SearchFilterBar({
         {enableQrScanner && (
           <button
             onClick={() => setIsScannerOpen(true)}
-            className="p-1 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground"
+            className="p-1 shrink-0 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground"
             type="button"
             title="مسح QR"
           >
@@ -66,7 +66,7 @@ export default function SearchFilterBar({
               onSearchChange("");
               onClearSearch?.();
             }}
-            className="p-1 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground"
+            className="p-1 shrink-0 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground"
             type="button"
             title="مسح البحث"
           >
