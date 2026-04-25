@@ -4,8 +4,7 @@ import User from '@/lib/models/User';
 
 // Handle Clerk user.created event
 export const onUserCreated = inngest.createFunction(
-  { id: 'clerk-user-created' },
-  { event: 'clerk/user.created' },
+  { id: 'clerk-user-created', triggers: [{ event: 'clerk/user.created' }] },
   async ({ event }) => {
     try {
       await dbConnect();
@@ -56,8 +55,7 @@ export const onUserCreated = inngest.createFunction(
 
 // Handle Clerk user.updated event
 export const onUserUpdated = inngest.createFunction(
-  { id: 'clerk-user-updated' },
-  { event: 'clerk/user.updated' },
+  { id: 'clerk-user-updated', triggers: [{ event: 'clerk/user.updated' }] },
   async ({ event }) => {
     try {
       await dbConnect();
@@ -95,8 +93,7 @@ export const onUserUpdated = inngest.createFunction(
 
 // Handle Clerk user.deleted event
 export const onUserDeleted = inngest.createFunction(
-  { id: 'clerk-user-deleted' },
-  { event: 'clerk/user.deleted' },
+  { id: 'clerk-user-deleted', triggers: [{ event: 'clerk/user.deleted' }] },
   async ({ event }) => {
     try {
       await dbConnect();
