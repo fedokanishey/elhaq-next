@@ -3,6 +3,7 @@ import dbConnect from "@/lib/mongodb";
 import Initiative from "@/lib/models/Initiative";
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser, getBranchFilterWithOverride } from "@/lib/auth-helpers";
+import { createActivityNotification } from "@/lib/notifications";
 
 export async function GET(request: Request) {
   try {
@@ -83,6 +84,18 @@ export async function POST(req: Request) {
         });
         await initiative.save();
         createdInitiatives.push(initiative);
+
+        await createActivityNotification({
+          authResult,
+          actionType: "initiative_created",
+          message: `تم إنشاء مبادرة جديدة: ${initiative.name}`,
+          entityId: initiative._id.toString(),
+          metadata: {
+            initiativeName: initiative.name,
+          },
+          branch: branch._id,
+          branchName: branch.name,
+        });
       }
       
       console.log(`✅ Created ${createdInitiatives.length} initiatives for all branches`);
@@ -107,6 +120,18 @@ export async function POST(req: Request) {
       branchName: targetBranchName,
     });
     await initiative.save();
+
+    await createActivityNotification({
+      authResult,
+      actionType: "initiative_created",
+      message: `تم إنشاء مبادرة جديدة: ${initiative.name}`,
+      entityId: initiative._id.toString(),
+      metadata: {
+        initiativeName: initiative.name,
+      },
+      branch: targetBranch,
+      branchName: targetBranchName,
+    });
 
     return NextResponse.json(initiative, { status: 201 });
   } catch (error) {

@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     }
     
     const body = await req.json();
-    const { name, notes, branch: overrideBranch, branchName: overrideBranchName } = body;
+    const { name, notes, type, branch: overrideBranch, branchName: overrideBranchName } = body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json({ error: "اسم الدفتر مطلوب" }, { status: 400 });
@@ -72,9 +72,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "هذا الدفتر موجود بالفعل" }, { status: 400 });
     }
 
+    const notebookType = ["income", "expense", "all"].includes(type) ? type : "all";
+
     const notebook = await Notebook.create({
       name: trimmedName,
       nameNormalized: normalizedName,
+      type: notebookType,
       notes: notes?.trim() || undefined,
       branch: targetBranch,
       branchName: targetBranchName,

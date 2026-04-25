@@ -132,7 +132,7 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { name, notes } = body;
+    const { name, type, notes } = body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json({ error: "اسم الدفتر مطلوب" }, { status: 400 });
@@ -152,12 +152,17 @@ export async function PUT(
       return NextResponse.json({ error: "هذا الاسم مستخدم لدفتر آخر" }, { status: 400 });
     }
 
+    const notebookType = ["income", "expense", "all"].includes(type) ? type : "all";
+
     const notebook = await Notebook.findByIdAndUpdate(
       id,
       {
-        name: trimmedName,
-        nameNormalized: normalizedName,
-        notes: notes?.trim() || undefined,
+        $set: {
+          name: trimmedName,
+          nameNormalized: normalizedName,
+          type: notebookType,
+          notes: notes?.trim() || undefined,
+        }
       },
       { new: true }
     );

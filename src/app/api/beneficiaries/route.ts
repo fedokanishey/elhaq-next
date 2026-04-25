@@ -8,6 +8,7 @@ import {
 } from "@/lib/beneficiaries/sanitizePayload";
 import { addReciprocalRelationsForNew } from "@/lib/beneficiaries/reciprocal";
 import { getAuthenticatedUser, getBranchFilterWithOverride } from "@/lib/auth-helpers";
+import { createActivityNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -155,6 +156,20 @@ export async function POST(req: Request) {
         });
         await beneficiary.save();
         createdBeneficiaries.push(beneficiary);
+
+        await createActivityNotification({
+          authResult,
+          actionType: "beneficiary_created",
+          message: `تم إضافة مستفيد جديد: ${beneficiary.name}`,
+          entityId: beneficiary._id.toString(),
+          metadata: {
+            beneficiaryName: beneficiary.name,
+            internalId: beneficiary.internalId,
+            nationalId: beneficiary.nationalId,
+          },
+          branch: branch._id,
+          branchName: branch.name,
+        });
         
         // Create reciprocal relations
         try {
@@ -216,6 +231,20 @@ export async function POST(req: Request) {
     });
 
     await beneficiary.save();
+
+    await createActivityNotification({
+      authResult,
+      actionType: "beneficiary_created",
+      message: `تم إضافة مستفيد جديد: ${beneficiary.name}`,
+      entityId: beneficiary._id.toString(),
+      metadata: {
+        beneficiaryName: beneficiary.name,
+        internalId: beneficiary.internalId,
+        nationalId: beneficiary.nationalId,
+      },
+      branch: targetBranch,
+      branchName: targetBranchName,
+    });
 
     console.log("✅ Beneficiary saved successfully:", {
       id: beneficiary._id,

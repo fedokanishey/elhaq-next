@@ -7,6 +7,8 @@ import Beneficiary from "@/lib/models/Beneficiary";
 import Notebook from "@/lib/models/Notebook";
 import { isValidObjectId } from "mongoose";
 import { getAuthenticatedUser, getBranchFilterWithOverride } from "@/lib/auth-helpers";
+import { ensureAccountCategory } from "@/lib/account-categories";
+import { createActivityNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -107,9 +109,14 @@ export async function POST(req: Request) {
 
     const normalizedType = type === "expense" ? "expense" : type === "income" ? "income" : null;
     const normalizedAmount = Number(amount);
+    const normalizedCategory = typeof category === "string" ? category.trim() : "";
 
     if (!normalizedType || !description || !Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
       return NextResponse.json({ error: "Invalid transaction payload" }, { status: 400 });
+    }
+
+    if (!normalizedCategory) {
+      return NextResponse.json({ error: "فئة الحساب مطلوبة" }, { status: 400 });
     }
 
     // Determine target branch FIRST - before donor handling
@@ -167,14 +174,14 @@ export async function POST(req: Request) {
           $set: {
             lastDonationDate: transactionDate ? new Date(transactionDate) : new Date(),
           },
-        });
+      });
     }
 
     // Resolve notebook for income transactions
     let resolvedNotebook: { _id: string; name: string } | null = null;
     const trimmedNotebookName = typeof notebookName === "string" ? notebookName.trim() : "";
 
-    if (normalizedType === "income" && (trimmedNotebookName || notebookId)) {
+    if ((trimmedNotebookName || notebookId)) {
       if (notebookId && isValidObjectId(notebookId)) {
         const notebook = await Notebook.findById(notebookId).lean();
         if (notebook) {
@@ -192,6 +199,7 @@ export async function POST(req: Request) {
           notebook = await Notebook.create({
             name: trimmedNotebookName,
             nameNormalized: normalizedName,
+            type: normalizedType === "income" ? "income" : normalizedType === "expense" ? "expense" : "all",
             branch: targetBranch,
             branchName: targetBranchName,
           });
@@ -201,10 +209,11 @@ export async function POST(req: Request) {
 
       // Update notebook stats
       if (resolvedNotebook) {
+        const amountChange = normalizedType === "income" ? normalizedAmount : -normalizedAmount;
         await Notebook.findByIdAndUpdate(resolvedNotebook._id, {
           $inc: {
             transactionsCount: 1,
-            totalAmount: normalizedAmount,
+            totalAmount: amountChange,
           },
           $set: {
             lastUsedDate: transactionDate ? new Date(transactionDate) : new Date(),
@@ -223,11 +232,34 @@ export async function POST(req: Request) {
         )).filter(Boolean)
       : [];
 
+    if (normalizedType === "expense" && resolvedBeneficiaryIds.length > 0) {
+      const amountPerBeneficiary = normalizedAmount / resolvedBeneficiaryIds.length;
+      await Beneficiary.updateMany(
+        { _id: { $in: resolvedBeneficiaryIds } },
+        {
+          $inc: {
+            totalReceived: amountPerBeneficiary,
+            financialAidCount: 1
+          },
+          $set: {
+            lastFinancialAidDate: transactionDate ? new Date(transactionDate) : new Date()
+          }
+        }
+      );
+    }
+
+    await ensureAccountCategory({
+      name: normalizedCategory,
+      branch: targetBranch,
+      branchName: targetBranchName,
+      createdBy: userId,
+    });
+
     const entry = await TreasuryTransaction.create({
       amount: normalizedAmount,
       type: normalizedType,
       description: description.trim(),
-      category: category?.trim() || "general",
+      category: normalizedCategory,
       reference: reference?.trim(),
       transactionDate: transactionDate ? new Date(transactionDate) : new Date(),
       createdBy: userId,
@@ -242,9 +274,30 @@ export async function POST(req: Request) {
       branchName: targetBranchName,
     });
 
+    await createActivityNotification({
+      authResult,
+      actionType:
+        normalizedType === "income"
+          ? "treasury_income_created"
+          : "treasury_expense_created",
+      message:
+        normalizedType === "income"
+          ? `تم تسجيل وارد بقيمة ${normalizedAmount.toLocaleString("ar-EG")} ج.م`
+          : `تم تسجيل مصروف بقيمة ${normalizedAmount.toLocaleString("ar-EG")} ج.م`,
+      actorName: recordedBy?.trim(),
+      entityId: entry._id.toString(),
+      metadata: {
+        amount: normalizedAmount,
+        category: normalizedCategory,
+        description: description.trim(),
+      },
+      branch: targetBranch,
+      branchName: targetBranchName,
+    });
+
     return NextResponse.json(entry, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error recording treasury transaction:", error);
-    return NextResponse.json({ error: "Failed to record transaction" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to record transaction", details: error?.message || String(error) }, { status: 500 });
   }
 }

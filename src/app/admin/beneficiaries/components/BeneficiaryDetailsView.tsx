@@ -21,7 +21,11 @@ import {
   Receipt,
   ChevronLeft,
   ChevronRight,
+  QrCode,
+  FileText,
+  Download,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import CloudinaryImage from "@/components/CloudinaryImage";
@@ -344,6 +348,129 @@ export default function BeneficiaryDetailsView({
              </div>
           </div>
         )}
+
+        {/* QR Code Section */}
+        <div className="beneficiary-qr-section bg-card border border-border rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+            <QrCode className="w-5 h-5 text-primary" />
+            بطاقة تعريف QR
+          </h2>
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <div id="beneficiary-qr-code" className="p-3 rounded-xl bg-white border border-border shadow-sm">
+              <QRCodeSVG
+                value={JSON.stringify({
+                  beneficiaryId: beneficiary._id,
+                  internalId: beneficiary.internalId || null,
+                  nationalId: beneficiary.nationalId || null,
+                  id: beneficiary.internalId?.trim() || beneficiary.nationalId?.trim() || beneficiary._id,
+                  name: beneficiary.name,
+                })}
+                size={140}
+                includeMargin
+                level="M"
+              />
+            </div>
+            <div className="flex flex-col gap-3 text-center sm:text-right">
+              <div>
+                <p className="text-xs text-muted-foreground">مؤسسة دعوة الحق</p>
+                <p className="text-lg font-bold text-foreground">{beneficiary.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  رقم المستفيد الداخلي: <span className="text-foreground font-medium">{beneficiary.internalId || "-"}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const { Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType } = await import("docx");
+                    const { saveAs } = await import("file-saver");
+
+                    // Convert QR SVG to PNG via canvas
+                    const svgEl = document.querySelector('#beneficiary-qr-code svg') as SVGElement;
+                    if (!svgEl) {
+                      alert('لم يتم العثور على رمز QR');
+                      return;
+                    }
+
+                    const svgData = new XMLSerializer().serializeToString(svgEl);
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 300;
+                    canvas.height = 300;
+                    const ctx = canvas.getContext('2d')!;
+                    const img = new Image();
+                    img.onload = async () => {
+                      ctx.fillStyle = 'white';
+                      ctx.fillRect(0, 0, 300, 300);
+                      ctx.drawImage(img, 0, 0, 300, 300);
+
+                      const pngBlob = await new Promise<Blob>((resolve) =>
+                        canvas.toBlob((blob) => resolve(blob!), 'image/png')
+                      );
+                      const pngBuffer = await pngBlob.arrayBuffer();
+
+                      const doc = new Document({
+                        sections: [{
+                          properties: {},
+                          children: [
+                            new Paragraph({
+                              alignment: AlignmentType.CENTER,
+                              spacing: { after: 200 },
+                              children: [
+                                new TextRun({ text: "مؤسسة دعوة الحق", bold: true, size: 28, font: "Arial" }),
+                              ],
+                            }),
+                            new Paragraph({
+                              alignment: AlignmentType.CENTER,
+                              spacing: { after: 100 },
+                              children: [
+                                new TextRun({ text: beneficiary.name, bold: true, size: 36, font: "Arial" }),
+                              ],
+                            }),
+                            new Paragraph({
+                              alignment: AlignmentType.CENTER,
+                              spacing: { after: 200 },
+                              children: [
+                                new TextRun({ text: `رقم المستفيد الداخلي: ${beneficiary.internalId || "-"}`, size: 22, font: "Arial" }),
+                              ],
+                            }),
+                            new Paragraph({
+                              alignment: AlignmentType.CENTER,
+                              spacing: { after: 200 },
+                              children: [
+                                new ImageRun({
+                                  data: pngBuffer,
+                                  transformation: { width: 200, height: 200 },
+                                  type: "png",
+                                }),
+                              ],
+                            }),
+                            new Paragraph({
+                              alignment: AlignmentType.CENTER,
+                              children: [
+                                new TextRun({ text: `المعرّف: ${beneficiary.internalId || beneficiary._id}`, size: 18, font: "Arial", color: "666666" }),
+                              ],
+                            }),
+                          ],
+                        }],
+                      });
+
+                      const blob = await Packer.toBlob(doc);
+                      saveAs(blob, `QR_${beneficiary.name.replace(/\s+/g, '_')}.docx`);
+                    };
+                    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+                  } catch (err) {
+                    console.error('Failed to export QR to Word:', err);
+                    alert('فشل تصدير بطاقة QR');
+                  }
+                }}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-sm transition-colors"
+              >
+                <FileText className="w-4 h-4" />
+                تصدير بطاقة QR كملف Word
+              </button>
+            </div>
+          </div>
+        </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="bg-card border border-border rounded-lg p-6 flex flex-col items-center gap-4">
@@ -946,6 +1073,8 @@ export default function BeneficiaryDetailsView({
             </p>
           )}
         </div>
+
+
 
         {beneficiary.notes && (
           <div className="bg-card border border-border rounded-lg p-6">

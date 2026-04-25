@@ -3,6 +3,7 @@ import dbConnect from "@/lib/mongodb";
 import WarehouseMovement from "@/lib/models/WarehouseMovement";
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser, getBranchFilterWithOverride } from "@/lib/auth-helpers";
+import { createActivityNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -200,6 +201,25 @@ export async function POST(req: Request) {
       unit,
       date: date || new Date(),
       recordedBy: userId,
+      branch: targetBranch,
+      branchName: targetBranchName,
+    });
+
+    await createActivityNotification({
+      authResult,
+      actionType: type === "inbound" ? "warehouse_movement_in" : "warehouse_movement_out",
+      message:
+        type === "inbound"
+          ? `تم تسجيل حركة وارد للمخزن: ${itemName || description}`
+          : `تم تسجيل حركة صادر من المخزن: ${itemName || description}`,
+      entityId: movement._id.toString(),
+      metadata: {
+        type,
+        category,
+        itemName,
+        quantity,
+        value,
+      },
       branch: targetBranch,
       branchName: targetBranchName,
     });

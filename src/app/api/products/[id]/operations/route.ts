@@ -4,6 +4,7 @@ import Product from "@/lib/models/Product";
 import ProductOperation from "@/lib/models/ProductOperation";
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth-helpers";
+import { createActivityNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -138,6 +139,25 @@ export async function POST(
 
     // Refetch updated product
     const updatedProduct = await Product.findById(id).lean();
+
+    const isInboundMovement = type === "purchase";
+    await createActivityNotification({
+      authResult,
+      actionType: isInboundMovement ? "warehouse_movement_in" : "warehouse_movement_out",
+      message: isInboundMovement
+        ? `تم تسجيل حركة وارد للمنتج ${product.name}`
+        : `تم تسجيل حركة صادر للمنتج ${product.name}`,
+      entityId: operation._id.toString(),
+      metadata: {
+        productId: id,
+        productName: product.name,
+        operationType: type,
+        quantity,
+        amount,
+      },
+      branch: targetBranch || product.branch,
+      branchName: targetBranchName || product.branchName,
+    });
 
     return NextResponse.json({ operation, product: updatedProduct }, { status: 201 });
   } catch (error) {

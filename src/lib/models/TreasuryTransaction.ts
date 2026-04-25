@@ -41,7 +41,7 @@ const TreasuryTransactionSchema = new Schema<ITreasuryTransaction>(
     },
     category: {
       type: String,
-      default: "general",
+      default: "زكاة مال",
       trim: true,
     },
     reference: {

@@ -9,6 +9,8 @@ import {
   SanitizedRelationship,
 } from "@/lib/beneficiaries/sanitizePayload";
 import { syncReciprocalRelations } from "@/lib/beneficiaries/reciprocal";
+import { getAuthenticatedUser } from "@/lib/auth-helpers";
+import { createActivityNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -96,6 +98,7 @@ export async function PUT(
     }
 
     await dbConnect();
+    const authResult = await getAuthenticatedUser();
     const { id } = await params;
     const rawBody = await req.json();
     const payload = sanitizeBeneficiaryPayload(rawBody);
@@ -157,6 +160,19 @@ export async function PUT(
       // eslint-disable-next-line no-console
       console.error("Failed to sync reciprocal relations after update:", e);
     }
+
+    await createActivityNotification({
+      authResult,
+      actionType: "beneficiary_updated",
+      message: `تم تعديل بيانات المستفيد: ${beneficiary.name}`,
+      entityId: beneficiary._id.toString(),
+      metadata: {
+        beneficiaryName: beneficiary.name,
+        internalId: beneficiary.internalId,
+      },
+      branch: beneficiary.branch,
+      branchName: beneficiary.branchName || null,
+    });
 
     return NextResponse.json(beneficiary);
   } catch (error) {

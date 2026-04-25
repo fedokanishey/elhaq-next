@@ -6,6 +6,7 @@ import Beneficiary from "@/lib/models/Beneficiary";
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser, getBranchFilterWithOverride, getBranchFilter } from "@/lib/auth-helpers";
 import { Types } from "mongoose";
+import { createActivityNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -186,6 +187,20 @@ export async function POST(req: Request) {
         }
       );
     }
+
+    await createActivityNotification({
+      authResult,
+      actionType: "loan_disbursed",
+      message: `تم صرف قرض جديد للمستفيد ${beneficiaryName} بقيمة ${Number(amount).toLocaleString("ar-EG")} ج.م`,
+      entityId: loan._id.toString(),
+      metadata: {
+        beneficiaryName,
+        amount,
+        nationalId,
+      },
+      branch: targetBranch,
+      branchName: targetBranchName,
+    });
 
     return NextResponse.json(loan, { status: 201 });
   } catch (error) {

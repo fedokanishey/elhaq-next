@@ -12,6 +12,7 @@ import { useBranchContext } from "@/contexts/BranchContext";
 interface NotebookSummary {
   _id: string;
   name: string;
+  type: "income" | "expense" | "all";
   transactionsCount: number;
   totalAmount: number;
   lastUsedDate?: string;
@@ -25,12 +26,15 @@ export default function NotebooksListPage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  const [editType, setEditType] = useState<"income" | "expense" | "all">("all");
   const [error, setError] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newNotebookName, setNewNotebookName] = useState("");
   const [newNotebookNotes, setNewNotebookNotes] = useState("");
+  const [newNotebookType, setNewNotebookType] = useState<"income" | "expense" | "all">("all");
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [filterType, setFilterType] = useState<"income" | "expense" | "all">("all");
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
   const isSuperAdmin = role === "superadmin";
@@ -94,12 +98,14 @@ export default function NotebooksListPage() {
     setEditing(notebook._id);
     setEditName(notebook.name);
     setEditNotes(notebook.notes || "");
+    setEditType(notebook.type || "all");
   };
 
   const handleCancelEdit = () => {
     setEditing(null);
     setEditName("");
     setEditNotes("");
+    setEditType("all");
   };
 
   const handleSaveEdit = async (notebookId: string) => {
@@ -115,6 +121,7 @@ export default function NotebooksListPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: editName.trim(),
+          type: editType,
           notes: editNotes.trim() || undefined,
         }),
       });
@@ -128,6 +135,7 @@ export default function NotebooksListPage() {
       setEditing(null);
       setEditName("");
       setEditNotes("");
+      setEditType("all");
       mutate();
     } catch (err) {
       console.error(err);
@@ -151,6 +159,7 @@ export default function NotebooksListPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newNotebookName.trim(),
+          type: newNotebookType,
           notes: newNotebookNotes.trim() || undefined,
           // Include branch for SuperAdmin when a specific branch is selected
           ...(isSuperAdmin && selectedBranchId ? {
@@ -168,6 +177,7 @@ export default function NotebooksListPage() {
       setError("");
       setNewNotebookName("");
       setNewNotebookNotes("");
+      setNewNotebookType("all");
       setShowAddForm(false);
       mutate();
     } catch (err) {
@@ -178,9 +188,12 @@ export default function NotebooksListPage() {
     }
   };
 
+  // Filter notebooks
+  const filteredNotebooks = notebooks.filter((n: NotebookSummary) => filterType === "all" || n.type === filterType);
+
   // Calculate totals
-  const totalTransactions = notebooks.reduce((sum: number, n: NotebookSummary) => sum + (n.transactionsCount || 0), 0);
-  const totalAmount = notebooks.reduce((sum: number, n: NotebookSummary) => sum + (n.totalAmount || 0), 0);
+  const totalTransactions = filteredNotebooks.reduce((sum: number, n: NotebookSummary) => sum + (n.transactionsCount || 0), 0);
+  const totalAmount = filteredNotebooks.reduce((sum: number, n: NotebookSummary) => sum + (n.totalAmount || 0), 0);
 
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
@@ -196,20 +209,31 @@ export default function NotebooksListPage() {
               إجمالي المبالغ: {totalAmount.toLocaleString("ar-EG")} ج.م
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {canEdit && (
-              <button
-                onClick={() => setShowAddForm(!showAddForm)}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-amber-600 text-white hover:bg-amber-700 transition-colors"
-                type="button"
-              >
-                {showAddForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                {showAddForm ? "إلغاء" : "إضافة دفتر"}
-              </button>
-            )}
-            <Link href="/admin/treasury" className="text-sm text-muted-foreground hover:text-primary">
-              العودة للخزينة
-            </Link>
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2">
+              {canEdit && (
+                <button
+                  onClick={() => setShowAddForm(!showAddForm)}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                  type="button"
+                >
+                  {showAddForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  {showAddForm ? "إلغاء" : "إضافة دفتر"}
+                </button>
+              )}
+              <Link href="/admin/treasury" className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:bg-muted text-sm transition-colors">
+                العودة للخزينة
+              </Link>
+            </div>
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as "all" | "income" | "expense")}
+              className="w-full sm:w-auto mt-2 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:border-amber-600"
+            >
+              <option value="all">كل الدفاتر</option>
+              <option value="income">دفاتر الوارد فقط</option>
+              <option value="expense">دفاتر المصروف فقط</option>
+            </select>
           </div>
         </div>
 
@@ -235,6 +259,20 @@ export default function NotebooksListPage() {
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                 disabled={adding}
               />
+            </div>
+            <div>
+              <label htmlFor="newNotebookType" className="block text-sm font-medium text-muted-foreground mb-1">نوع الدفتر</label>
+              <select
+                id="newNotebookType"
+                value={newNotebookType}
+                onChange={(e) => setNewNotebookType(e.target.value as "all" | "income" | "expense")}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                disabled={adding}
+              >
+                <option value="all">عام (وارد ومصروف)</option>
+                <option value="income">وارد فقط</option>
+                <option value="expense">مصروف فقط</option>
+              </select>
             </div>
             <div>
               <label htmlFor="newNotebookNotes" className="block text-sm font-medium text-muted-foreground mb-1">
@@ -284,7 +322,7 @@ export default function NotebooksListPage() {
           </div>
         ) : (
           <div className="grid gap-3">
-            {notebooks.map((n: NotebookSummary) => (
+            {filteredNotebooks.map((n: NotebookSummary) => (
               <div 
                 key={n._id} 
                 className="border border-border rounded-lg p-4 bg-card hover:bg-muted/50 transition"
@@ -301,6 +339,18 @@ export default function NotebooksListPage() {
                         disabled={saving}
                         placeholder="اسم الدفتر"
                       />
+                    </div>
+                    <div>
+                      <select
+                        value={editType}
+                        onChange={(e) => setEditType(e.target.value as "all" | "income" | "expense")}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        disabled={saving}
+                      >
+                        <option value="all">عام</option>
+                        <option value="income">وارد</option>
+                        <option value="expense">مصروف</option>
+                      </select>
                     </div>
                     <div>
                       <textarea
@@ -338,6 +388,9 @@ export default function NotebooksListPage() {
                     <div className="flex-1">
                       <div className="font-medium text-foreground flex items-center gap-2">
                         📓 {n.name}
+                        <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
+                          {n.type === "income" ? "الوارد" : n.type === "expense" ? "المصروف" : "عام"}
+                        </span>
                       </div>
                       {n.notes && (
                         <div className="text-xs text-muted-foreground mt-1">{n.notes}</div>

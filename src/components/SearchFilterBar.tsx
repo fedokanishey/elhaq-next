@@ -1,13 +1,17 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { ScanQrCode, Search, X } from "lucide-react";
 import { useState } from "react";
+import QRScannerModal from "@/components/QRScannerModal";
 
 export interface SearchFilterBarProps {
   searchTerm: string;
   onSearchChange: (term: string) => void;
   placeholder?: string;
   onClearSearch?: () => void;
+  enableQrScanner?: boolean;
+  onQrScan?: (value: string) => void;
+  qrScannerTitle?: string;
 }
 
 export default function SearchFilterBar({
@@ -15,8 +19,17 @@ export default function SearchFilterBar({
   onSearchChange,
   placeholder = "ابحث هنا...",
   onClearSearch,
+  enableQrScanner = false,
+  onQrScan,
+  qrScannerTitle,
 }: SearchFilterBarProps) {
   const [isFocused, setIsFocused] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+
+  const handleQrScan = (value: string) => {
+    onSearchChange(value);
+    onQrScan?.(value);
+  };
 
   return (
     <div className="w-full">
@@ -37,6 +50,16 @@ export default function SearchFilterBar({
           placeholder={placeholder}
           className="flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
         />
+        {enableQrScanner && (
+          <button
+            onClick={() => setIsScannerOpen(true)}
+            className="p-1 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground"
+            type="button"
+            title="مسح QR"
+          >
+            <ScanQrCode className="w-4 h-4" />
+          </button>
+        )}
         {searchTerm && (
           <button
             onClick={() => {
@@ -51,6 +74,15 @@ export default function SearchFilterBar({
           </button>
         )}
       </div>
+
+      {enableQrScanner && (
+        <QRScannerModal
+          isOpen={isScannerOpen}
+          onClose={() => setIsScannerOpen(false)}
+          onScan={handleQrScan}
+          title={qrScannerTitle}
+        />
+      )}
     </div>
   );
 }

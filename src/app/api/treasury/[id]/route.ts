@@ -5,6 +5,7 @@ import TreasuryTransaction from "@/lib/models/TreasuryTransaction";
 import Donor from "@/lib/models/Donor";
 import Beneficiary from "@/lib/models/Beneficiary";
 import Notebook from "@/lib/models/Notebook";
+import { ensureAccountCategory } from "@/lib/account-categories";
 import { isValidObjectId } from "mongoose";
 
 export const dynamic = "force-dynamic";
@@ -42,10 +43,18 @@ export async function PUT(
       notebookId,
       beneficiaryIds,
     } = body;
+    const normalizedCategory = typeof category === "string" ? category.trim() : "";
 
     if (!description?.trim() || !amount || amount <= 0 || !type) {
       return NextResponse.json(
         { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    if (!normalizedCategory) {
+      return NextResponse.json(
+        { error: "فئة الحساب مطلوبة" },
         { status: 400 }
       );
     }
@@ -67,12 +76,17 @@ export async function PUT(
     }
 
     // Prepare beneficiary data
+    let resolvedBeneficiaryIds: string[] = [];
     let beneficiaryNamesSnapshot: string[] = [];
-    if (beneficiaryIds && beneficiaryIds.length > 0) {
-      const beneficiaries = await Beneficiary.find({
-        _id: { $in: beneficiaryIds },
-      }).select("name");
-      beneficiaryNamesSnapshot = beneficiaries.map((b) => b.name);
+    if (type === "expense" && Array.isArray(beneficiaryIds) && beneficiaryIds.length > 0) {
+      const validIds = beneficiaryIds.filter((id: string) => isValidObjectId(id));
+      if (validIds.length > 0) {
+        const beneficiaries = await Beneficiary.find({
+          _id: { $in: validIds },
+        }).select("name");
+        beneficiaryNamesSnapshot = beneficiaries.map((b) => b.name);
+        resolvedBeneficiaryIds = beneficiaries.map((b) => b._id.toString());
+      }
     }
 
     // If type changed or donor changed, update donor stats
@@ -86,14 +100,22 @@ export async function PUT(
     }
 
     // Reverse old notebook stats if existed
-    if (oldTransaction.type === "income" && oldTransaction.notebookId) {
+    if (oldTransaction.notebookId) {
+      const oldAmountChange = oldTransaction.type === "income" ? oldTransaction.amount : -oldTransaction.amount;
       await Notebook.findByIdAndUpdate(oldTransaction.notebookId, {
         $inc: {
           transactionsCount: -1,
-          totalAmount: -oldTransaction.amount,
+          totalAmount: -oldAmountChange,
         },
       });
     }
+
+    await ensureAccountCategory({
+      name: normalizedCategory,
+      branch: oldTransaction.branch,
+      branchName: oldTransaction.branchName || null,
+      createdBy: userId,
+    });
 
     // Resolve donor for income transactions (similar to POST logic)
     let resolvedDonor: { _id: string; name: string } | null = null;
@@ -149,12 +171,43 @@ export async function PUT(
       });
     }
 
-    // Update new notebook stats if this is income
-    if (type === "income" && notebookId) {
-      await Notebook.findByIdAndUpdate(notebookId, {
+    // Resolve notebook for income transactions
+    let resolvedNotebook: { _id: string; name: string } | null = null;
+    const trimmedNotebookName = typeof notebookName === "string" ? notebookName.trim() : "";
+
+    if ((trimmedNotebookName || notebookId)) {
+      if (notebookId && isValidObjectId(notebookId)) {
+        const notebook = await Notebook.findById(notebookId).lean();
+        if (notebook) {
+          resolvedNotebook = { _id: notebook._id.toString(), name: notebook.name };
+        }
+      }
+
+      if (!resolvedNotebook && trimmedNotebookName) {
+        const normalizedName = trimmedNotebookName.toLowerCase();
+        const notebookQuery = { nameNormalized: normalizedName, branch: oldTransaction.branch };
+        let notebook = await Notebook.findOne(notebookQuery);
+        if (!notebook) {
+          // Create notebook in the same branch as the transaction
+          notebook = await Notebook.create({
+            name: trimmedNotebookName,
+            nameNormalized: normalizedName,
+            type: type === "income" ? "income" : type === "expense" ? "expense" : "all",
+            branch: oldTransaction.branch,
+            branchName: oldTransaction.branchName,
+          });
+        }
+        resolvedNotebook = { _id: notebook._id.toString(), name: notebook.name };
+      }
+    }
+
+    // Update new notebook stats
+    if (resolvedNotebook) {
+      const amountChange = type === "income" ? amount : -amount;
+      await Notebook.findByIdAndUpdate(resolvedNotebook._id, {
         $inc: {
           transactionsCount: 1,
-          totalAmount: amount,
+          totalAmount: amountChange,
         },
         $set: {
           lastUsedDate: transactionDate ? new Date(transactionDate) : new Date(),
@@ -169,14 +222,14 @@ export async function PUT(
         amount,
         type,
         description: description.trim(),
-        category: category?.trim() || "",
+        category: normalizedCategory,
         reference: reference?.trim() || "",
         transactionDate,
-        donorId: type === "income" ? resolvedDonor?._id : undefined,
-        donorNameSnapshot: type === "income" ? resolvedDonor?.name : undefined,
-        notebookId: type === "income" ? notebookId : undefined,
-        notebookNameSnapshot: type === "income" ? notebookName : undefined,
-        beneficiaryIds: type === "expense" ? beneficiaryIds : [],
+        donorId: type === "income" ? resolvedDonor?._id : null,
+        donorNameSnapshot: type === "income" ? resolvedDonor?.name : null,
+        notebookId: resolvedNotebook?._id || null,
+        notebookNameSnapshot: resolvedNotebook?.name || null,
+        beneficiaryIds: type === "expense" ? resolvedBeneficiaryIds : [],
         beneficiaryNamesSnapshot:
           type === "expense" ? beneficiaryNamesSnapshot : [],
       },
@@ -190,10 +243,10 @@ export async function PUT(
       },
       { status: 200 }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating treasury transaction:", error);
     return NextResponse.json(
-      { error: "Failed to update transaction" },
+      { error: "Failed to update transaction", details: error?.message || String(error) },
       { status: 500 }
     );
   }
@@ -228,6 +281,17 @@ export async function DELETE(
         $inc: {
           totalDonated: -transaction.amount,
           donationsCount: -1,
+        },
+      });
+    }
+
+    // Reverse the notebook's totals
+    if (transaction.notebookId) {
+      const amountChange = transaction.type === "income" ? transaction.amount : -transaction.amount;
+      await Notebook.findByIdAndUpdate(transaction.notebookId, {
+        $inc: {
+          transactionsCount: -1,
+          totalAmount: -amountChange,
         },
       });
     }

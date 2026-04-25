@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from "mongoose";
 export interface INotebook extends Document {
   name: string;
   nameNormalized: string;
+  type: "income" | "expense" | "all";
   transactionsCount: number;
   totalAmount: number;
   lastUsedDate?: Date;
@@ -57,7 +58,24 @@ const NotebookSchema = new Schema<INotebook>(
   }
 );
 
+// 'type' is a reserved keyword in Mongoose schemas - Mongoose uses it internally
+// to declare field types (e.g., { type: String }). When you name a field 'type',
+// Mongoose misinterprets the definition as a type declaration, not a data field.
+// The fix: add the 'type' path AFTER schema construction using schema.add().
+NotebookSchema.add({
+  type: {
+    type: String,
+    enum: ["income", "expense", "all"],
+    default: "all",
+  }
+});
+
 // Compound unique index: same name within the same branch is not allowed
 NotebookSchema.index({ nameNormalized: 1, branch: 1 }, { unique: true });
 
-export default mongoose.models.Notebook || mongoose.model<INotebook>("Notebook", NotebookSchema);
+// Delete the cached model so the new schema takes effect on hot reload
+if (mongoose.models.Notebook) {
+  delete mongoose.models.Notebook;
+}
+
+export default mongoose.model<INotebook>("Notebook", NotebookSchema);

@@ -8,12 +8,13 @@ import Link from "next/link";
 import BeneficiaryCard from "@/components/BeneficiaryCard";
 import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
 import SearchFilterBar from "@/components/SearchFilterBar";
-import { Loader2, Plus, Users, AlertCircle, ArrowDownUp, Printer, Download } from "lucide-react";
+import { Loader2, Plus, Users, AlertCircle, ArrowDownUp, Printer, Download, QrCode } from "lucide-react";
 import { useRouter } from "next/navigation";
 import MonthlyAllowancePrintModal from "@/components/MonthlyAllowancePrintModal";
 import BeneficiariesPrintModal from "@/components/BeneficiariesPrintModal";
 import BeneficiaryModal from "@/components/BeneficiaryModal";
 import { useBranchContext } from "@/contexts/BranchContext";
+import BeneficiaryIdCardsModal from "@/components/BeneficiaryIdCardsModal";
 
 interface Beneficiary {
   _id: string;
@@ -66,6 +67,7 @@ export default function BeneficiariesPage() {
   const [sortByNationalId, setSortByNationalId] = useState(true);
   const [showMonthlyAllowancePrint, setShowMonthlyAllowancePrint] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [showIdCardsModal, setShowIdCardsModal] = useState(false);
 
   // Modal State
   // Modal State
@@ -153,7 +155,10 @@ export default function BeneficiariesPage() {
 
         // If searchByBeneficiaryId is enabled, only search by nationalId
         if (filters.searchByBeneficiaryId) {
-          return normalize(beneficiary.nationalId).includes(query);
+          return (
+            normalize(beneficiary.internalId).includes(query) ||
+            normalize(beneficiary.nationalId).includes(query)
+          );
         }
 
         const searchableText = [
@@ -161,6 +166,7 @@ export default function BeneficiariesPage() {
           normalize(beneficiary.phone),
           normalize(beneficiary.whatsapp),
           normalize(beneficiary.address),
+          normalize(beneficiary.internalId),
           normalize(beneficiary.nationalId),
           normalize(beneficiary.maritalStatus),
           normalize(beneficiary.priority),
@@ -323,6 +329,8 @@ export default function BeneficiariesPage() {
                 onSearchChange={setSearchTerm}
                 placeholder={filters.searchByBeneficiaryId ? "ابحث برقم المستفيد..." : "ابحث بالاسم، الهاتف، العنوان، رقم المستفيد، أو الواتساب"}
                 onClearSearch={() => setSearchTerm("")}
+                enableQrScanner
+                qrScannerTitle="مسح بطاقة المستفيد"
               />
             </div>
             <BeneficiaryFilterPanel onFilterChange={setFilters} variant="dropdown" />
@@ -343,6 +351,17 @@ export default function BeneficiariesPage() {
               <Download className="w-4 h-4" />
               طباعة
             </button>
+            {isAdmin && (
+              <button
+                onClick={() => setShowIdCardsModal(true)}
+                className="px-4 py-3 border border-border rounded-lg text-foreground hover:bg-muted transition-colors inline-flex items-center gap-2"
+                type="button"
+                title="طباعة بطاقات QR"
+              >
+                <QrCode className="w-4 h-4" />
+                بطاقات QR
+              </button>
+            )}
           </div>
         </div>
 
@@ -443,6 +462,17 @@ export default function BeneficiariesPage() {
           onClose={() => setShowPrintModal(false)}
           beneficiaries={filteredBeneficiaries}
           title="تقرير المستفيدين"
+        />
+
+        <BeneficiaryIdCardsModal
+          isOpen={showIdCardsModal}
+          onClose={() => setShowIdCardsModal(false)}
+          beneficiaries={filteredBeneficiaries.map((beneficiary: Beneficiary) => ({
+            _id: beneficiary._id,
+            name: beneficiary.name,
+            internalId: beneficiary.internalId,
+            nationalId: beneficiary.nationalId,
+          }))}
         />
         
         {/* Edit/Create Modal */}

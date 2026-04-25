@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import Image from "next/image";
+import NotificationBell from "@/components/NotificationBell";
 
 export default function Navbar() {
   const { user, isLoaded } = useUser();
@@ -108,6 +109,7 @@ export default function Navbar() {
                     المخزن
                   </Link>
                 )}
+                <NotificationBell />
                 <ThemeToggle />
                 <UserButton afterSignOutUrl="/" />
               </>
@@ -132,6 +134,7 @@ export default function Navbar() {
 
           {/* Mobile Menu Button */}
           <div className="flex md:hidden items-center gap-2">
+            {isLoaded && user && <NotificationBell />}
             
             <div className="flex items-center gap-2 bg-blue-500 rounded-3xl pr-1">
               {isLoaded && user && (

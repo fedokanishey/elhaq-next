@@ -26,7 +26,6 @@ const DonorSchema = new Schema<IDonor>(
       required: true,
       lowercase: true,
       trim: true,
-      unique: true,
       index: true,
     },
     totalDonated: {
@@ -62,5 +61,8 @@ const DonorSchema = new Schema<IDonor>(
     timestamps: true,
   }
 );
+
+// Compound unique index: same name within the same branch is not allowed
+DonorSchema.index({ nameNormalized: 1, branch: 1 }, { unique: true });
 
 export default mongoose.models.Donor || mongoose.model<IDonor>("Donor", DonorSchema);

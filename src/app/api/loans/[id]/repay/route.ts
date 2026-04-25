@@ -3,6 +3,8 @@ import dbConnect from "@/lib/mongodb";
 import Loan from "@/lib/models/Loan";
 import Beneficiary from "@/lib/models/Beneficiary";
 import { NextResponse } from "next/server";
+import { getAuthenticatedUser } from "@/lib/auth-helpers";
+import { createActivityNotification } from "@/lib/notifications";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -18,6 +20,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     await dbConnect();
+    const authResult = await getAuthenticatedUser();
 
     const loan = await Loan.findOne({ _id: id, deletedAt: null });
     if (!loan) {
@@ -60,6 +63,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     await loan.save();
+
+    await createActivityNotification({
+      authResult,
+      actionType: "loan_repayment_created",
+      message: `تم تسجيل سداد قرض بقيمة ${Number(amount).toLocaleString("ar-EG")} ج.م للمستفيد ${loan.beneficiaryName}`,
+      entityId: loan._id.toString(),
+      metadata: {
+        beneficiaryName: loan.beneficiaryName,
+        amount,
+        remainingAmount,
+      },
+      branch: loan.branch,
+      branchName: loan.branchName || null,
+    });
 
     return NextResponse.json(loan);
   } catch (error) {

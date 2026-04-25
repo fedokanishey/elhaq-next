@@ -13,6 +13,8 @@ import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/
 import MonthlyAllowancePrintModal from "@/components/MonthlyAllowancePrintModal";
 import { useBranchContext } from "@/contexts/BranchContext";
 
+const DEFAULT_ACCOUNT_CATEGORY = "زكاة مال";
+
 interface TreasuryTotals {
   incomeTotal: number;
   expenseTotal: number;
@@ -48,14 +50,21 @@ interface DonorSummary {
 interface NotebookSummary {
   _id: string;
   name: string;
+  type?: "income" | "expense" | "all";
   transactionsCount: number;
   totalAmount: number;
   lastUsedDate?: string;
 }
 
+interface AccountCategoryItem {
+  _id?: string;
+  name: string;
+}
+
 interface BeneficiarySummary {
   _id: string;
   name: string;
+  internalId?: string;
   phone?: string;
   address?: string;
   healthStatus?: "healthy" | "sick";
@@ -89,7 +98,7 @@ const createDefaultFormState = (): TreasuryFormState => ({
   amount: "",
   type: "income" as const,
   description: "",
-  category: "",
+  category: DEFAULT_ACCOUNT_CATEGORY,
   reference: "",
   transactionDate: new Date().toISOString().split("T")[0],
   donorName: "",
@@ -105,14 +114,27 @@ export default function TreasuryPage() {
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [sortDesc, setSortDesc] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [activeLedger, setActiveLedger] = useState<"income" | "expense">("income");
+
+  const [incomeSortDesc, setIncomeSortDesc] = useState(true);
+  const [incomeSearchTerm, setIncomeSearchTerm] = useState("");
+  const [incomeDebouncedSearch, setIncomeDebouncedSearch] = useState("");
+  const [incomeDateFrom, setIncomeDateFrom] = useState("");
+  const [incomeDateTo, setIncomeDateTo] = useState("");
+  const [incomeCategoryFilter, setIncomeCategoryFilter] = useState("all");
+  const [incomeNotebookFilter, setIncomeNotebookFilter] = useState("all");
+
+  const [expenseSortDesc, setExpenseSortDesc] = useState(true);
+  const [expenseSearchTerm, setExpenseSearchTerm] = useState("");
+  const [expenseDebouncedSearch, setExpenseDebouncedSearch] = useState("");
+  const [expenseDateFrom, setExpenseDateFrom] = useState("");
+  const [expenseDateTo, setExpenseDateTo] = useState("");
+  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState("all");
+  const [expenseNotebookFilter, setExpenseNotebookFilter] = useState("all");
+  const [expenseSortMode, setExpenseSortMode] = useState<"date" | "beneficiaryInternalId">("date");
+
   const [beneficiarySearchTerm, setBeneficiarySearchTerm] = useState("");
   const [beneficiaryFilters, setBeneficiaryFilters] = useState<BeneficiaryFilterCriteria>({});
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
   const [formData, setFormData] = useState<TreasuryFormState>(createDefaultFormState);
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
   const [showMonthlyAllowancePrint, setShowMonthlyAllowancePrint] = useState(false);
@@ -161,12 +183,19 @@ export default function TreasuryPage() {
     { revalidateOnFocus: false }
   );
 
+  const { data: accountCategoriesData, mutate: mutateAccountCategories } = useSWR(
+    isLoaded && canAccess ? `/api/account-categories${branchParam ? `?${branchParam}` : ""}` : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
   const totals = useMemo(() => treasuryData?.totals || { incomeTotal: 0, expenseTotal: 0, balance: 0 }, [treasuryData]);
   const donors = useMemo(() => donorsData?.donors || [], [donorsData]);
   const notebooks = useMemo(() => notebooksData?.notebooks || [], [notebooksData]);
   const beneficiaries = useMemo(() => (beneficiariesData?.beneficiaries || []).map((b: BeneficiarySummary) => ({
     _id: b._id,
     name: b.name,
+    internalId: b.internalId,
     phone: b.phone,
     address: b.address,
     healthStatus: b.healthStatus,
@@ -181,8 +210,30 @@ export default function TreasuryPage() {
     listName: b.listName,
     listNames: b.listNames,
   })), [beneficiariesData]);
+
+  const accountCategories = useMemo(() => {
+    const categoryNames = new Set<string>([DEFAULT_ACCOUNT_CATEGORY]);
+
+    for (const category of (accountCategoriesData?.categories || []) as AccountCategoryItem[]) {
+      const trimmed = category.name?.trim();
+      if (trimmed) {
+        categoryNames.add(trimmed);
+      }
+    }
+
+    for (const transaction of (treasuryData?.transactions || []) as TreasuryTransaction[]) {
+      const trimmed = transaction.category?.trim();
+      if (trimmed) {
+        categoryNames.add(trimmed);
+      }
+    }
+
+    return Array.from(categoryNames).sort((a, b) => a.localeCompare(b, "ar"));
+  }, [accountCategoriesData?.categories, treasuryData?.transactions]);
+
   const loading = treasuryLoading;
 
+  const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
   const [showDonorSuggestions, setShowDonorSuggestions] = useState(false);
   const filteredDonors = useMemo(() => {
     const term = (formData.donorName || "").trim().toLowerCase();
@@ -193,9 +244,18 @@ export default function TreasuryPage() {
   const [showNotebookSuggestions, setShowNotebookSuggestions] = useState(false);
   const filteredNotebooks = useMemo(() => {
     const term = (formData.notebookName || "").trim().toLowerCase();
-    if (!term) return notebooks.slice(0, 10); // Show more notebooks when empty
-    return notebooks.filter((n: NotebookSummary) => n.name.toLowerCase().includes(term)).slice(0, 10);
-  }, [notebooks, formData.notebookName]);
+    
+    // Filter notebooks by type
+    let currentNotebooks = notebooks;
+    if (formData.type === "income") {
+      currentNotebooks = notebooks.filter((n: NotebookSummary) => n.type === "income" || n.type === "all" || !n.type);
+    } else if (formData.type === "expense") {
+      currentNotebooks = notebooks.filter((n: NotebookSummary) => n.type === "expense" || n.type === "all" || !n.type);
+    }
+
+    if (!term) return currentNotebooks.slice(0, 10); // Show more notebooks when empty
+    return currentNotebooks.filter((n: NotebookSummary) => n.name.toLowerCase().includes(term)).slice(0, 10);
+  }, [notebooks, formData.notebookName, formData.type]);
 
   const filteredBeneficiaries = useMemo(() => {
     let result = beneficiaries;
@@ -204,8 +264,9 @@ export default function TreasuryPage() {
     const searchTerm = beneficiarySearchTerm.trim().toLowerCase();
     if (searchTerm) {
       if (beneficiaryFilters.searchByBeneficiaryId) {
-        // Search by beneficiary internal number (nationalId)
+        // Search by beneficiary internal ID (with national ID fallback)
         result = result.filter((b: BeneficiarySummary) =>
+          (b.internalId || "").toLowerCase().includes(searchTerm) ||
           (b.nationalId || "").toLowerCase().includes(searchTerm)
         );
       } else {
@@ -262,7 +323,11 @@ export default function TreasuryPage() {
       result = result.filter((b: BeneficiarySummary) => b.receivesMonthlyAllowance === true);
     }
 
-    return result;
+    return [...result].sort((a, b) => {
+      const idA = a.internalId ? parseInt(a.internalId, 10) : Number.MAX_SAFE_INTEGER;
+      const idB = b.internalId ? parseInt(b.internalId, 10) : Number.MAX_SAFE_INTEGER;
+      return idA - idB;
+    });
   }, [beneficiaries, beneficiarySearchTerm, beneficiaryFilters]);
 
   useEffect(() => {
@@ -273,11 +338,19 @@ export default function TreasuryPage() {
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedSearch(searchTerm.trim());
+      setIncomeDebouncedSearch(incomeSearchTerm.trim());
     }, 300);
 
     return () => clearTimeout(handler);
-  }, [searchTerm]);
+  }, [incomeSearchTerm]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setExpenseDebouncedSearch(expenseSearchTerm.trim());
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [expenseSearchTerm]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -297,6 +370,11 @@ export default function TreasuryPage() {
     e.preventDefault();
     if (!formData.description.trim()) {
       setError("من فضلك أدخل وصف العملية");
+      return;
+    }
+
+    if (!formData.category.trim()) {
+      setError("من فضلك اختر فئة الحساب");
       return;
     }
 
@@ -335,7 +413,8 @@ export default function TreasuryPage() {
 
         if (!res.ok) {
           const data = await res.json();
-          throw new Error(data.error || "فشل تحديث العملية");
+          console.error("Update failed:", data);
+          throw new Error(data.details || data.error || "فشل تحديث العملية");
         }
 
         setFormData(createDefaultFormState());
@@ -362,7 +441,8 @@ export default function TreasuryPage() {
 
         if (!res.ok) {
           const data = await res.json();
-          throw new Error(data.error || "فشل تسجيل العملية");
+          console.error("Create failed:", data);
+          throw new Error(data.details || data.error || "فشل تسجيل العملية");
         }
 
         setFormData(createDefaultFormState());
@@ -371,6 +451,7 @@ export default function TreasuryPage() {
       }
 
       await refreshTreasury();
+      await mutateAccountCategories();
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "حدث خطأ أثناء التسجيل");
@@ -422,7 +503,7 @@ export default function TreasuryPage() {
       amount: transaction.amount.toString(),
       type: transaction.type,
       description: transaction.description,
-      category: transaction.category || "",
+      category: transaction.category || DEFAULT_ACCOUNT_CATEGORY,
       reference: transaction.reference || "",
       transactionDate: transaction.transactionDate?.split("T")[0] || new Date().toISOString().split("T")[0],
       donorName: transaction.donorNameSnapshot || "",
@@ -442,58 +523,75 @@ export default function TreasuryPage() {
     setBeneficiaryFilters({});
   };
 
-  const sortedTransactions = useMemo(() => {
-    let result = [...(treasuryData?.transactions || [])];
+  const normalizeSearchText = (value?: string | number) =>
+    typeof value === "number"
+      ? value.toString()
+      : (value || "")
+          .toString()
+          .toLowerCase()
+          .normalize("NFKD")
+          .replace(/[\u064B-\u065F]/g, "");
 
-    // Apply type filter
-    if (typeFilter !== "all") {
-      result = result.filter((txn) => txn.type === typeFilter);
+  const beneficiaryLookup = useMemo(
+    () => new Map<string, BeneficiarySummary>(beneficiaries.map((beneficiary: BeneficiarySummary) => [beneficiary._id, beneficiary])),
+    [beneficiaries]
+  );
+
+  const getPrimaryBeneficiaryInternalId = (txn: TreasuryTransaction) => {
+    const internalIds = (txn.beneficiaryIds || [])
+      .map((beneficiaryId) => beneficiaryLookup.get(beneficiaryId)?.internalId)
+      .map((value) => Number.parseInt(value || "", 10))
+      .filter((value): value is number => Number.isFinite(value));
+
+    if (!internalIds.length) {
+      return null;
     }
 
-    // Apply date filter
-    if (dateFrom) {
-      const fromDate = new Date(dateFrom);
+    return Math.min(...internalIds);
+  };
+
+  const incomeLedgerTransactions = useMemo(() => {
+    let result = (treasuryData?.transactions || []).filter(
+      (txn: TreasuryTransaction) => txn.type === "income"
+    );
+
+    if (incomeCategoryFilter !== "all") {
+      result = result.filter((txn: TreasuryTransaction) => (txn.category || "") === incomeCategoryFilter);
+    }
+
+    if (incomeNotebookFilter !== "all") {
+      result = result.filter((txn: TreasuryTransaction) => (txn.notebookNameSnapshot || "") === incomeNotebookFilter);
+    }
+
+    if (incomeDateFrom) {
+      const fromDate = new Date(incomeDateFrom);
       fromDate.setHours(0, 0, 0, 0);
-      result = result.filter((txn) => {
+      result = result.filter((txn: TreasuryTransaction) => {
         const txnDate = new Date(txn.transactionDate || txn.createdAt);
         return txnDate >= fromDate;
       });
     }
 
-    if (dateTo) {
-      const toDate = new Date(dateTo);
+    if (incomeDateTo) {
+      const toDate = new Date(incomeDateTo);
       toDate.setHours(23, 59, 59, 999);
-      result = result.filter((txn) => {
+      result = result.filter((txn: TreasuryTransaction) => {
         const txnDate = new Date(txn.transactionDate || txn.createdAt);
         return txnDate <= toDate;
       });
     }
 
-    // Apply search filter
-    if (debouncedSearch) {
-      const normalize = (value?: string | number) =>
-        typeof value === "number"
-          ? value.toString()
-          : (value || "")
-              .toString()
-              .toLowerCase()
-              .normalize("NFKD")
-              .replace(/[\u064B-\u065F]/g, "");
+    if (incomeDebouncedSearch) {
+      const query = normalizeSearchText(incomeDebouncedSearch);
 
-      const query = normalize(debouncedSearch);
-      
-      result = result.filter((txn) => {
+      result = result.filter((txn: TreasuryTransaction) => {
         const searchableText = [
-          normalize(txn.description),
-          normalize(txn.category),
-          normalize(txn.reference),
-          normalize(txn.amount),
-          normalize(txn.donorNameSnapshot),
-          normalize(txn.notebookNameSnapshot),
-          normalize(txn.type),
-          (txn.beneficiaryNamesSnapshot || [])
-            .map((name: string) => normalize(name))
-            .join(" ")
+          normalizeSearchText(txn.description),
+          normalizeSearchText(txn.category),
+          normalizeSearchText(txn.reference),
+          normalizeSearchText(txn.amount),
+          normalizeSearchText(txn.donorNameSnapshot),
+          normalizeSearchText(txn.notebookNameSnapshot),
         ]
           .filter(Boolean)
           .join(" ");
@@ -502,15 +600,109 @@ export default function TreasuryPage() {
       });
     }
 
-    // Sort by date - create new array to ensure React detects the change
-    const sorted = [...result].sort((a, b) => {
+    return [...result].sort((a, b) => {
       const dateA = new Date(a.transactionDate || a.createdAt).getTime();
       const dateB = new Date(b.transactionDate || b.createdAt).getTime();
-      return sortDesc ? dateB - dateA : dateA - dateB;
+      return incomeSortDesc ? dateB - dateA : dateA - dateB;
     });
+  }, [
+    treasuryData?.transactions,
+    incomeCategoryFilter,
+    incomeDateFrom,
+    incomeDateTo,
+    incomeDebouncedSearch,
+    incomeSortDesc,
+    incomeNotebookFilter,
+  ]);
 
-    return sorted;
-  }, [treasuryData?.transactions, debouncedSearch, sortDesc, dateFrom, dateTo, typeFilter]);
+  const expenseLedgerTransactions = useMemo(() => {
+    let result = (treasuryData?.transactions || []).filter(
+      (txn: TreasuryTransaction) => txn.type === "expense"
+    );
+
+    if (expenseCategoryFilter !== "all") {
+      result = result.filter((txn: TreasuryTransaction) => (txn.category || "") === expenseCategoryFilter);
+    }
+
+    if (expenseNotebookFilter !== "all") {
+      result = result.filter((txn: TreasuryTransaction) => (txn.notebookNameSnapshot || "") === expenseNotebookFilter);
+    }
+
+    if (expenseDateFrom) {
+      const fromDate = new Date(expenseDateFrom);
+      fromDate.setHours(0, 0, 0, 0);
+      result = result.filter((txn: TreasuryTransaction) => {
+        const txnDate = new Date(txn.transactionDate || txn.createdAt);
+        return txnDate >= fromDate;
+      });
+    }
+
+    if (expenseDateTo) {
+      const toDate = new Date(expenseDateTo);
+      toDate.setHours(23, 59, 59, 999);
+      result = result.filter((txn: TreasuryTransaction) => {
+        const txnDate = new Date(txn.transactionDate || txn.createdAt);
+        return txnDate <= toDate;
+      });
+    }
+
+    if (expenseDebouncedSearch) {
+      const query = normalizeSearchText(expenseDebouncedSearch);
+
+      result = result.filter((txn: TreasuryTransaction) => {
+        const beneficiaryInternalIds = (txn.beneficiaryIds || [])
+          .map((beneficiaryId) => beneficiaryLookup.get(beneficiaryId)?.internalId || "")
+          .join(" ");
+
+        const searchableText = [
+          normalizeSearchText(txn.description),
+          normalizeSearchText(txn.category),
+          normalizeSearchText(txn.reference),
+          normalizeSearchText(txn.amount),
+          (txn.beneficiaryNamesSnapshot || [])
+            .map((name: string) => normalizeSearchText(name))
+            .join(" "),
+          normalizeSearchText(beneficiaryInternalIds),
+          normalizeSearchText(txn.notebookNameSnapshot),
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        return searchableText.includes(query);
+      });
+    }
+
+    return [...result].sort((a, b) => {
+      if (expenseSortMode === "beneficiaryInternalId") {
+        const aInternalId = getPrimaryBeneficiaryInternalId(a);
+        const bInternalId = getPrimaryBeneficiaryInternalId(b);
+
+        if (aInternalId === null && bInternalId !== null) return 1;
+        if (aInternalId !== null && bInternalId === null) return -1;
+
+        if (aInternalId !== null && bInternalId !== null && aInternalId !== bInternalId) {
+          return expenseSortDesc ? bInternalId - aInternalId : aInternalId - bInternalId;
+        }
+      }
+
+      const dateA = new Date(a.transactionDate || a.createdAt).getTime();
+      const dateB = new Date(b.transactionDate || b.createdAt).getTime();
+      return expenseSortDesc ? dateB - dateA : dateA - dateB;
+    });
+  }, [
+    treasuryData?.transactions,
+    expenseCategoryFilter,
+    expenseDateFrom,
+    expenseDateTo,
+    expenseDebouncedSearch,
+    expenseSortMode,
+    expenseSortDesc,
+    expenseNotebookFilter,
+    beneficiaryLookup,
+  ]);
+
+  const activeLedgerTransactions =
+    activeLedger === "income" ? incomeLedgerTransactions : expenseLedgerTransactions;
 
   const formattedTotals = useMemo(() => ({
     balance: formatCurrency(totals.balance),
@@ -518,21 +710,13 @@ export default function TreasuryPage() {
     expense: formatCurrency(totals.expenseTotal),
   }), [totals]);
 
-  // Calculate filtered totals for display
-  const filteredTotals = useMemo(() => {
-    const incomeTotal = sortedTransactions
-      .filter(txn => txn.type === "income")
-      .reduce((sum, txn) => sum + txn.amount, 0);
-    const expenseTotal = sortedTransactions
-      .filter(txn => txn.type === "expense")
-      .reduce((sum, txn) => sum + txn.amount, 0);
+  const activeLedgerSummary = useMemo(() => {
+    const total = activeLedgerTransactions.reduce((sum, txn) => sum + txn.amount, 0);
     return {
-      incomeTotal,
-      expenseTotal,
-      total: incomeTotal - expenseTotal,
-      count: sortedTransactions.length,
+      total,
+      count: activeLedgerTransactions.length,
     };
-  }, [sortedTransactions]);
+  }, [activeLedgerTransactions]);
 
   // donors state is populated by loadDonors and used to populate donor pages
 
@@ -678,7 +862,7 @@ export default function TreasuryPage() {
                     <option value="expense">مصروف</option>
                   </select>
                 </div>
-                <div>
+                <div className="relative">
                   <label htmlFor="category" className="block text-sm font-medium text-muted-foreground mb-1">التصنيف</label>
                   <input
                     id="category"
@@ -688,7 +872,38 @@ export default function TreasuryPage() {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                     value={formData.category}
                     onChange={handleInputChange}
+                    onFocus={() => setShowCategorySuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowCategorySuggestions(false), 200)}
+                    autoComplete="off"
                   />
+                  {showCategorySuggestions && (
+                    <div className="absolute w-full border border-border rounded-md mt-1 bg-card max-h-48 overflow-auto z-50 shadow-lg">
+                      {accountCategories.filter((c: string) => c.toLowerCase().includes(formData.category.toLowerCase())).length === 0 ? (
+                        <div className="px-4 py-3 text-sm text-muted-foreground text-center">
+                          سيتم إضافة التصنيف كجديد
+                        </div>
+                      ) : (
+                        <>
+                          {accountCategories
+                            .filter((c: string) => c.toLowerCase().includes(formData.category.toLowerCase()))
+                            .map((c: string) => (
+                              <button
+                                key={c}
+                                type="button"
+                                onMouseDown={(ev) => ev.preventDefault()}
+                                onClick={() => {
+                                  setFormData((prev) => ({ ...prev, category: c }));
+                                  setShowCategorySuggestions(false);
+                                }}
+                                className="w-full text-right px-4 py-2.5 hover:bg-muted text-foreground border-b border-border/50 last:border-0"
+                              >
+                                {c}
+                              </button>
+                            ))}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -734,7 +949,6 @@ export default function TreasuryPage() {
                 </div>
               )}
 
-              {formData.type === "income" && (
                 <div className="relative">
                   <label htmlFor="notebookName" className="block text-sm font-medium text-muted-foreground mb-1">
                     الدفتر <span className="text-xs text-muted-foreground">(اختياري)</span>
@@ -791,7 +1005,6 @@ export default function TreasuryPage() {
                     </div>
                   )}
                 </div>
-              )}
 
               {formData.type === "expense" && (
                 <div>
@@ -979,166 +1192,150 @@ export default function TreasuryPage() {
           )}
 
           <div className="bg-card border border-border rounded-xl shadow-sm p-6 space-y-4">
+            <div className="flex items-center gap-2 p-1 bg-muted rounded-lg">
+              <button
+                onClick={() => setActiveLedger("income")}
+                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeLedger === "income"
+                    ? "bg-emerald-500 text-white shadow-sm"
+                    : "text-muted-foreground hover:text-emerald-600"
+                }`}
+                type="button"
+              >
+                <span className="flex items-center justify-center gap-1">
+                  <ArrowDownCircle className="w-4 h-4" />
+                  دفتر الوارد
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveLedger("expense")}
+                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeLedger === "expense"
+                    ? "bg-rose-500 text-white shadow-sm"
+                    : "text-muted-foreground hover:text-rose-600"
+                }`}
+                type="button"
+              >
+                <span className="flex items-center justify-center gap-1">
+                  <ArrowUpCircle className="w-4 h-4" />
+                  دفتر المصروفات
+                </span>
+              </button>
+            </div>
+
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-foreground">العمليات المالية</h2>
-                  <p className="text-sm text-muted-foreground">عرض جميع العمليات المسجلة ({sortedTransactions.length} عملية)</p>
+                  <p className="text-sm text-muted-foreground">عرض جميع العمليات المسجلة ({activeLedgerTransactions.length} عملية)</p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {activeLedger === "expense" && (
+                    <select
+                      value={expenseSortMode}
+                      onChange={(e) => setExpenseSortMode(e.target.value as "date" | "beneficiaryInternalId")}
+                      className="text-sm border border-border rounded-md px-2 py-1 bg-background text-foreground"
+                    >
+                      <option value="date">فرز بالتاريخ</option>
+                      <option value="beneficiaryInternalId">فرز برقم المستفيد</option>
+                    </select>
+                  )}
                   <button
                     onClick={() => {
-                      setSortDesc(!sortDesc);
+                      if (activeLedger === "income") setIncomeSortDesc(!incomeSortDesc);
+                      else setExpenseSortDesc(!expenseSortDesc);
                     }}
                     className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1 px-3 py-2 rounded-md border border-border hover:bg-primary/10 transition"
                     type="button"
-                    title={sortDesc ? "من الأحدث للأقدم - انقر للتبديل" : "من الأقدم للأحدث - انقر للتبديل"}
                   >
-                    {sortDesc ? (
+                    { (activeLedger === "income" ? incomeSortDesc : expenseSortDesc) ? (
                       <ChevronDown className="w-4 h-4" />
                     ) : (
                       <ChevronUp className="w-4 h-4" />
                     )}
-                    <span className="text-xs font-medium">التاريخ {sortDesc ? "↓" : "↑"}</span>
+                    <span className="text-xs font-medium">الترتيب { (activeLedger === "income" ? incomeSortDesc : expenseSortDesc) ? "↓" : "↑"}</span>
                   </button>
                 </div>
               </div>
 
-              {/* Type filter tabs */}
-              <div className="flex items-center gap-2 p-1 bg-muted rounded-lg">
-                <button
-                  onClick={() => setTypeFilter("all")}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    typeFilter === "all"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  type="button"
-                >
-                  الكل
-                </button>
-                <button
-                  onClick={() => setTypeFilter("income")}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    typeFilter === "income"
-                      ? "bg-emerald-500 text-white shadow-sm"
-                      : "text-muted-foreground hover:text-emerald-600"
-                  }`}
-                  type="button"
-                >
-                  <span className="flex items-center justify-center gap-1">
-                    <ArrowDownCircle className="w-4 h-4" />
-                    الوارد
-                  </span>
-                </button>
-                <button
-                  onClick={() => setTypeFilter("expense")}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    typeFilter === "expense"
-                      ? "bg-rose-500 text-white shadow-sm"
-                      : "text-muted-foreground hover:text-rose-600"
-                  }`}
-                  type="button"
-                >
-                  <span className="flex items-center justify-center gap-1">
-                    <ArrowUpCircle className="w-4 h-4" />
-                    الصادر
-                  </span>
-                </button>
-              </div>
-
               <SearchFilterBar
-                searchTerm={searchTerm}
-                onSearchChange={setSearchTerm}
+                searchTerm={activeLedger === "income" ? incomeSearchTerm : expenseSearchTerm}
+                onSearchChange={activeLedger === "income" ? setIncomeSearchTerm : setExpenseSearchTerm}
                 placeholder="ابحث عن وصف أو فئة أو متبرع أو مستفيد أو الدفتر..."
-                onClearSearch={() => setSearchTerm("")}
+                onClearSearch={() => activeLedger === "income" ? setIncomeSearchTerm("") : setExpenseSearchTerm("")}
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
-                  <label htmlFor="dateFrom" className="block text-sm font-medium text-muted-foreground mb-1">
-                    من تاريخ
-                  </label>
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">فئة الحساب</label>
+                  <select
+                    value={activeLedger === "income" ? incomeCategoryFilter : expenseCategoryFilter}
+                    onChange={(e) => activeLedger === "income" ? setIncomeCategoryFilter(e.target.value) : setExpenseCategoryFilter(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground"
+                  >
+                    <option value="all">كل الفئات</option>
+                    {accountCategories.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">من تاريخ</label>
                   <input
-                    id="dateFrom"
                     type="date"
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground"
+                    value={activeLedger === "income" ? incomeDateFrom : expenseDateFrom}
+                    onChange={(e) => activeLedger === "income" ? setIncomeDateFrom(e.target.value) : setExpenseDateFrom(e.target.value)}
                   />
                 </div>
                 <div>
-                  <label htmlFor="dateTo" className="block text-sm font-medium text-muted-foreground mb-1">
-                    إلى تاريخ
-                  </label>
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">إلى تاريخ</label>
                   <input
-                    id="dateTo"
                     type="date"
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground"
+                    value={activeLedger === "income" ? incomeDateTo : expenseDateTo}
+                    onChange={(e) => activeLedger === "income" ? setIncomeDateTo(e.target.value) : setExpenseDateTo(e.target.value)}
                   />
                 </div>
               </div>
 
-              {(dateFrom || dateTo || typeFilter !== "all") && (
+              {((activeLedger === "income" && (incomeDateFrom || incomeDateTo || incomeCategoryFilter !== "all" || incomeDebouncedSearch)) || 
+                (activeLedger === "expense" && (expenseDateFrom || expenseDateTo || expenseCategoryFilter !== "all" || expenseDebouncedSearch))) && (
                 <div className="flex flex-wrap items-center gap-3">
-                  {(dateFrom || dateTo) && (
-                    <button
-                      onClick={() => {
-                        setDateFrom("");
-                        setDateTo("");
-                      }}
-                      className="text-sm text-primary hover:text-primary/80 flex items-center gap-1"
-                      type="button"
-                    >
-                      ✕ مسح فلتر التاريخ
-                    </button>
-                  )}
-                  {typeFilter !== "all" && (
-                    <button
-                      onClick={() => setTypeFilter("all")}
-                      className="text-sm text-primary hover:text-primary/80 flex items-center gap-1"
-                      type="button"
-                    >
-                      ✕ مسح فلتر النوع
-                    </button>
-                  )}
+                  <button
+                    onClick={() => {
+                      if (activeLedger === "income") {
+                        setIncomeDateFrom("");
+                        setIncomeDateTo("");
+                        setIncomeCategoryFilter("all");
+                        setIncomeSearchTerm("");
+                      } else {
+                        setExpenseDateFrom("");
+                        setExpenseDateTo("");
+                        setExpenseCategoryFilter("all");
+                        setExpenseSearchTerm("");
+                      }
+                    }}
+                    className="text-sm text-primary hover:text-primary/80 flex items-center gap-1"
+                    type="button"
+                  >
+                    ✕ مسح الفلاتر
+                  </button>
                 </div>
               )}
 
-              {/* Filtered summary */}
-              {(dateFrom || dateTo || typeFilter !== "all" || debouncedSearch) && sortedTransactions.length > 0 && (
+              {activeLedgerTransactions.length > 0 && (
                 <div className="bg-muted/50 rounded-lg p-4 border border-border">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="text-sm text-muted-foreground">
-                      <span className="font-medium text-foreground">{filteredTotals.count}</span> عملية
-                      {typeFilter === "income" && " وارد"}
-                      {typeFilter === "expense" && " صادر"}
+                      <span className="font-medium text-foreground">{activeLedgerSummary.count}</span> عملية
+                      {activeLedger === "income" ? " وارد" : " صادر"}
                     </div>
-                    <div className="flex flex-wrap items-center gap-4 text-sm">
-                      {(typeFilter === "all" || typeFilter === "income") && filteredTotals.incomeTotal > 0 && (
-                        <div className="flex items-center gap-2">
-                          <ArrowDownCircle className="w-4 h-4 text-emerald-500" />
-                          <span className="text-muted-foreground">الوارد:</span>
-                          <span className="font-bold text-emerald-600">{formatCurrency(filteredTotals.incomeTotal)} ج.م</span>
-                        </div>
-                      )}
-                      {(typeFilter === "all" || typeFilter === "expense") && filteredTotals.expenseTotal > 0 && (
-                        <div className="flex items-center gap-2">
-                          <ArrowUpCircle className="w-4 h-4 text-rose-500" />
-                          <span className="text-muted-foreground">الصادر:</span>
-                          <span className="font-bold text-rose-600">{formatCurrency(filteredTotals.expenseTotal)} ج.م</span>
-                        </div>
-                      )}
-                      {typeFilter === "all" && filteredTotals.incomeTotal > 0 && filteredTotals.expenseTotal > 0 && (
-                        <div className="flex items-center gap-2 border-r border-border pr-4">
-                          <span className="text-muted-foreground">الصافي:</span>
-                          <span className={`font-bold ${filteredTotals.total >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                            {filteredTotals.total >= 0 ? "+" : ""}{formatCurrency(filteredTotals.total)} ج.م
-                          </span>
-                        </div>
-                      )}
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground">الإجمالي:</span>
+                      <span className={`font-bold ${activeLedger === "income" ? "text-emerald-600" : "text-rose-600"}`}>
+                        {formatCurrency(activeLedgerSummary.total)} ج.م
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1155,13 +1352,13 @@ export default function TreasuryPage() {
               <div className="flex justify-center py-10">
                 <Loader2 className="w-6 h-6 animate-spin text-primary" />
               </div>
-            ) : sortedTransactions.length === 0 ? (
+            ) : activeLedgerTransactions.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">
                 لا توجد عمليات مسجلة بعد
               </div>
             ) : (
               <div className="space-y-3 max-h-128 overflow-y-auto pr-1">
-                {sortedTransactions.map((txn) => (
+                {activeLedgerTransactions.map((txn) => (
                   <div
                     key={txn._id}
                     className="border border-border rounded-lg p-4 bg-background/60 hover:bg-background/80 transition"
@@ -1211,7 +1408,7 @@ export default function TreasuryPage() {
                                 return beneficiaryId ? (
                                   <Link
                                     key={idx}
-                                    href={`/beneficiaries/${beneficiaryId}`}
+                                    href={`/admin/beneficiaries/${beneficiaryId}`}
                                     className="bg-primary/10 text-primary px-2 py-1 rounded text-xs hover:bg-primary/20 transition-colors cursor-pointer"
                                   >
                                     {name}

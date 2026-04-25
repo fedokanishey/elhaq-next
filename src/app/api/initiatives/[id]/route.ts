@@ -4,6 +4,8 @@ import Initiative from "@/lib/models/Initiative";
 import Beneficiary from "@/lib/models/Beneficiary";
 import { NextResponse } from "next/server";
 import { isValidObjectId } from "mongoose";
+import { getAuthenticatedUser } from "@/lib/auth-helpers";
+import { createActivityNotification } from "@/lib/notifications";
 
 export async function GET(
   req: Request,
@@ -98,6 +100,7 @@ export async function PUT(
     }
 
     await dbConnect();
+    const authResult = await getAuthenticatedUser();
     const { id } = await params;
 
     if (!isValidObjectId(id)) {
@@ -124,6 +127,18 @@ export async function PUT(
     if (!initiative) {
       return NextResponse.json({ error: "Initiative not found" }, { status: 404 });
     }
+
+    await createActivityNotification({
+      authResult,
+      actionType: "initiative_updated",
+      message: `تم تحديث مبادرة: ${initiative.name}`,
+      entityId: initiative._id.toString(),
+      metadata: {
+        initiativeName: initiative.name,
+      },
+      branch: initiative.branch,
+      branchName: initiative.branchName || null,
+    });
 
     return NextResponse.json(initiative);
   } catch (error) {
