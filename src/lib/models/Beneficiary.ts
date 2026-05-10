@@ -153,7 +153,7 @@ export interface IBeneficiary extends Document {
 const BeneficiarySchema = new Schema<IBeneficiary>(
   {
     clerkId: { type: String, required: true, index: true },
-    internalId: { type: String, unique: true, sparse: true, index: true },
+    internalId: { type: String, sparse: true, index: true },
     name: { type: String, required: true },
     nationalId: { type: String, required: true }, // Removed unique: true - using compound index with branch
     phone: { type: String, required: true },
@@ -224,6 +224,9 @@ const BeneficiarySchema = new Schema<IBeneficiary>(
 
 // Compound unique index: nationalId must be unique within each branch
 BeneficiarySchema.index({ nationalId: 1, branch: 1 }, { unique: true });
+
+// Compound unique index: internalId must be unique within each branch
+BeneficiarySchema.index({ internalId: 1, branch: 1 }, { unique: true, sparse: true });
 
 if (mongoose.models.Beneficiary) {
   mongoose.deleteModel('Beneficiary');

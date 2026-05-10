@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useBranchContext } from "@/contexts/BranchContext";
+import BackupSection from "@/components/BackupSection";
 
 interface ReportsStats {
   totalInitiatives: number;
@@ -184,6 +185,9 @@ export default function AdminReports() {
                   </div>
                 </div>
             </div>
+
+            {/* Backup Section */}
+            <BackupSection />
           </div>
         ) : (
           <div className="text-center py-12 text-destructive">فشل تحميل البيانات</div>

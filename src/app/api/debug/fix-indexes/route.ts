@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import mongoose from "mongoose";
 
-// Fix indexes: Remove old unique nationalId index and allow compound index
+// Fix indexes: Remove old unique indexes and allow compound indexes with branch
 export async function GET() {
   try {
     await dbConnect();
@@ -17,16 +17,26 @@ export async function GET() {
     // Get current indexes
     const indexesBefore = await collection.indexes();
     
-    // Try to drop the old nationalId_1 unique index
-    let dropResult = null;
+    const dropResults: Record<string, string> = {};
+
+    // Drop old nationalId_1 unique index
     try {
-      dropResult = await collection.dropIndex("nationalId_1");
+      await collection.dropIndex("nationalId_1");
+      dropResults.nationalId_1 = "Dropped successfully";
     } catch (e: any) {
-      if (e.code === 27) {
-        dropResult = "Index nationalId_1 does not exist (already removed)";
-      } else {
-        dropResult = `Error dropping index: ${e.message}`;
-      }
+      dropResults.nationalId_1 = e.code === 27
+        ? "Does not exist (already removed)"
+        : `Error: ${e.message}`;
+    }
+
+    // Drop old internalId_1 unique index
+    try {
+      await collection.dropIndex("internalId_1");
+      dropResults.internalId_1 = "Dropped successfully";
+    } catch (e: any) {
+      dropResults.internalId_1 = e.code === 27
+        ? "Does not exist (already removed)"
+        : `Error: ${e.message}`;
     }
     
     // Get indexes after
@@ -34,8 +44,8 @@ export async function GET() {
     
     return NextResponse.json({ 
       success: true, 
-      message: "تم إصلاح الـ indexes بنجاح. الآن كل فرع يمكنه أن يكون له مستفيدين برقم قومي متكرر.",
-      dropResult,
+      message: "تم إصلاح الـ indexes. الآن كل فرع يمكنه أن يكون له مستفيدين بنفس الرقم القومي أو رقم المستفيد الداخلي.",
+      dropResults,
       indexesBefore: indexesBefore.map(i => ({ name: i.name, key: i.key, unique: i.unique })),
       indexesAfter: indexesAfter.map(i => ({ name: i.name, key: i.key, unique: i.unique })),
     });
@@ -44,3 +54,4 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fix indexes", details: String(error) }, { status: 500 });
   }
 }
+
