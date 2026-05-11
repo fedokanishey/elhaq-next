@@ -32,6 +32,7 @@ interface BeneficiaryOption {
   name: string;
   phone?: string;
   nationalId?: string;
+  internalId?: string;
   children?: BeneficiaryChildSummary[];
   address?: string;
   healthStatus?: "healthy" | "sick";
@@ -53,6 +54,7 @@ interface BeneficiaryApiRecord {
   phone?: string;
   whatsapp?: string;
   nationalId?: string;
+  internalId?: string;
   address?: string;
   healthStatus?: "healthy" | "sick";
   housingType?: "owned" | "rented";
@@ -167,6 +169,7 @@ export default function InitiativeForm({
               name: item?.name || "بدون اسم",
               phone: item?.phone || item?.whatsapp,
               nationalId: item?.nationalId,
+              internalId: item?.internalId,
               address: item?.address,
               healthStatus: item?.healthStatus,
               housingType: item?.housingType,
@@ -323,10 +326,10 @@ export default function InitiativeForm({
     if (beneficiaryFilters.status === "pending") {
       // Keep original order or simplest for pending, as we lack dates in the trimmed down model
     } else {
-      // Sort by nationalId
+      // Sort by internalId
       result.sort((a, b) => {
-        const aId = parseInt(a.nationalId || "0", 10);
-        const bId = parseInt(b.nationalId || "0", 10);
+        const aId = parseInt(a.internalId || "0", 10);
+        const bId = parseInt(b.internalId || "0", 10);
         return sortByNationalId ? aId - bId : bId - aId;
       });
     }
@@ -674,7 +677,7 @@ export default function InitiativeForm({
                   key={beneficiary._id}
                   className="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary px-3 py-1 text-sm"
                 >
-                  {beneficiary.nationalId ? `${beneficiary.nationalId} - ${beneficiary.name}` : beneficiary.name}
+                  {beneficiary.internalId ? `${beneficiary.internalId} - ${beneficiary.name}` : beneficiary.name}
                   <button
                     type="button"
                     onClick={() => toggleBeneficiary(beneficiary)}
@@ -704,7 +707,7 @@ export default function InitiativeForm({
                     }`}
                   >
                     <span className="font-medium">
-                      {beneficiary.nationalId ? `${beneficiary.nationalId} - ${beneficiary.name}` : beneficiary.name}
+                      {beneficiary.internalId ? `${beneficiary.internalId} - ${beneficiary.name}` : beneficiary.name}
                     </span>
                     <span className="text-sm text-muted-foreground">
                       {beneficiary.phone || "بدون رقم"}
