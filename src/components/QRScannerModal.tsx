@@ -60,7 +60,9 @@ const cleanBarcodeValue = (value: string): string => {
   }
   cleaned = cleaned.trim();
   if (cleaned.startsWith("dhz")) {
-    return cleaned.replace(/^dhz0*/, "");
+    const withoutPrefix = cleaned.slice(3);
+    const num = withoutPrefix.replace(/^0+/, "");
+    return num || "0";
   }
   return cleaned;
 };
@@ -154,7 +156,18 @@ export default function QRScannerModal({
         preferredCamera.id,
         {
           fps: 15,
-          qrbox: { width: 320, height: 160 }, // slightly larger scan area for barcodes
+          qrbox: (width, height) => {
+            // Enforce minimum sizes of 150px/80px for standard views, ensuring dimensions are
+            // never below 50px (the library's validation minimum) even if width/height are zero.
+            const qrWidth = Math.max(150, Math.floor(width * 0.8));
+            const qrHeight = Math.max(80, Math.floor(height * 0.45));
+            const finalWidth = Math.min(qrWidth, width || 150);
+            const finalHeight = Math.min(qrHeight, height || 80);
+            return {
+              width: Math.max(50, finalWidth),
+              height: Math.max(50, finalHeight)
+            };
+          },
           aspectRatio: 1.777778, // 16:9 box
           videoConstraints: {
             deviceId: { exact: preferredCamera.id },
@@ -264,8 +277,17 @@ export default function QRScannerModal({
         }, "image/png");
       });
 
-      const { Html5Qrcode } = await import("html5-qrcode");
-      const tempScanner = new Html5Qrcode("hidden-file-scanner-container", { verbose: false });
+      const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
+      const tempScanner = new Html5Qrcode("hidden-file-scanner-container", {
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8
+        ],
+        verbose: false
+      });
       
       try {
         const scannedText = await tempScanner.scanFile(paddedFile, false);

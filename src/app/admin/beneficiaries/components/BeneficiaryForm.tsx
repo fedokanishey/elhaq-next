@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -380,14 +380,14 @@ export default function BeneficiaryForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           currentId: beneficiaryId,
-          targetNationalId: swapTargetId
+          targetInternalId: swapTargetId
         })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Swap failed");
       
       // Update local state with new ID
-      setFormData(prev => ({ ...prev, nationalId: data.newNationalId }));
+      setFormData(prev => ({ ...prev, internalId: data.newInternalId }));
       setShowSwapModal(false);
       setSwapTargetId("");
       alert(`تم التبديل بنجاح مع: ${data.swappedWithName}`);
