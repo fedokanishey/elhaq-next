@@ -24,31 +24,17 @@ const parseScannedValue = (rawText: string): ParsedPayload => {
 
   try {
     const parsed = JSON.parse(value) as Record<string, unknown>;
-    // Priority: always search by name first
+    // Priority: always search by identifier (internalId, id, nationalId) first
     const preferredKeys = [
-      "name",
-    ];
-
-    for (const key of preferredKeys) {
-      const candidate = parsed[key];
-      if (typeof candidate === "string" && candidate.trim()) {
-        return { searchValue: candidate.trim() };
-      }
-      if (typeof candidate === "number") {
-        return { searchValue: String(candidate) };
-      }
-    }
-
-    // Fallback to other identifiers if name is not available
-    const fallbackKeys = [
       "internalId",
       "beneficiaryInternalId",
       "id",
       "beneficiaryId",
       "nationalId",
+      "name",
     ];
 
-    for (const key of fallbackKeys) {
+    for (const key of preferredKeys) {
       const candidate = parsed[key];
       if (typeof candidate === "string" && candidate.trim()) {
         return { searchValue: candidate.trim() };
@@ -64,11 +50,26 @@ const parseScannedValue = (rawText: string): ParsedPayload => {
   return { searchValue: value };
 };
 
+const cleanBarcodeValue = (value: string): string => {
+  let cleaned = value.trim().toLowerCase();
+  if (cleaned.startsWith("*")) {
+    cleaned = cleaned.slice(1);
+  }
+  if (cleaned.endsWith("*")) {
+    cleaned = cleaned.slice(0, -1);
+  }
+  cleaned = cleaned.trim();
+  if (cleaned.startsWith("dhz")) {
+    return cleaned.replace(/^dhz0*/, "");
+  }
+  return cleaned;
+};
+
 export default function QRScannerModal({
   isOpen,
   onClose,
   onScan,
-  title = "مسح QR",
+  title = "مسح باركود",
 }: QRScannerModalProps) {
   const scannerRef = useRef<{
     stop: () => Promise<void>;
@@ -76,7 +77,23 @@ export default function QRScannerModal({
     scanFile?: (file: File, showImage?: boolean) => Promise<string>;
   } | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(true);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [manualValue, setManualValue] = useState("");
+  const isCancelledRef = useRef(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsCameraActive(true);
+    }
+  }, [isOpen]);
+
+  const handleManualSubmit = () => {
+    if (!manualValue.trim()) return;
+    void stopScanner();
+    onScan(cleanBarcodeValue(manualValue.trim()));
+    onClose();
+  };
 
   const stopScanner = useCallback(async () => {
     if (!scannerRef.current) return;
@@ -96,17 +113,34 @@ export default function QRScannerModal({
   const startScanner = useCallback(async () => {
     setIsStarting(true);
     setScanError(null);
+    isCancelledRef.current = false;
 
-    let isCancelled = false;
+    // Stop any active camera first to be safe
+    await stopScanner();
+
+    if (isCancelledRef.current) {
+      setIsStarting(false);
+      return;
+    }
 
     try {
-      const { Html5Qrcode } = await import("html5-qrcode");
-      if (isCancelled) return;
+      const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
+      if (isCancelledRef.current) throw new Error("cancelled");
 
-      const scanner = new Html5Qrcode(SCANNER_ELEMENT_ID);
+      const scanner = new Html5Qrcode(SCANNER_ELEMENT_ID, {
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8
+        ],
+        verbose: false
+      });
       scannerRef.current = scanner;
 
       const cameras = await Html5Qrcode.getCameras();
+      if (isCancelledRef.current) throw new Error("cancelled");
       if (!cameras.length) {
         throw new Error("لم يتم العثور على كاميرا متاحة");
       }
@@ -119,52 +153,62 @@ export default function QRScannerModal({
       await scanner.start(
         preferredCamera.id,
         {
-          fps: 10,
-          qrbox: { width: 220, height: 220 },
-          aspectRatio: 1,
+          fps: 15,
+          qrbox: { width: 320, height: 160 }, // slightly larger scan area for barcodes
+          aspectRatio: 1.777778, // 16:9 box
+          videoConstraints: {
+            deviceId: { exact: preferredCamera.id },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            advanced: [{ focusMode: "continuous" } as any]
+          } as any
         },
         async (decodedText: string) => {
+          if (isCancelledRef.current) return;
           if (!decodedText.trim()) return;
 
           const parsed = parseScannedValue(decodedText);
           if (!parsed.searchValue) return;
 
           await stopScanner();
-          onScan(parsed.searchValue);
+          onScan(cleanBarcodeValue(parsed.searchValue));
           onClose();
         },
         () => {
           // No-op for continuous scan failures.
         }
       );
+
+      if (isCancelledRef.current) {
+        await stopScanner();
+      }
     } catch (error) {
-      console.error("QR scanner start failed:", error);
-      if (!isCancelled) {
-        setScanError("تعذر تشغيل الكاميرا. يمكنك المحاولة بصورة QR.");
+      if (error instanceof Error && error.message === "cancelled") {
+        return;
+      }
+      console.warn("Barcode scanner start failed:", error);
+      if (!isCancelledRef.current) {
+        setScanError("تعذر تشغيل الكاميرا. يمكنك المحاولة بصورة باركود.");
       }
     } finally {
-      if (!isCancelled) {
+      if (!isCancelledRef.current) {
         setIsStarting(false);
       }
     }
-
-    return () => {
-      isCancelled = true;
-    };
   }, [onClose, onScan, stopScanner]);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (!isOpen || !isCameraActive) {
       return;
     }
 
-    const cleanup = startScanner();
+    startScanner();
 
     return () => {
-      cleanup.then((fn: (() => void) | void) => fn && fn());
+      isCancelledRef.current = true;
       void stopScanner();
     };
-  }, [isOpen, startScanner, stopScanner]);
+  }, [isOpen, isCameraActive, startScanner, stopScanner]);
 
   const handleScanImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -172,31 +216,76 @@ export default function QRScannerModal({
 
     if (!file) return;
 
-    try {
-      setScanError(null);
+    // Signal cancellation to any running startScanner promise
+    isCancelledRef.current = true;
+    setIsStarting(false);
+    setScanError(null);
+    setIsCameraActive(false);
 
+    try {
       // Stop the active camera before scanning a file
       await stopScanner();
 
-      const { Html5Qrcode } = await import("html5-qrcode");
-      const tempScanner = new Html5Qrcode(SCANNER_ELEMENT_ID);
+      // Load file into Image object to inspect dimensions and draw on canvas
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
       
-      const scannedText = await tempScanner.scanFile(file, true);
-      tempScanner.clear(); // cleanup temporary scanner
+      const loadedImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+        img.onload = () => resolve(img);
+        img.onerror = (err) => reject(err);
+        img.src = objectUrl;
+      });
 
-      const parsed = parseScannedValue(scannedText);
-      if (!parsed.searchValue) {
-        setScanError("لم يتم العثور على رمز QR صالح في الصورة.");
-        void startScanner();
-        return;
+      // Add a 40px white border (quiet zone) on all sides.
+      // This is crucial for 1D barcodes that have been cropped tightly without side margins.
+      const padding = 40;
+      const canvas = document.createElement("canvas");
+      canvas.width = loadedImg.width + padding * 2;
+      canvas.height = loadedImg.height + padding * 2;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Could not get canvas context");
+
+      // Draw solid white background
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw original image in center
+      ctx.drawImage(loadedImg, padding, padding);
+      URL.revokeObjectURL(objectUrl);
+
+      // Convert canvas to a File object for the scanner
+      const paddedFile = await new Promise<File>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error("Canvas to blob failed"));
+            return;
+          }
+          resolve(new File([blob], "padded_barcode.png", { type: "image/png" }));
+        }, "image/png");
+      });
+
+      const { Html5Qrcode } = await import("html5-qrcode");
+      const tempScanner = new Html5Qrcode("hidden-file-scanner-container", { verbose: false });
+      
+      try {
+        const scannedText = await tempScanner.scanFile(paddedFile, false);
+        tempScanner.clear(); // cleanup temporary scanner
+
+        const parsed = parseScannedValue(scannedText);
+        if (!parsed.searchValue) {
+          setScanError("لم يتم العثور على باركود أو رمز QR صالح في الصورة.");
+          return;
+        }
+
+        onScan(cleanBarcodeValue(parsed.searchValue));
+        onClose();
+      } catch (scanError) {
+        tempScanner.clear(); // clean up elements even on failure
+        throw scanError;
       }
-
-      onScan(parsed.searchValue);
-      onClose();
     } catch (error) {
-      console.error("QR image scan failed:", error);
-      setScanError("تعذر قراءة الرمز من الصورة.");
-      void startScanner();
+      console.warn("Barcode image scan failed:", error);
+      setScanError("تعذر قراءة الباركود من الصورة. يرجى التأكد من وضوح الصورة وقربها.");
     }
   };
 
@@ -225,19 +314,38 @@ export default function QRScannerModal({
         {/* Scrollable content */}
         <div className="p-4 space-y-4 overflow-y-auto flex-1">
           <p className="text-sm text-muted-foreground">
-            وجّه الكاميرا إلى بطاقة المستفيد لالتقاط بياناته تلقائياً.
+            وجّه الكاميرا إلى باركود المستفيد لالتقاط بياناته تلقائياً.
           </p>
 
           {/* Camera area - constrained height */}
-          <div className="rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden relative" style={{ maxHeight: '45vh' }}>
-            <div id={SCANNER_ELEMENT_ID} className="w-full" />
-            {isStarting && (
-              <div className="absolute flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                جاري تشغيل الكاميرا...
-              </div>
-            )}
-          </div>
+          {isCameraActive && (
+            <div className="rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden relative" style={{ maxHeight: '45vh' }}>
+              <div id={SCANNER_ELEMENT_ID} className="w-full" />
+              {isStarting && (
+                <div className="absolute flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  جاري تشغيل الكاميرا...
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Hidden scanner container for file scanning to avoid DOM conflicts */}
+          <div id="hidden-file-scanner-container" className="hidden" style={{ display: 'none' }} />
+
+          {!isCameraActive && (
+            <button
+              type="button"
+              onClick={() => {
+                setScanError(null);
+                setIsCameraActive(true);
+              }}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-sm transition-colors"
+            >
+              <Camera className="w-5 h-5" />
+              العودة لتشغيل الكاميرا
+            </button>
+          )}
 
           {scanError && (
             <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-800 px-3 py-2 text-sm dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800">
@@ -248,7 +356,7 @@ export default function QRScannerModal({
           {/* Image scan button - always visible */}
           <label className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted cursor-pointer transition-colors">
             <ImagePlus className="w-5 h-5" />
-            قراءة QR من صورة في المعرض
+            قراءة باركود من صورة في المعرض
             <input
               type="file"
               accept="image/*"
@@ -256,6 +364,35 @@ export default function QRScannerModal({
               className="hidden"
             />
           </label>
+
+          {/* Manual Entry Fallback Form */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleManualSubmit();
+            }}
+            className="pt-3 border-t border-border space-y-2 shrink-0"
+          >
+            <label htmlFor="manual-barcode-input" className="block text-xs font-medium text-muted-foreground text-right">
+              أو أدخل رقم الباركود / رقم المستفيد يدوياً:
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="manual-barcode-input"
+                type="text"
+                placeholder="مثال: DHZ00040 أو 40"
+                value={manualValue}
+                onChange={(e) => setManualValue(e.target.value)}
+                className="flex-1 px-3 py-2 text-sm bg-background border border-border rounded-lg outline-none focus:ring-1 focus:ring-primary focus:border-primary text-right"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                تأكيد
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

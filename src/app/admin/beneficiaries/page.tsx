@@ -7,7 +7,7 @@ import BeneficiaryCard from "@/components/BeneficiaryCard";
 import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
 import SearchFilterBar from "@/components/SearchFilterBar";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownUp, Download, QrCode } from "lucide-react";
+import { ArrowDownUp, Download, Barcode as BarcodeIcon } from "lucide-react";
 import BeneficiariesPrintModal from "@/components/BeneficiariesPrintModal";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
@@ -136,7 +136,17 @@ export default function AdminBeneficiaries() {
               .normalize("NFKD")
               .replace(/[\u064B-\u065F]/g, "");
 
-      const query = normalize(debouncedSearch);
+      let cleanQuery = normalize(debouncedSearch);
+      if (cleanQuery.startsWith("*")) {
+        cleanQuery = cleanQuery.slice(1);
+      }
+      if (cleanQuery.endsWith("*")) {
+        cleanQuery = cleanQuery.slice(0, -1);
+      }
+      cleanQuery = cleanQuery.trim();
+      if (cleanQuery.startsWith("dhz")) {
+        cleanQuery = cleanQuery.replace(/^dhz0*/, "");
+      }
 
       result = result.filter((beneficiary) => {
         const spouseName = normalize(beneficiary.spouse?.name);
@@ -146,11 +156,11 @@ export default function AdminBeneficiaries() {
           )
           .join(" ");
 
-        // If searchByBeneficiaryId is enabled, only search by nationalId
+        // If searchByBeneficiaryId is enabled, only search by internalId or nationalId
         if (filters.searchByBeneficiaryId) {
           return (
-            normalize(beneficiary.internalId).includes(query) ||
-            normalize(beneficiary.nationalId).includes(query)
+            normalize(beneficiary.internalId).includes(cleanQuery) ||
+            normalize(beneficiary.nationalId).includes(cleanQuery)
           );
         }
 
@@ -173,7 +183,7 @@ export default function AdminBeneficiaries() {
           .filter(Boolean)
           .join(" ");
 
-        return spouseName.includes(query) || searchableText.includes(query);
+        return spouseName.includes(cleanQuery) || searchableText.includes(cleanQuery);
       });
     }
 
@@ -337,7 +347,7 @@ export default function AdminBeneficiaries() {
                 placeholder={filters.searchByBeneficiaryId ? "ابحث برقم المستفيد..." : "ابحث بالاسم، الهاتف، العنوان، رقم المستفيد، أو الواتساب"}
                 onClearSearch={() => setSearchTerm("")}
                 enableQrScanner
-                qrScannerTitle="مسح بطاقة المستفيد"
+                qrScannerTitle="مسح باركود المستفيد"
               />
             </div>
             <BeneficiaryFilterPanel onFilterChange={setFilters} variant="dropdown" />
@@ -363,10 +373,10 @@ export default function AdminBeneficiaries() {
               onClick={() => setShowIdCardsModal(true)}
               className="px-4 py-3 border border-border rounded-lg text-foreground hover:bg-muted transition-colors inline-flex items-center gap-2"
               type="button"
-              title="طباعة بطاقات QR"
+              title="طباعة بطاقات باركود"
             >
-              <QrCode className="w-4 h-4" />
-              بطاقات QR
+              <BarcodeIcon className="w-4 h-4" />
+              بطاقات باركود
             </button>
           </div>
           {(debouncedSearch || Object.values(filters).some(Boolean)) && (

@@ -21,10 +21,11 @@ import {
   Receipt,
   ChevronLeft,
   ChevronRight,
-  QrCode,
+  Barcode as BarcodeIcon,
   FileText,
   Download,
 } from "lucide-react";
+import Barcode from "@/components/Barcode";
 import { QRCodeSVG } from "qrcode.react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
@@ -202,6 +203,11 @@ interface BeneficiaryDetailsViewProps {
   onClose?: () => void;
 }
 
+const formatBarcodeValue = (internalId?: string | number) => {
+  const idStr = String(internalId || "0").trim();
+  return `DHZ${idStr.padStart(5, "0")}`;
+};
+
 export default function BeneficiaryDetailsView({
   beneficiaryId,
   isModal = false,
@@ -349,26 +355,30 @@ export default function BeneficiaryDetailsView({
           </div>
         )}
 
-        {/* QR Code Section */}
+        {/* Barcode Section */}
         <div className="beneficiary-qr-section bg-card border border-border rounded-lg p-6">
           <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <QrCode className="w-5 h-5 text-primary" />
-            بطاقة تعريف QR
+            <BarcodeIcon className="w-5 h-5 text-primary" />
+            بطاقة تعريف باركود (Barcode)
           </h2>
           <div className="flex flex-col sm:flex-row items-center gap-6">
-            <div id="beneficiary-qr-code" className="p-3 rounded-xl bg-white border border-border shadow-sm">
-              <QRCodeSVG
-                value={JSON.stringify({
-                  beneficiaryId: beneficiary._id,
-                  internalId: beneficiary.internalId || null,
-                  nationalId: beneficiary.nationalId || null,
-                  id: beneficiary.internalId?.trim() || beneficiary.nationalId?.trim() || beneficiary._id,
-                  name: beneficiary.name,
-                })}
-                size={140}
-                includeMargin
-                level="M"
-              />
+            <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-start">
+              <div id="beneficiary-qr-code" className="p-3 rounded-xl bg-white border border-border shadow-sm flex items-center justify-center min-w-[180px]">
+                <Barcode value={formatBarcodeValue(beneficiary.internalId)} height={60} />
+              </div>
+              <div className="p-3 rounded-xl bg-white border border-border shadow-sm flex items-center justify-center">
+                <QRCodeSVG
+                  value={JSON.stringify({
+                    beneficiaryId: beneficiary._id,
+                    internalId: beneficiary.internalId || null,
+                    nationalId: beneficiary.nationalId || null,
+                    id: beneficiary.internalId?.trim() || beneficiary.nationalId?.trim() || beneficiary._id,
+                    name: beneficiary.name,
+                  })}
+                  size={84}
+                  level="M"
+                />
+              </div>
             </div>
             <div className="flex flex-col gap-3 text-center sm:text-right">
               <div>

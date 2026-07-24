@@ -8,7 +8,7 @@ import Link from "next/link";
 import BeneficiaryCard from "@/components/BeneficiaryCard";
 import BeneficiaryFilterPanel, { BeneficiaryFilterCriteria } from "@/components/BeneficiaryFilterPanel";
 import SearchFilterBar from "@/components/SearchFilterBar";
-import { Loader2, Plus, Users, AlertCircle, ArrowDownUp, Printer, Download, QrCode } from "lucide-react";
+import { Loader2, Plus, Users, AlertCircle, ArrowDownUp, Printer, Download, Barcode as BarcodeIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import MonthlyAllowancePrintModal from "@/components/MonthlyAllowancePrintModal";
 import BeneficiariesPrintModal from "@/components/BeneficiariesPrintModal";
@@ -143,7 +143,17 @@ export default function BeneficiariesPage() {
               .normalize("NFKD")
               .replace(/[\u064B-\u065F]/g, "");
 
-      const query = normalize(debouncedSearch);
+      let cleanQuery = normalize(debouncedSearch);
+      if (cleanQuery.startsWith("*")) {
+        cleanQuery = cleanQuery.slice(1);
+      }
+      if (cleanQuery.endsWith("*")) {
+        cleanQuery = cleanQuery.slice(0, -1);
+      }
+      cleanQuery = cleanQuery.trim();
+      if (cleanQuery.startsWith("dhz")) {
+        cleanQuery = cleanQuery.replace(/^dhz0*/, "");
+      }
 
       result = result.filter((beneficiary: Beneficiary) => {
         const spouseName = normalize(beneficiary.spouse?.name);
@@ -153,11 +163,11 @@ export default function BeneficiariesPage() {
           )
           .join(" ");
 
-        // If searchByBeneficiaryId is enabled, only search by nationalId
+        // If searchByBeneficiaryId is enabled, only search by internalId or nationalId
         if (filters.searchByBeneficiaryId) {
           return (
-            normalize(beneficiary.internalId).includes(query) ||
-            normalize(beneficiary.nationalId).includes(query)
+            normalize(beneficiary.internalId).includes(cleanQuery) ||
+            normalize(beneficiary.nationalId).includes(cleanQuery)
           );
         }
 
@@ -180,7 +190,7 @@ export default function BeneficiariesPage() {
           .filter(Boolean)
           .join(" ");
 
-        return spouseName.includes(query) || searchableText.includes(query);
+        return spouseName.includes(cleanQuery) || searchableText.includes(cleanQuery);
       });
     }
 
@@ -229,9 +239,10 @@ export default function BeneficiariesPage() {
 
     if (filters.listName) {
       const normalizedListName = filters.listName.toLowerCase().trim();
-      result = result.filter((b: Beneficiary) =>
-        (b.listName || "الكشف العام").toLowerCase().includes(normalizedListName)
-      );
+      result = result.filter((b: Beneficiary) => {
+        const lists = b.listNames?.length ? b.listNames : (b.listName ? [b.listName] : ["الكشف العام"]);
+        return lists.some((name: string) => name.toLowerCase().includes(normalizedListName));
+      });
     }
 
     if (filters.categories && filters.categories.length > 0) {
@@ -330,7 +341,7 @@ export default function BeneficiariesPage() {
                 placeholder={filters.searchByBeneficiaryId ? "ابحث برقم المستفيد..." : "ابحث بالاسم، الهاتف، العنوان، رقم المستفيد، أو الواتساب"}
                 onClearSearch={() => setSearchTerm("")}
                 enableQrScanner
-                qrScannerTitle="مسح بطاقة المستفيد"
+                qrScannerTitle="مسح باركود المستفيد"
               />
             </div>
             <BeneficiaryFilterPanel onFilterChange={setFilters} variant="dropdown" />
@@ -356,10 +367,10 @@ export default function BeneficiariesPage() {
                 onClick={() => setShowIdCardsModal(true)}
                 className="px-4 py-3 border border-border rounded-lg text-foreground hover:bg-muted transition-colors inline-flex items-center gap-2"
                 type="button"
-                title="طباعة بطاقات QR"
+                title="طباعة بطاقات باركود"
               >
-                <QrCode className="w-4 h-4" />
-                بطاقات QR
+                <BarcodeIcon className="w-4 h-4" />
+                بطاقات باركود
               </button>
             )}
           </div>

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Download, FileText, Loader2, Search, X } from "lucide-react";
+import Barcode from "@/components/Barcode";
 import { QRCodeSVG } from "qrcode.react";
 
 interface BeneficiaryIdCardItem {
@@ -19,35 +20,25 @@ interface BeneficiaryIdCardsModalProps {
 
 type ExportMode = "all" | "range" | "specific";
 
-const buildQrPayload = (beneficiary: BeneficiaryIdCardItem) => {
-  const identifier =
-    beneficiary.internalId?.trim() ||
-    beneficiary.nationalId?.trim() ||
-    beneficiary._id;
-
-  return JSON.stringify({
-    beneficiaryId: beneficiary._id,
-    internalId: beneficiary.internalId || null,
-    nationalId: beneficiary.nationalId || null,
-    id: identifier,
-    name: beneficiary.name,
-  });
+const formatBarcodeValue = (internalId?: string | number) => {
+  const idStr = String(internalId || "0").trim();
+  return `DHZ${idStr.padStart(5, "0")}`;
 };
 
 // Convert an SVG element to a PNG ArrayBuffer
-async function svgToPngBuffer(svgEl: SVGElement, size: number): Promise<ArrayBuffer> {
+async function svgToPngBuffer(svgEl: SVGElement, width: number, height: number): Promise<ArrayBuffer> {
   const svgData = new XMLSerializer().serializeToString(svgEl);
   const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext("2d")!;
 
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       ctx.fillStyle = "white";
-      ctx.fillRect(0, 0, size, size);
-      ctx.drawImage(img, 0, 0, size, size);
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
       canvas.toBlob(
         (blob) => {
           if (!blob) return reject(new Error("Failed to create blob"));
@@ -73,10 +64,12 @@ async function generateWordDocument(
   const { saveAs } = await import("file-saver");
 
   const BATCH_SIZE = 5;
-  const QR_RENDER_SIZE = 300;
-  const QR_DOC_SIZE = 150;
+  const BARCODE_RENDER_WIDTH = 400;
+  const BARCODE_RENDER_HEIGHT = 160;
+  const BARCODE_DOC_WIDTH = 180;
+  const BARCODE_DOC_HEIGHT = 72;
 
-  // Create a temporary container for rendering QR codes one batch at a time
+  // Create a temporary container for rendering barcodes one batch at a time
   const container = document.createElement("div");
   container.style.position = "fixed";
   container.style.left = "-9999px";
@@ -90,7 +83,7 @@ async function generateWordDocument(
       const batch = beneficiaries.slice(i, i + BATCH_SIZE);
       onProgress(Math.min(i + BATCH_SIZE, beneficiaries.length), beneficiaries.length);
 
-      // Render QR SVGs for this batch
+      // Render barcode SVGs for this batch
       const { createRoot } = await import("react-dom/client");
       const React = await import("react");
 
@@ -102,11 +95,10 @@ async function generateWordDocument(
 
         const root = createRoot(qrDiv);
         root.render(
-          React.createElement(QRCodeSVG, {
-            value: buildQrPayload(beneficiary),
-            size: 200,
-            includeMargin: true,
-            level: "M",
+          React.createElement(Barcode, {
+            value: formatBarcodeValue(beneficiary.internalId),
+            width: 2.0,
+            height: 60,
           })
         );
 
@@ -114,7 +106,7 @@ async function generateWordDocument(
 
         const svgEl = qrDiv.querySelector("svg") as SVGElement;
         if (svgEl) {
-          const pngBuffer = await svgToPngBuffer(svgEl, QR_RENDER_SIZE);
+          const pngBuffer = await svgToPngBuffer(svgEl, BARCODE_RENDER_WIDTH, BARCODE_RENDER_HEIGHT);
           batchResults.push(pngBuffer);
         } else {
           batchResults.push(new ArrayBuffer(0));
@@ -180,7 +172,7 @@ async function generateWordDocument(
               children: [
                 new ImageRun({
                   data: pngBuffer,
-                  transformation: { width: QR_DOC_SIZE, height: QR_DOC_SIZE },
+                  transformation: { width: BARCODE_DOC_WIDTH, height: BARCODE_DOC_HEIGHT },
                   type: "png",
                 }),
               ],
@@ -216,7 +208,7 @@ async function generateWordDocument(
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `QR_Cards_${new Date().toISOString().slice(0, 10)}.docx`);
+  saveAs(blob, `Barcode_Cards_${new Date().toISOString().slice(0, 10)}.docx`);
 }
 
 export default function BeneficiaryIdCardsModal({
@@ -314,7 +306,7 @@ export default function BeneficiaryIdCardsModal({
         setExportProgress({ current, total });
       });
     } catch (err) {
-      console.error("Failed to export QR cards:", err);
+      console.error("Failed to export Barcode cards:", err);
       alert("فشل تصدير البطاقات");
     } finally {
       setExporting(false);
@@ -328,7 +320,7 @@ export default function BeneficiaryIdCardsModal({
           {/* Header */}
           <div className="beneficiary-id-print-actions flex items-center justify-between px-4 py-3 border-b border-border sticky top-0 bg-background z-10">
             <h2 className="text-lg font-semibold text-foreground">
-              بطاقات تعريف المستفيدين (QR)
+              بطاقات تعريف المستفيدين (باركود)
             </h2>
             <div className="flex items-center gap-2">
               <button
@@ -557,18 +549,32 @@ export default function BeneficiaryIdCardsModal({
                         </p>
                       </div>
 
-                      <div className="mt-4 flex items-center justify-between gap-3">
-                        <div className="p-2 rounded-lg bg-white border border-border">
-                          <QRCodeSVG
-                            value={buildQrPayload(beneficiary)}
-                            size={94}
-                            includeMargin
-                            level="M"
-                          />
+                      <div className="mt-4 flex flex-col gap-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="p-1.5 rounded-lg bg-white border border-border flex items-center justify-center min-h-[65px] flex-1">
+                            <Barcode
+                              value={formatBarcodeValue(beneficiary.internalId)}
+                              width={1.2}
+                              height={35}
+                            />
+                          </div>
+                          <div className="p-1.5 rounded-lg bg-white border border-border flex items-center justify-center min-h-[65px] aspect-square">
+                            <QRCodeSVG
+                              value={JSON.stringify({
+                                beneficiaryId: beneficiary._id,
+                                internalId: beneficiary.internalId || null,
+                                nationalId: beneficiary.nationalId || null,
+                                id: primaryId,
+                                name: beneficiary.name,
+                              })}
+                              size={48}
+                              level="M"
+                            />
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground leading-5">
-                          <p>المعرّف:</p>
-                          <p className="font-medium text-foreground break-all">{primaryId}</p>
+                        <div className="text-xxs text-muted-foreground flex justify-between items-center px-1">
+                          <span>المعرّف: {primaryId}</span>
+                          <span className="text-[10px] text-primary/80">مسح سريع (باركود / QR)</span>
                         </div>
                       </div>
                     </div>
@@ -580,7 +586,7 @@ export default function BeneficiaryIdCardsModal({
 
           <div className="beneficiary-id-print-actions px-4 py-3 border-t border-border text-xs text-muted-foreground flex items-center gap-2">
             <Download className="w-4 h-4" />
-            تحتوي كل بطاقة على اسم المستفيد ورمز QR يتضمن بيانات التعريف.
+            تحتوي كل بطاقة على اسم المستفيد ورمز باركود يتضمن بيانات التعريف.
           </div>
         </div>
       </div>

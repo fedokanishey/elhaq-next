@@ -1,8 +1,10 @@
 "use client";
 
-import { ScanQrCode, Search, X } from "lucide-react";
+import { ScanBarcode, Search, X } from "lucide-react";
 import { useState } from "react";
 import QRScannerModal from "@/components/QRScannerModal";
+
+import { toast } from "sonner";
 
 export interface SearchFilterBarProps {
   searchTerm: string;
@@ -29,6 +31,7 @@ export default function SearchFilterBar({
   const handleQrScan = (value: string) => {
     onSearchChange(value);
     onQrScan?.(value);
+    toast.success(`تم مسح الباركود بنجاح للمستفيد رقم: ${value}`);
   };
 
   return (
@@ -55,9 +58,9 @@ export default function SearchFilterBar({
             onClick={() => setIsScannerOpen(true)}
             className="p-1 shrink-0 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground"
             type="button"
-            title="مسح QR"
+            title="مسح باركود"
           >
-            <ScanQrCode className="w-4 h-4" />
+            <ScanBarcode className="w-4 h-4" />
           </button>
         )}
         {searchTerm && (
