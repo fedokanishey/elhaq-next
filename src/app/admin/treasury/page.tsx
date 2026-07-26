@@ -323,6 +323,15 @@ export default function TreasuryPage() {
       result = result.filter((b: BeneficiarySummary) => b.receivesMonthlyAllowance === true);
     }
 
+    // Apply filter criteria - list name (اسم الكشف)
+    if (beneficiaryFilters.listName) {
+      const normalizedListName = beneficiaryFilters.listName.toLowerCase().trim();
+      result = result.filter((b: BeneficiarySummary) => {
+        const lists = b.listNames?.length ? b.listNames : (b.listName ? [b.listName] : ["الكشف العام"]);
+        return lists.some((name: string) => name.toLowerCase().includes(normalizedListName));
+      });
+    }
+
     return [...result].sort((a, b) => {
       const idA = a.internalId ? parseInt(a.internalId, 10) : Number.MAX_SAFE_INTEGER;
       const idB = b.internalId ? parseInt(b.internalId, 10) : Number.MAX_SAFE_INTEGER;

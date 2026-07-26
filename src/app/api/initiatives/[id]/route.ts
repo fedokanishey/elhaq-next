@@ -28,7 +28,21 @@ export async function GET(
       _id: string;
       name: string;
       phone?: string;
+      whatsapp?: string;
+      nationalId?: string;
+      address?: string;
+      healthStatus?: string;
+      housingType?: string;
+      employment?: string;
+      priority?: number;
+      children?: any[];
+      spouse?: any;
+      familyMembers?: number;
+      maritalStatus?: string;
+      income?: number;
+      rentalCost?: number;
       profileImage?: string;
+      received?: boolean;
     }>;
 
     if (Array.isArray(initiative.beneficiaries) && initiative.beneficiaries.length > 0) {
@@ -53,6 +67,10 @@ export async function GET(
           .select("name phone whatsapp nationalId address healthStatus housingType employment priority children spouse familyMembers maritalStatus income rentalCost profileImage")
           .lean();
 
+        const receivedIds = new Set(
+          (initiative.beneficiariesReceived || []).map((val: any) => val.toString())
+        );
+
         // Ensure _id is a string for the API response
         hydratedBeneficiaries = raw.map((b: any) => ({
           _id: b._id?.toString?.() ?? b._id,
@@ -72,6 +90,7 @@ export async function GET(
           income: b.income,
           rentalCost: b.rentalCost,
           profileImage: b.profileImage,
+          received: receivedIds.has(b._id?.toString() ?? b._id),
         }));
       }
     }

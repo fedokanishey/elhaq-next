@@ -170,10 +170,7 @@ export default function QRScannerModal({
           },
           aspectRatio: 1.777778, // 16:9 box
           videoConstraints: {
-            deviceId: { exact: preferredCamera.id },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            advanced: [{ focusMode: "continuous" } as any]
+            deviceId: preferredCamera.id
           } as any
         },
         async (decodedText: string) => {
@@ -339,16 +336,23 @@ export default function QRScannerModal({
             وجّه الكاميرا إلى باركود المستفيد لالتقاط بياناته تلقائياً.
           </p>
 
-          {/* Camera area - constrained height */}
+          {/* Camera area - stable aspect-ratio container */}
           {isCameraActive && (
-            <div className="rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden relative" style={{ maxHeight: '45vh' }}>
-              <div id={SCANNER_ELEMENT_ID} className="w-full" />
+            <div className="rounded-lg border border-border bg-muted/20 overflow-hidden relative w-full aspect-video min-h-[220px]">
+              <div id={SCANNER_ELEMENT_ID} className="w-full h-full" />
               {isStarting && (
-                <div className="absolute flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground bg-black/40">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   جاري تشغيل الكاميرا...
                 </div>
               )}
+              <style dangerouslySetInnerHTML={{ __html: `
+                #${SCANNER_ELEMENT_ID} video {
+                  width: 100% !important;
+                  height: 100% !important;
+                  object-fit: cover !important;
+                }
+              `}} />
             </div>
           )}
 

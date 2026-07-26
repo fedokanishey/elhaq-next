@@ -14,8 +14,12 @@ import {
   X,
   ZoomIn,
   Loader2,
+  ScanBarcode,
+  Check,
 } from "lucide-react";
 import CloudinaryImage from "@/components/CloudinaryImage";
+import { toast } from "sonner";
+import QRScannerModal from "@/components/QRScannerModal";
 
 interface BeneficiarySummary {
   _id: string;
@@ -23,6 +27,7 @@ interface BeneficiarySummary {
   nationalId?: string;
   phone?: string;
   whatsapp?: string;
+  received?: boolean;
   address?: string;
   healthStatus?: string;
   housingType?: string;
@@ -85,6 +90,7 @@ export default function InitiativeDetailsView({
   const router = useRouter();
 
   const [initiative, setInitiative] = useState<InitiativeDetails | null>(null);
+  const beneficiaries = initiative?.beneficiaries || [];
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("جاري تحميل بيانات المبادرة...");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -130,6 +136,118 @@ export default function InitiativeDetailsView({
 
     fetchInitiative();
   }, [initiativeId]);
+
+  const [updatingBenefit, setUpdatingBenefit] = useState<string | null>(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+
+  const handleToggleBenefit = async (beneficiaryId: string, currentStatus: boolean) => {
+    setUpdatingBenefit(beneficiaryId);
+    try {
+      const nextStatus = !currentStatus;
+      const res = await fetch(`/api/initiatives/${initiativeId}/toggle-benefit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ beneficiaryId, received: nextStatus }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "فشل تحديث حالة الاستلام");
+      }
+
+      setInitiative((prev) => {
+        if (!prev || !prev.beneficiaries) return prev;
+        return {
+          ...prev,
+          beneficiaries: prev.beneficiaries.map((b) =>
+            b._id === beneficiaryId ? { ...b, received: nextStatus } : b
+          ),
+        };
+      });
+      toast.success(nextStatus ? "تم تسجيل الاستلام بنجاح" : "تم إلغاء تسجيل الاستلام");
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "فشل تحديث حالة الاستلام");
+    } finally {
+      setUpdatingBenefit(null);
+    }
+  };
+
+  const handleBarcodeScan = async (barcode: string) => {
+    try {
+      const res = await fetch(`/api/initiatives/${initiativeId}/scan-benefit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ barcode }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "فشل تسجيل الاستلام بالباركود");
+      }
+
+      setInitiative((prev) => {
+        if (!prev || !prev.beneficiaries) return prev;
+        return {
+          ...prev,
+          beneficiaries: prev.beneficiaries.map((b) =>
+            b._id === data.beneficiaryId ? { ...b, received: true } : b
+          ),
+        };
+      });
+      toast.success(`تم تسجيل استلام المستفيد: ${data.beneficiaryName}`);
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "فشل تسجيل الاستلام بالباركود");
+    }
+  };
+
+  const [filterType, setFilterType] = useState<"all" | "received" | "not_received">("all");
+  const [deliveringAll, setDeliveringAll] = useState(false);
+
+  const handleDeliverAll = async () => {
+    if (!confirm("هل أنت متأكد من تسليم الكل لجميع المستفيدين المتبقين في هذه المبادرة؟")) {
+      return;
+    }
+    setDeliveringAll(true);
+    try {
+      const res = await fetch(`/api/initiatives/${initiativeId}/deliver-all`, {
+        method: "POST",
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "فشل تسجيل تسليم الكل");
+      }
+
+      setInitiative((prev) => {
+        if (!prev || !prev.beneficiaries) return prev;
+        return {
+          ...prev,
+          beneficiaries: prev.beneficiaries.map((b) => ({ ...b, received: true })),
+        };
+      });
+      toast.success("تم تسجيل استلام جميع المستفيدين بنجاح");
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "فشل تسجيل تسليم الكل");
+    } finally {
+      setDeliveringAll(false);
+    }
+  };
+
+  const receivedCount = useMemo(() => beneficiaries.filter(b => b.received).length, [beneficiaries]);
+  const notReceivedCount = useMemo(() => beneficiaries.filter(b => !b.received).length, [beneficiaries]);
+
+  const filteredBeneficiariesList = useMemo(() => {
+    if (filterType === "received") {
+      return beneficiaries.filter(b => b.received);
+    }
+    if (filterType === "not_received") {
+      return beneficiaries.filter(b => !b.received);
+    }
+    return beneficiaries;
+  }, [beneficiaries, filterType]);
 
   const exportToWord = async () => {
     if (!initiative || !initiative.beneficiaries || initiative.beneficiaries.length === 0) {
@@ -407,7 +525,6 @@ export default function InitiativeDetailsView({
   const formattedDate = initiative.date
     ? new Date(initiative.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
     : "Not specified";
-  const beneficiaries = initiative.beneficiaries || [];
 
   return (
     <div className={isModal ? "bg-background transition-colors" : "min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8 transition-colors"}>
@@ -431,6 +548,15 @@ export default function InitiativeDetailsView({
               >
                 ✏️ تعديل المبادرة
               </Link>
+              {initiative.status === "active" && (
+                <button
+                  onClick={() => setIsScannerOpen(true)}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors"
+                >
+                  <ScanBarcode className="w-4 h-4" />
+                  مسح باركود الاستلام
+                </button>
+              )}
               <button
                 onClick={exportToWord}
                 disabled={exporting}
@@ -455,8 +581,17 @@ export default function InitiativeDetailsView({
                   <h2 className="text-2xl font-bold text-foreground">{initiative.name}</h2>
                   <p className="text-muted-foreground">{initiative.description}</p>
                </div>
-               <div className="flex gap-2">
-                   {isAdmin && onEdit && (
+                <div className="flex gap-2">
+                    {initiative.status === "active" && (
+                      <button
+                        onClick={() => setIsScannerOpen(true)}
+                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm transition-colors"
+                      >
+                        <ScanBarcode className="w-4 h-4" />
+                        مسح الباركود
+                      </button>
+                    )}
+                    {isAdmin && onEdit && (
                      <button
                        onClick={onEdit}
                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 font-medium"
@@ -526,14 +661,70 @@ export default function InitiativeDetailsView({
         </section>
 
         <section className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-semibold text-foreground">المستفيدون ({beneficiaries.length})</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-semibold text-foreground">المستفيدون ({beneficiaries.length})</h2>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30">
+                <button
+                  type="button"
+                  onClick={() => setFilterType("all")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    filterType === "all"
+                      ? "bg-primary text-primary-foreground shadow-sm font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  الكل ({beneficiaries.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterType("received")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    filterType === "received"
+                      ? "bg-green-600 text-white shadow-sm font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  تم الاستلام ({receivedCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterType("not_received")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    filterType === "not_received"
+                      ? "bg-amber-600 text-white shadow-sm font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  لم يستلم بعد ({notReceivedCount})
+                </button>
+              </div>
+
+              {filterType === "not_received" && initiative.status === "active" && notReceivedCount > 0 && (
+                <button
+                  type="button"
+                  disabled={deliveringAll}
+                  onClick={handleDeliverAll}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors inline-flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {deliveringAll ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5" />
+                  )}
+                  تسليم الكل المتبقي ({notReceivedCount})
+                </button>
+              )}
+            </div>
           </div>
 
-          {beneficiaries.length > 0 ? (
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {beneficiaries.map((beneficiary) => (
+          {filteredBeneficiariesList.length > 0 ? (
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 pt-2">
+              {filteredBeneficiariesList.map((beneficiary) => (
                 <div key={beneficiary._id} className="border border-border rounded-lg p-4 flex flex-col items-center text-center gap-3 hover:bg-muted/50 transition-colors">
                   <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-border bg-muted flex items-center justify-center text-2xl font-semibold text-primary">
                     {beneficiary.profileImage ? (
@@ -562,12 +753,30 @@ export default function InitiativeDetailsView({
                     )}
                   </div>
                   
-                  {/* Since this is a view inside a view, navigation should be handled carefully. 
-                      Ideally, open BeneficiaryModal for this beneficiary. 
-                      But for now let's keep it as Link or button. 
-                      If we are in a Modal, we cannot easily stack modals without management.
-                      So let's just make it a Link for now, or just show info.
-                  */}
+                  {/* Status Toggle / Badge */}
+                  <div className="w-full mt-2 pt-2 border-t border-border/50 flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">حالة الاستلام:</span>
+                    <button
+                      type="button"
+                      disabled={updatingBenefit === beneficiary._id}
+                      onClick={() => handleToggleBenefit(beneficiary._id, !!beneficiary.received)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 border ${
+                        beneficiary.received
+                          ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-200 dark:border-green-800 hover:bg-green-200 dark:hover:bg-green-900/50"
+                          : "bg-muted text-muted-foreground border-border hover:bg-muted/80 hover:text-foreground"
+                      }`}
+                    >
+                      {updatingBenefit === beneficiary._id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : beneficiary.received ? (
+                        <Check className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                      ) : (
+                        <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />
+                      )}
+                      {beneficiary.received ? "تم الاستلام" : "لم يستلم"}
+                    </button>
+                  </div>
+
                   <Link
                     href={`/admin/beneficiaries/${beneficiary._id}`}
                     target="_blank" 
@@ -611,6 +820,15 @@ export default function InitiativeDetailsView({
             </button>
           </div>
         </div>
+      )}
+
+      {isScannerOpen && (
+        <QRScannerModal
+          isOpen={isScannerOpen}
+          onClose={() => setIsScannerOpen(false)}
+          onScan={handleBarcodeScan}
+          title="مسح باركود استلام المبادرة"
+        />
       )}
     </div>
   );

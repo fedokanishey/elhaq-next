@@ -8,6 +8,9 @@ import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
 import InitiativeModal from "@/components/InitiativeModal";
 import { useBranchContext } from "@/contexts/BranchContext";
+import { ScanBarcode } from "lucide-react";
+import { toast } from "sonner";
+import QRScannerModal from "@/components/QRScannerModal";
 
 interface Initiative {
   _id: string;
@@ -43,6 +46,32 @@ export default function AdminInitiatives() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
+
+  // Barcode Scanner State
+  const [isScanOpen, setIsScanOpen] = useState(false);
+  const [scanInitiativeId, setScanInitiativeId] = useState<string | null>(null);
+
+  const handleBarcodeScan = async (barcode: string) => {
+    if (!scanInitiativeId) return;
+    try {
+      const res = await fetch(`/api/initiatives/${scanInitiativeId}/scan-benefit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ barcode }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "فشل تسجيل الاستلام بالباركود");
+      }
+
+      toast.success(`تم تسجيل استلام المستفيد: ${data.beneficiaryName}`);
+      mutate();
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "فشل تسجيل الاستلام بالباركود");
+    }
+  };
 
   const handleOpenEdit = (id: string) => {
     setSelectedId(id);
@@ -144,7 +173,20 @@ export default function AdminInitiatives() {
                   <span>📅 {new Date(initiative.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
                   <span>💰 {initiative.totalAmount} ج.م</span>
                 </div>
-                <div className="flex gap-2 justify-end border-t border-border pt-4">
+                <div className="flex gap-2 justify-end border-t border-border pt-4 flex-wrap">
+                  {initiative.status === "active" && (
+                    <button
+                      onClick={() => {
+                        setScanInitiativeId(initiative._id);
+                        setIsScanOpen(true);
+                      }}
+                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-sm inline-flex items-center gap-1.5 transition"
+                      title="مسح باركود الاستلام"
+                    >
+                      <ScanBarcode className="w-3.5 h-3.5" />
+                      استلام
+                    </button>
+                  )}
                   <button
                     onClick={() => handleOpenView(initiative._id)}
                     className="px-3 py-1 border border-border text-foreground rounded hover:bg-muted text-sm"
@@ -180,6 +222,18 @@ export default function AdminInitiatives() {
           initialMode={modalMode}
           onSuccess={() => mutate()}
         />
+
+        {isScanOpen && (
+          <QRScannerModal
+            isOpen={isScanOpen}
+            onClose={() => {
+              setIsScanOpen(false);
+              setScanInitiativeId(null);
+            }}
+            onScan={handleBarcodeScan}
+            title="مسح باركود استلام المبادرة"
+          />
+        )}
       </div>
     </div>
   );
