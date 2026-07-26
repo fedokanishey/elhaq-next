@@ -182,7 +182,15 @@ export default function InitiativeDetailsView({
       });
 
       const data = await res.json();
+
       if (!res.ok) {
+        // If already received — show as a warning notification, not an error
+        if (data.alreadyReceived) {
+          toast.warning(data.error || "تم الاستلام بالفعل من قبل", {
+            duration: 6000,
+          });
+          return;
+        }
         throw new Error(data.error || "فشل تسجيل الاستلام بالباركود");
       }
 

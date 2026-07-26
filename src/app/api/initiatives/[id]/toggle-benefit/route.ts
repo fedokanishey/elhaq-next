@@ -32,10 +32,33 @@ export async function POST(
       return NextResponse.json({ error: "Initiative not found" }, { status: 404 });
     }
 
-    // Update beneficiariesReceived list
-    const updateQuery = received
-      ? { $addToSet: { beneficiariesReceived: beneficiaryId } }
-      : { $pull: { beneficiariesReceived: beneficiaryId } };
+    // Update beneficiariesReceived list and receivedLogs
+    let updateQuery;
+    if (received) {
+      // Mark as received: add to set and push a log entry
+      // First pull any existing log to avoid duplicates, then push fresh
+      await Initiative.findByIdAndUpdate(id, {
+        $pull: { receivedLogs: { beneficiaryId } },
+      });
+
+      updateQuery = {
+        $addToSet: { beneficiariesReceived: beneficiaryId },
+        $push: {
+          receivedLogs: {
+            beneficiaryId,
+            receivedAt: new Date(),
+          },
+        },
+      };
+    } else {
+      // Mark as not received: remove from both
+      updateQuery = {
+        $pull: {
+          beneficiariesReceived: beneficiaryId,
+          receivedLogs: { beneficiaryId },
+        },
+      };
+    }
 
     const updatedInitiative = await Initiative.findByIdAndUpdate(
       id,
@@ -53,3 +76,4 @@ export async function POST(
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+

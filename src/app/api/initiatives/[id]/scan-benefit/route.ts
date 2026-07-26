@@ -89,10 +89,55 @@ export async function POST(
       );
     }
 
-    // Add beneficiary to the beneficiariesReceived array
+    // Check if beneficiary already received the benefit
+    const receivedIds = (initiative.beneficiariesReceived || []).map((val: any) => val.toString());
+    const alreadyReceived = receivedIds.includes(beneficiary._id.toString());
+
+    if (alreadyReceived) {
+      // Look up the receipt timestamp from receivedLogs
+      const log = (initiative.receivedLogs || []).find(
+        (l: any) => l.beneficiaryId?.toString() === beneficiary._id.toString()
+      );
+
+      let timeMessage = "";
+      if (log?.receivedAt) {
+        const receivedDate = new Date(log.receivedAt);
+        const dateStr = receivedDate.toLocaleDateString("ar-EG", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+        const timeStr = receivedDate.toLocaleTimeString("ar-EG", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        });
+        timeMessage = ` بتاريخ ${dateStr} الساعة ${timeStr}`;
+      }
+
+      return NextResponse.json(
+        {
+          error: `تم الاستلام بالفعل من قبل${timeMessage}`,
+          alreadyReceived: true,
+          beneficiaryName: beneficiary.name,
+          beneficiaryId: beneficiary._id.toString(),
+        },
+        { status: 400 }
+      );
+    }
+
+    // Add beneficiary to beneficiariesReceived and log the receipt time
     await Initiative.findByIdAndUpdate(
       id,
-      { $addToSet: { beneficiariesReceived: beneficiary._id } },
+      {
+        $addToSet: { beneficiariesReceived: beneficiary._id },
+        $push: {
+          receivedLogs: {
+            beneficiaryId: beneficiary._id,
+            receivedAt: new Date(),
+          },
+        },
+      },
       { new: true }
     );
 
@@ -106,3 +151,4 @@ export async function POST(
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+

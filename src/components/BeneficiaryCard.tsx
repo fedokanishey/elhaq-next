@@ -42,6 +42,7 @@ interface BeneficiaryCardProps {
   onDelete?: () => void;
   onView?: () => void;
   isReadOnly?: boolean;
+  acceptsMarriage?: boolean;
 }
 
 export default function BeneficiaryCard({
@@ -68,6 +69,7 @@ export default function BeneficiaryCard({
   onDelete,
   onView,
   isReadOnly = false,
+  acceptsMarriage = false,
 }: BeneficiaryCardProps) {
 
   // ==============================
@@ -199,6 +201,13 @@ export default function BeneficiaryCard({
                   {category && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
                       فئة {category}
+                    </span>
+                  )}
+
+                  {/* Accepts Marriage / المقبلين على الزواج Badge */}
+                  {acceptsMarriage && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-400">
+                      💍 مقبل على الزواج
                     </span>
                   )}
 

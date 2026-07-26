@@ -26,10 +26,32 @@ export async function POST(
       return NextResponse.json({ error: "المبادرة غير موجودة" }, { status: 404 });
     }
 
-    // Set beneficiariesReceived to contain all beneficiaries in the initiative
+    // Build receivedLogs: preserve existing timestamps, add new ones for the rest
+    const existingLogs = initiative.receivedLogs || [];
+    const existingLogMap = new Map(
+      existingLogs.map((l: any) => [l.beneficiaryId?.toString(), l])
+    );
+
+    const now = new Date();
+    const allBeneficiaryIds = (initiative.beneficiaries || []).map((b: any) => b.toString());
+
+    const mergedLogs = allBeneficiaryIds.map((bId: string) => {
+      const existing = existingLogMap.get(bId);
+      if (existing) {
+        return existing;
+      }
+      return { beneficiaryId: bId, receivedAt: now };
+    });
+
+    // Set beneficiariesReceived to contain all beneficiaries and update logs
     const updatedInitiative = await Initiative.findByIdAndUpdate(
       id,
-      { $set: { beneficiariesReceived: initiative.beneficiaries } },
+      {
+        $set: {
+          beneficiariesReceived: initiative.beneficiaries,
+          receivedLogs: mergedLogs,
+        },
+      },
       { new: true }
     );
 
@@ -42,3 +64,4 @@ export async function POST(
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+

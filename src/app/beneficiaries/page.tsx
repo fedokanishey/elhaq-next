@@ -417,6 +417,7 @@ export default function BeneficiariesPage() {
                   status={beneficiary.status}
                   category={beneficiary.category}
                   loanDetails={beneficiary.loanDetails as any}
+                  acceptsMarriage={beneficiary.acceptsMarriage}
                   onView={() => handleOpenView(beneficiary._id)}
                   isReadOnly={!isAdmin}
                   onEdit={isAdmin ? () => handleOpenEdit(beneficiary._id) : undefined}

@@ -61,7 +61,14 @@ export default function AdminInitiatives() {
       });
 
       const data = await res.json();
+
       if (!res.ok) {
+        if (data.alreadyReceived) {
+          toast.warning(data.error || "تم الاستلام بالفعل من قبل", {
+            duration: 6000,
+          });
+          return;
+        }
         throw new Error(data.error || "فشل تسجيل الاستلام بالباركود");
       }
 

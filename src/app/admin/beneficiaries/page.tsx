@@ -416,6 +416,7 @@ export default function AdminBeneficiaries() {
                   status={beneficiary.status}
                   category={beneficiary.category}
                   loanDetails={beneficiary.loanDetails as any}
+                  acceptsMarriage={beneficiary.acceptsMarriage}
                   onView={() => handleOpenView(beneficiary._id)}
                   onEdit={() => handleOpenEdit(beneficiary._id)}
                   onDelete={() => handleDelete(beneficiary._id)}

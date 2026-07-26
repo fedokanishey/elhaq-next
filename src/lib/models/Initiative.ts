@@ -1,5 +1,10 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export interface IReceivedLog {
+  beneficiaryId: mongoose.Types.ObjectId;
+  receivedAt: Date;
+}
+
 export interface IInitiative extends Document {
   name: string;
   description: string;
@@ -8,6 +13,7 @@ export interface IInitiative extends Document {
   status: 'planned' | 'active' | 'completed' | 'cancelled';
   beneficiaries: string[]; // Array of Beneficiary IDs
   beneficiariesReceived?: string[]; // Array of Beneficiary IDs who received benefits
+  receivedLogs?: IReceivedLog[]; // Timestamped receipt logs
   images: string[];
   branch?: mongoose.Types.ObjectId; // Reference to Branch model
   branchName?: string; // Cached branch name
@@ -28,6 +34,12 @@ const InitiativeSchema = new Schema<IInitiative>(
     },
     beneficiaries: [{ type: Schema.Types.ObjectId, ref: 'Beneficiary' }],
     beneficiariesReceived: [{ type: Schema.Types.ObjectId, ref: 'Beneficiary' }],
+    receivedLogs: [
+      {
+        beneficiaryId: { type: Schema.Types.ObjectId, ref: 'Beneficiary' },
+        receivedAt: { type: Date, default: Date.now },
+      },
+    ],
     images: {
       type: [String],
       default: [],
@@ -52,3 +64,4 @@ if (mongoose.models.Initiative) {
 const InitiativeModel = mongoose.model<IInitiative>('Initiative', InitiativeSchema);
 
 export default InitiativeModel;
+

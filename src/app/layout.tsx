@@ -6,6 +6,7 @@ import BackToTopButton from "@/components/BackToTopButton";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import PWARegister from "@/components/PWARegister";
 import { BranchProvider } from "@/contexts/BranchContext";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -62,6 +63,7 @@ export default function RootLayout({
                 {children}
               </main>
               <BackToTopButton />
+              <Toaster position="top-center" richColors dir="rtl" />
             </BranchProvider>
           </ThemeProvider>
         </body>
