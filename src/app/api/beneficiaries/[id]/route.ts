@@ -40,10 +40,23 @@ export async function GET(
       category: beneficiary.category || 'C',
     };
 
-    const initiatives = await Initiative.find({ beneficiaries: id })
+    const rawInitiatives = await Initiative.find({
+      $or: [{ beneficiaries: id }, { beneficiariesReceived: id }],
+    })
       .sort({ date: -1 })
-      .select("name status date totalAmount")
+      .select("name status date totalAmount beneficiariesReceived")
       .lean();
+
+    const initiatives = rawInitiatives.map((init: any) => ({
+      _id: init._id,
+      name: init.name,
+      status: init.status,
+      date: init.date,
+      totalAmount: init.totalAmount,
+      received: (init.beneficiariesReceived || []).some(
+        (bId: any) => bId?.toString() === id.toString()
+      ),
+    }));
 
     // Fetch treasury transactions (expenses) that include this beneficiary
     // Filter by year if provided

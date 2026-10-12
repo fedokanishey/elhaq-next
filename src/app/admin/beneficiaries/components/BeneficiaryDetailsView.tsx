@@ -4,6 +4,7 @@ import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   AlertCircle,
   Hash,
@@ -23,7 +24,7 @@ import {
   ChevronRight,
   Barcode as BarcodeIcon,
   FileText,
-  Download,
+  Printer,
 } from "lucide-react";
 import Barcode from "@/components/Barcode";
 import { QRCodeSVG } from "qrcode.react";
@@ -116,6 +117,7 @@ interface InitiativeSummary {
   status: "planned" | "active" | "completed" | "cancelled";
   date: string;
   totalAmount?: number;
+  received?: boolean;
 }
 
 interface TreasuryTransactionSummary {
@@ -225,7 +227,10 @@ export default function BeneficiaryDetailsView({
   );
 
   const beneficiary = data?.beneficiary || data || null;
-  const initiatives = data?.initiatives || [];
+  const initiatives = useMemo(
+    () => (data?.initiatives || []).filter((i: InitiativeSummary) => i.received),
+    [data?.initiatives]
+  );
   const treasuryTransactions: TreasuryTransactionSummary[] = data?.treasuryTransactions || [];
   const totalReceivedThisYear = data?.totalReceivedThisYear || 0;
   const transactionYear = data?.transactionYear || selectedYear;
@@ -248,6 +253,79 @@ export default function BeneficiaryDetailsView({
   // Handle year change for treasury transactions
   const handleYearChange = (direction: 'prev' | 'next') => {
     setSelectedYear(prev => direction === 'prev' ? prev - 1 : prev + 1);
+  };
+
+  const handlePrint = () => {
+    const el = document.getElementById("beneficiary-details-printable");
+    if (!el) return;
+
+    // Clone the content so we don't mutate the DOM
+    const clone = el.cloneNode(true) as HTMLElement;
+
+    // Remove elements marked as print-ignore
+    clone.querySelectorAll("[data-print-ignore]").forEach((n) => n.remove());
+
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+    if (!printWindow) {
+      toast.error("لم يتمكن المتصفح من فتح نافذة الطباعة. يرجى السماح بالنوافذ المنبثقة.");
+      return;
+    }
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>بيانات المستفيد</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { direction: rtl; font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #111; background: #fff; }
+    body { padding: 16px; }
+    h1, h2, h3 { color: #1a1a2e; }
+    .bg-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+    .border { border: 1px solid #e2e8f0; }
+    .rounded-lg { border-radius: 8px; }
+    .p-6 { padding: 16px; }
+    .p-3 { padding: 8px; }
+    .mb-4 { margin-bottom: 12px; }
+    .text-sm { font-size: 12px; }
+    .text-muted-foreground { color: #64748b; }
+    .font-semibold { font-weight: 600; }
+    .font-bold { font-weight: 700; }
+    .text-lg { font-size: 15px; }
+    .grid { display: grid; }
+    .grid-cols-2 { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid-cols-3 { grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .flex { display: flex; }
+    .items-center { align-items: center; }
+    .gap-2 { gap: 8px; }
+    .gap-4 { gap: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border: 1px solid #e2e8f0; padding: 6px 10px; text-align: right; }
+    thead { background: #f1f5f9; }
+    .bg-green-100 { background: #dcfce7; color: #15803d; border-radius: 4px; padding: 2px 8px; display: inline-block; }
+    .bg-yellow-100 { background: #fef9c3; color: #a16207; border-radius: 4px; padding: 2px 8px; display: inline-block; }
+    .bg-red-100 { background: #fee2e2; color: #b91c1c; border-radius: 4px; padding: 2px 8px; display: inline-block; }
+    .bg-blue-100 { background: #dbeafe; color: #1d4ed8; border-radius: 4px; padding: 2px 8px; display: inline-block; }
+    svg { display: none !important; }
+    a { color: inherit; text-decoration: none; }
+    button { display: none !important; }
+    @media print {
+      html, body { margin: 0; padding: 8px; }
+      .bg-card { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+${clone.innerHTML}
+</body>
+</html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    // Wait for the page to render then trigger print dialog
+    // Do NOT close automatically — let the user close after printing
+    setTimeout(() => {
+      printWindow.print();
+    }, 600);
   };
 
   if (!isLoaded || isLoading) {
@@ -291,7 +369,10 @@ export default function BeneficiaryDetailsView({
   const relationships = beneficiary.relationships || [];
 
   return (
-    <div className={isModal ? "bg-background transition-colors" : "min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8 transition-colors"}>
+    <div
+      id="beneficiary-details-printable"
+      className={isModal ? "bg-background transition-colors" : "min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8 transition-colors"}
+    >
       <div className={isModal ? "space-y-6" : "max-w-5xl mx-auto space-y-8"}>
         {!isModal && (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -299,6 +380,7 @@ export default function BeneficiaryDetailsView({
               <Link
                 href="/admin/beneficiaries"
                 className="text-muted-foreground hover:text-primary inline-flex items-center gap-2"
+                data-html2canvas-ignore="true"
               >
                 ← العودة لإدارة المستفيدين
               </Link>
@@ -309,18 +391,27 @@ export default function BeneficiaryDetailsView({
                 </p>
               )}
             </div>
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 items-center" data-print-ignore="true">
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-medium text-sm transition-colors shadow-sm cursor-pointer"
+                title="طباعة / حفظ كـ PDF"
+              >
+                <Printer className="w-4 h-4" />
+                <span>طباعة / PDF</span>
+              </button>
               {isAdmin && (
                 <Link
                   href={`/admin/beneficiaries/${beneficiary._id}/edit`}
-                  className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90 transition-colors shadow-sm hover:shadow-md"
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-2.5 border border-transparent text-sm font-medium rounded-lg text-primary-foreground bg-primary hover:bg-primary/90 transition-colors shadow-sm hover:shadow-md"
                 >
                   تعديل مستفيد
                 </Link>
               )}
               <Link
                 href={`tel:${beneficiary.whatsapp}`}
-                className="inline-flex items-center justify-center px-5 py-2 rounded-lg border border-border text-foreground hover:bg-muted"
+                className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg border border-border text-foreground hover:bg-muted text-sm"
               >
                 ☎️ اتصال سريع
               </Link>
@@ -336,18 +427,27 @@ export default function BeneficiaryDetailsView({
                   <p className="text-muted-foreground">رقم المستفيد: {beneficiary.internalId}</p>
                 )}
              </div>
-             <div className="flex gap-2">
+             <div className="flex gap-2 items-center" data-print-ignore="true">
+                 <button
+                   type="button"
+                   onClick={handlePrint}
+                   className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-medium text-sm transition-colors shadow-sm cursor-pointer"
+                   title="طباعة / حفظ كـ PDF"
+                 >
+                   <Printer className="w-4 h-4" />
+                   <span>طباعة / PDF</span>
+                 </button>
                  {isAdmin && onEdit && (
                    <button
                      onClick={onEdit}
-                     className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 font-medium"
+                     className="px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 font-medium text-sm"
                    >
                      تعديل
                    </button>
                  )}
                  <Link
                     href={`tel:${beneficiary.whatsapp}`}
-                    className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-border text-foreground hover:bg-muted"
+                    className="inline-flex items-center justify-center px-3 py-2 rounded-lg border border-border text-foreground hover:bg-muted text-sm"
                  >
                     ☎️ اتصال
                  </Link>
@@ -474,6 +574,7 @@ export default function BeneficiaryDetailsView({
                   }
                 }}
                 className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-sm transition-colors"
+                data-html2canvas-ignore="true"
               >
                 <FileText className="w-4 h-4" />
                 تصدير بطاقة QR كملف Word
@@ -997,6 +1098,7 @@ export default function BeneficiaryDetailsView({
                 onClick={() => handleYearChange('prev')}
                 className="p-2 hover:bg-muted rounded-lg transition-colors"
                 title="السنة السابقة"
+                data-html2canvas-ignore="true"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -1008,6 +1110,7 @@ export default function BeneficiaryDetailsView({
                 disabled={selectedYear >= new Date().getFullYear()}
                 className="p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="السنة التالية"
+                data-html2canvas-ignore="true"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
