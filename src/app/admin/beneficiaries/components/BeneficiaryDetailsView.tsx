@@ -797,9 +797,16 @@ ${clone.innerHTML}
               )}
               <div>
                 <dt className="text-sm text-muted-foreground">اسم الكشف</dt>
-                <dd className="mt-1 flex items-center gap-2 text-foreground">
-                  <NotebookPen className="w-4 h-4" />
-                  {beneficiary.listName || "الكشف العام"}
+                <dd className="mt-1 flex flex-wrap items-center gap-2 text-foreground">
+                  <NotebookPen className="w-4 h-4 shrink-0" />
+                  {(beneficiary.listNames && beneficiary.listNames.length > 0
+                    ? beneficiary.listNames
+                    : [beneficiary.listName || "الكشف العام"]
+                  ).map((ln: string, idx: number) => (
+                    <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-secondary text-secondary-foreground">
+                      {ln}
+                    </span>
+                  ))}
                 </dd>
               </div>
               {beneficiary.receivesMonthlyAllowance && (
