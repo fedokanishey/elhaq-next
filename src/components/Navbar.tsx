@@ -45,14 +45,14 @@ export default function Navbar() {
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2 ">
               <Image 
-                src={isDark ? "/logos/3-04-white.png" : "/logos/3-04.png"} 
+                src={isDark ? "/logos/3-04-white.png" : "/logos/شعار.png"} 
                 alt="دعوة الحق" 
-                width={90} 
-                height={90}
+                width={56} 
+                height={56}
                 quality={100}
                 priority
                 unoptimized
-                className="object-contain w-20 h-20"
+                className="object-contain w-12 h-12"
               />
             </Link>
           </div>

@@ -982,10 +982,10 @@ export default function GoodLoansPage() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="رصيد الصندوق الكلي" value={`${stats.totalFund.toLocaleString()} ج.م`} icon={<PiggyBank className="w-6 h-6" />} colorClass="bg-emerald-50 text-emerald-700 border-emerald-200" />
-          <StatCard title="إجمالي القروض المنصرفة" value={`${stats.totalDisbursed.toLocaleString()} ج.م`} icon={<Briefcase className="w-6 h-6" />} colorClass="bg-blue-50 text-blue-700 border-blue-200" />
-          <StatCard title="إجمالي المبالغ المسددة" value={`${stats.totalRepaid.toLocaleString()} ج.م`} icon={<CheckCircle className="w-6 h-6" />} colorClass="bg-indigo-50 text-indigo-700 border-indigo-200" />
-          <StatCard title="المتاح حالياً للإقراض" value={`${stats.availableFund.toLocaleString()} ج.م`} icon={<AlertCircle className="w-6 h-6" />} colorClass="bg-amber-50 text-amber-700 border-amber-200" />
+          <StatCard title="رصيد الصندوق الكلي" value={`${stats.totalFund.toLocaleString()} ج.م`} icon={<PiggyBank className="w-6 h-6" />} colorClass="bg-emerald-500 text-emerald-700 border-emerald-200" />
+          <StatCard title="إجمالي القروض المنصرفة" value={`${stats.totalDisbursed.toLocaleString()} ج.م`} icon={<Briefcase className="w-6 h-6" />} colorClass="bg-blue-500 text-blue-700 border-blue-200" />
+          <StatCard title="إجمالي المبالغ المسددة" value={`${stats.totalRepaid.toLocaleString()} ج.م`} icon={<CheckCircle className="w-6 h-6" />} colorClass="bg-indigo-500 text-indigo-700 border-indigo-200" />
+          <StatCard title="المتاح حالياً للإقراض" value={`${stats.availableFund.toLocaleString()} ج.م`} icon={<AlertCircle className="w-6 h-6" />} colorClass="bg-amber-500 text-amber-700 border-amber-200" />
         </div>
 
         {/* Search */}
