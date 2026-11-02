@@ -1,4 +1,5 @@
 "use client";
+import BrandedLoader from "@/components/BrandedLoader";
 
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -79,11 +80,7 @@ export default function AdminDashboard() {
   }, [isLoaded, isSuperAdmin]);
 
   if (!isLoaded) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <BrandedLoader fullScreen />;
   }
 
   return (
@@ -96,7 +93,7 @@ export default function AdminDashboard() {
               لوحة التحكم
             </h1>
             {isSuperAdmin && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
                 <Crown className="w-4 h-4 ml-1" />
                 سوبر ادمن
               </span>
@@ -111,7 +108,7 @@ export default function AdminDashboard() {
               </span>
             )}
             {isSuperAdmin && (
-              <span className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400">
+              <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
                 -
                 <BranchSelector
                   selectedBranchId={selectedBranchId}
@@ -126,8 +123,8 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Users className="h-6 w-6 text-primary" />
               </div>
               <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full">الإجمالي</span>
             </div>
@@ -148,8 +145,8 @@ export default function AdminDashboard() {
 
           <div className="bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                <Shield className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              <div className="p-2 bg-amber-100 dark:bg-amber-950/40 rounded-lg">
+                <Shield className="h-6 w-6 text-amber-600 dark:text-amber-400" />
               </div>
               <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full">المستخدمين</span>
             </div>
@@ -282,11 +279,11 @@ export default function AdminDashboard() {
           {isSuperAdmin && (
             <Link
               href="/admin/branches"
-              className="group bg-card border border-purple-200 dark:border-purple-800 rounded-xl shadow-sm p-6 hover:shadow-md hover:border-purple-400 dark:hover:border-purple-600 transition-all cursor-pointer"
+              className="group bg-card border border-amber-200 dark:border-amber-800 rounded-xl shadow-sm p-6 hover:shadow-md hover:border-amber-400 dark:hover:border-amber-600 transition-all cursor-pointer"
             >
               <div className="flex items-center gap-4 mb-3">
-                <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-full group-hover:bg-purple-200 dark:group-hover:bg-purple-900/50 transition-colors">
-                  <Building2 className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                <div className="p-3 bg-amber-100 dark:bg-amber-950/40 rounded-full group-hover:bg-amber-200 dark:group-hover:bg-amber-900/50 transition-colors">
+                  <Building2 className="h-6 w-6 text-amber-600 dark:text-amber-400" />
                 </div>
                 <h3 className="text-lg font-bold text-foreground">إدارة الفروع</h3>
               </div>

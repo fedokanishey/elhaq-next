@@ -1,4 +1,5 @@
 "use client";
+import BrandedLoader from "@/components/BrandedLoader";
 
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -151,11 +152,7 @@ export default function BranchesPage() {
   };
 
   if (!isLoaded) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <BrandedLoader fullScreen />;
   }
 
   return (

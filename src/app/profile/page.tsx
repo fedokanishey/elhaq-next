@@ -28,7 +28,7 @@ export default function ProfilePage() {
     superadmin: {
       label: "سوبر ادمن",
       description: "يمكنه إدارة جميع الفروع والمسؤولين",
-      badgeClass: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+      badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
     },
     admin: {
       label: "مسؤول",
@@ -38,7 +38,7 @@ export default function ProfilePage() {
     member: {
       label: "عضو",
       description: "يمكنه الوصول إلى بيانات المستفيدين فقط",
-      badgeClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+      badgeClass: "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary",
     },
     user: {
       label: "مستخدم",
@@ -129,7 +129,7 @@ export default function ProfilePage() {
               <div className="flex items-start gap-4 p-4 rounded-lg bg-muted/20 border border-border/50">
                 <div className="p-2 bg-primary/10 rounded-full">
                   {role === "superadmin" ? (
-                    <Crown className="h-5 w-5 text-purple-600" />
+                    <Crown className="h-5 w-5 text-amber-500" />
                   ) : (
                     <Shield className="h-5 w-5 text-primary" />
                   )}
@@ -161,13 +161,13 @@ export default function ProfilePage() {
               )}
               
               {role === "superadmin" && (
-                <div className="flex items-start gap-4 p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
-                  <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-full">
-                    <Building2 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                <div className="flex items-start gap-4 p-4 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/20">
+                  <div className="p-2 bg-amber-100 dark:bg-amber-950/40 rounded-full">
+                    <Building2 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-muted-foreground mb-1">الفرع</label>
-                    <p className="text-lg font-medium text-purple-700 dark:text-purple-300">
+                    <p className="text-lg font-medium text-amber-700 dark:text-amber-300">
                       جميع الفروع
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">

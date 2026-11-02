@@ -1,4 +1,5 @@
 "use client";
+import BrandedLoader from "@/components/BrandedLoader";
 
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
@@ -179,7 +180,7 @@ const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
 };
 
 const INITIATIVE_STATUS_STYLES: Record<string, string> = {
-  planned: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200",
+  planned: "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
   active: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-200",
   completed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200",
   cancelled: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-200",
@@ -280,7 +281,7 @@ export default function BeneficiaryDetailsView({
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { direction: rtl; font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #111; background: #fff; }
     body { padding: 16px; }
-    h1, h2, h3 { color: #1a1a2e; }
+    h1, h2, h3 { color: #1a1a1a; }
     .bg-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
     .border { border: 1px solid #e2e8f0; }
     .rounded-lg { border-radius: 8px; }
@@ -305,7 +306,7 @@ export default function BeneficiaryDetailsView({
     .bg-green-100 { background: #dcfce7; color: #15803d; border-radius: 4px; padding: 2px 8px; display: inline-block; }
     .bg-yellow-100 { background: #fef9c3; color: #a16207; border-radius: 4px; padding: 2px 8px; display: inline-block; }
     .bg-red-100 { background: #fee2e2; color: #b91c1c; border-radius: 4px; padding: 2px 8px; display: inline-block; }
-    .bg-blue-100 { background: #dbeafe; color: #1d4ed8; border-radius: 4px; padding: 2px 8px; display: inline-block; }
+    .bg-amber-100 { background: #fef3c7; color: #92400e; border-radius: 4px; padding: 2px 8px; display: inline-block; }
     svg { display: none !important; }
     a { color: inherit; text-decoration: none; }
     button { display: none !important; }
@@ -700,7 +701,7 @@ ${clone.innerHTML}
               <div>
                 <dt className="text-sm text-muted-foreground">فئة المستفيد</dt>
                 <dd className="mt-1 flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
+                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary">
                     فئة {beneficiary.category || "C"}
                   </span>
                 </dd>
@@ -751,7 +752,7 @@ ${clone.innerHTML}
                 <div>
                   <dt className="text-sm text-muted-foreground">💍لديه ابن/ابنه مقبل على الزواج</dt>
                   <dd className="mt-1 flex items-center gap-2 text-foreground">
-                    <span className="px-3 py-1 bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-full text-sm">
+                    <span className="px-3 py-1 bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary rounded-full text-sm">
                       نعم
                     </span>
                   </dd>
@@ -813,7 +814,7 @@ ${clone.innerHTML}
                 <div>
                   <dt className="text-sm text-muted-foreground">يتقاضى شهرية</dt>
                   <dd className="mt-1 flex items-center gap-2">
-                    <span className="px-3 py-1 bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-full text-sm">
+                    <span className="px-3 py-1 bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary rounded-full text-sm">
                       نعم
                     </span>
                   </dd>

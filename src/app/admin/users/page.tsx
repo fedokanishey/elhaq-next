@@ -1,4 +1,5 @@
 "use client";
+import BrandedLoader from "@/components/BrandedLoader";
 
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -455,7 +456,7 @@ function RoleBadge({ role }: { role: string }) {
   const roleConfig: Record<string, { label: string; classes: string; Icon: typeof ShieldAlert }> = {
     superadmin: {
       label: "سوبر ادمن",
-      classes: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+      classes: "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
       Icon: Crown,
     },
     admin: {
@@ -465,7 +466,7 @@ function RoleBadge({ role }: { role: string }) {
     },
     member: {
       label: "عضو",
-      classes: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+      classes: "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary",
       Icon: UsersIcon,
     },
     user: {

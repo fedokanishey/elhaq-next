@@ -1,4 +1,5 @@
 "use client";
+import BrandedLoader from "@/components/BrandedLoader";
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { useUser } from "@clerk/nextjs";
@@ -766,7 +767,7 @@ export default function TreasuryPage() {
                   console.log("Total beneficiaries:", beneficiaries.length);
                   setShowMonthlyAllowancePrint(true);
                 }}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/90 transition-colors"
                 type="button"
               >
                 <Printer className="w-4 h-4" />
@@ -1132,7 +1133,7 @@ export default function TreasuryPage() {
                                 </span>
                               )}
                               {b.acceptsMarriage && (
-                                <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-full">
+                                <span className="text-xs px-2 py-1 bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary rounded-full">
                                   💍 مقبل على الزواج
                                 </span>
                               )}
@@ -1358,9 +1359,7 @@ export default function TreasuryPage() {
             )}
 
             {loading ? (
-              <div className="flex justify-center py-10">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-              </div>
+              <BrandedLoader size="sm" />
             ) : activeLedgerTransactions.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">
                 لا توجد عمليات مسجلة بعد
@@ -1437,7 +1436,7 @@ export default function TreasuryPage() {
                           <button
                             onClick={() => handleEditTransaction(txn._id)}
                             disabled={deleting === txn._id || submitting}
-                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-2 rounded transition flex items-center gap-1 disabled:opacity-50"
+                            className="text-primary hover:text-primary/80 hover:bg-primary/10 p-2 rounded transition flex items-center gap-1 disabled:opacity-50"
                             type="button"
                             title="تعديل العملية"
                           >

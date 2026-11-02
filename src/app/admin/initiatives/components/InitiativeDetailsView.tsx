@@ -1,4 +1,5 @@
 "use client";
+import BrandedLoader from "@/components/BrandedLoader";
 
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
@@ -69,7 +70,7 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_STYLES: Record<string, string> = {
   planned: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",
   active: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200",
-  completed: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200",
+  completed: "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary",
   cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
 };
 

@@ -1,4 +1,5 @@
 "use client";
+import BrandedLoader from "@/components/BrandedLoader";
 
 import { useEffect, useMemo, useState } from "react";
 import { useUser } from "@clerk/nextjs";
@@ -272,11 +273,7 @@ export default function BeneficiariesPage() {
   }, [data?.beneficiaries, debouncedSearch, filters, sortByNationalId]);
 
   if (!isLoaded) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <BrandedLoader fullScreen />;
   }
 
   if (!canAccessBeneficiaries) {
@@ -309,7 +306,7 @@ export default function BeneficiariesPage() {
             <div className="flex gap-2 w-full sm:w-auto">
               <button
                 onClick={() => setShowMonthlyAllowancePrint(true)}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-md text-secondary-foreground bg-secondary text-secondary-foreground hover:bg-secondary/90 transition-colors shadow-sm hover:shadow-md"
               >
                 <Printer className="ml-2 h-5 w-5" />
                 طباعة الكشوف

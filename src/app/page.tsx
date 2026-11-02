@@ -1,5 +1,5 @@
 "use client";
-
+import BrandedLoader from "@/components/BrandedLoader";
 import Link from "next/link";
 import Image from "next/image";
 import { useUser } from "@clerk/nextjs";
@@ -175,7 +175,7 @@ export default function Home() {
         <div className="space-y-6 max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-foreground">
             <Image 
-              src={isDark ? "/logos/3-01-white.png" : "/logos/Asset 1.png"} 
+              src="/logos/Asset 1.png" 
               alt="دعوة الحق" 
               width={500} 
               height={200}
@@ -193,7 +193,7 @@ export default function Home() {
 
           {!isLoaded ? (
             <div className="flex items-center justify-center h-12">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              <BrandedLoader size="sm" />
             </div>
           ) : user ? (
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
@@ -369,8 +369,8 @@ export default function Home() {
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
             <div className="bg-card p-6 rounded-xl shadow-sm border border-border hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mb-4">
-                <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                <Users className="h-6 w-6 text-primary" />
               </div>
               <h3 className="text-lg font-semibold text-foreground mb-2">إدارة المستفيدين</h3>
               <p className="text-muted-foreground">
@@ -389,8 +389,8 @@ export default function Home() {
             </div>
             
             <div className="bg-card p-6 rounded-xl shadow-sm border border-border hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center mb-4">
-                <Shield className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              <div className="w-12 h-12 bg-amber-100 dark:bg-amber-950/40 rounded-lg flex items-center justify-center mb-4">
+                <Shield className="h-6 w-6 text-amber-600 dark:text-amber-400" />
               </div>
               <h3 className="text-lg font-semibold text-foreground mb-2">نظام آمن</h3>
               <p className="text-muted-foreground">

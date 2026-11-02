@@ -1,4 +1,5 @@
 "use client";
+import BrandedLoader from "@/components/BrandedLoader";
 
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -290,11 +291,7 @@ export default function AdminBeneficiaries() {
   };
 
   if (!isLoaded || isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-background text-muted-foreground">
-        <p>جاري التحميل...</p>
-      </div>
-    );
+    return <BrandedLoader fullScreen />;
   }
 
   if (error) {
@@ -388,9 +385,7 @@ export default function AdminBeneficiaries() {
 
         {/* Beneficiaries Grid */}
         {isLoading ? (
-          <div className="flex justify-center py-12 text-muted-foreground">
-            <p>جاري التحميل...</p>
-          </div>
+          <BrandedLoader size="md" />
         ) : filteredBeneficiaries.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {filteredBeneficiaries.map((beneficiary) => (

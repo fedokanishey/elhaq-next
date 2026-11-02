@@ -1,4 +1,5 @@
 "use client";
+import BrandedLoader from "@/components/BrandedLoader";
 
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -621,8 +622,8 @@ function ProductDetailsModal({
     switch (type) {
       case "purchase": return "bg-emerald-100 text-emerald-700";
       case "expense": return "bg-rose-100 text-rose-700";
-      case "sale": return "bg-blue-100 text-blue-700";
-      case "transform": return "bg-purple-100 text-purple-700";
+      case "sale": return "bg-primary/10 text-primary";
+      case "transform": return "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300";
       case "donation": return "bg-amber-100 text-amber-700";
       default: return "bg-gray-100 text-gray-700";
     }
@@ -689,7 +690,7 @@ function ProductDetailsModal({
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
         <div className="bg-background rounded-lg shadow-lg w-full max-w-2xl p-6 flex items-center justify-center">
-          <Loader2 className="animate-spin w-8 h-8" />
+          <BrandedLoader size="sm" />
         </div>
       </div>
     );
@@ -707,7 +708,7 @@ function ProductDetailsModal({
             <span className={`text-xs px-2 py-1 rounded ${
               product.category === "raw" ? "bg-amber-100 text-amber-700" :
               product.category === "finished" ? "bg-green-100 text-green-700" :
-              "bg-purple-100 text-purple-700"
+              "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
             }`}>
               {product.category === "raw" ? "خام" : product.category === "finished" ? "جاهز" : "منتج فرعي"}
             </span>
@@ -717,9 +718,9 @@ function ProductDetailsModal({
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-center">
+          <div className="bg-primary/10 dark:bg-primary/20 rounded-lg p-3 text-center">
             <p className="text-xs text-muted-foreground">الكمية</p>
-            <p className="text-lg font-bold text-blue-600">{product.currentQuantity} {product.unit}</p>
+            <p className="text-lg font-bold text-primary">{product.currentQuantity} {product.unit}</p>
           </div>
           <div className="bg-rose-50 dark:bg-rose-900/20 rounded-lg p-3 text-center">
             <p className="text-xs text-muted-foreground">التكاليف</p>
@@ -987,7 +988,7 @@ export default function WarehousePage() {
     setIsEditProductOpen(true);
   };
 
-  if (!isLoaded) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+  if (!isLoaded) return <BrandedLoader fullScreen />;
 
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
@@ -1021,7 +1022,7 @@ export default function WarehousePage() {
             title="إجمالي المنتجات" 
             value={`${stats.totalProducts}`} 
             icon={<Package className="w-6 h-6" />} 
-            colorClass="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800" 
+            colorClass="bg-primary/10 dark:bg-primary/20 text-primary border-primary/20" 
           />
           <StatCard 
             title="إجمالي التكاليف" 
@@ -1096,7 +1097,7 @@ export default function WarehousePage() {
                         <span className={`text-xs px-2 py-0.5 rounded ${
                           product.category === "raw" ? "bg-amber-100 text-amber-700" :
                           product.category === "finished" ? "bg-green-100 text-green-700" :
-                          "bg-purple-100 text-purple-700"
+                          "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
                         }`}>
                           {product.category === "raw" ? "خام" : product.category === "finished" ? "جاهز" : "فرعي"}
                         </span>
@@ -1144,10 +1145,10 @@ export default function WarehousePage() {
                     {isAdmin && (
                       <button 
                         onClick={() => openEditProduct(product)}
-                        className="px-3 py-2 border border-border bg-background rounded-md hover:bg-blue-50 hover:border-blue-200 group"
+                        className="px-3 py-2 border border-border bg-background rounded-md hover:bg-primary/10 hover:border-primary/20 group"
                         title="تعديل"
                       >
-                        <Edit className="w-5 h-5 text-muted-foreground group-hover:text-blue-600" />
+                        <Edit className="w-5 h-5 text-muted-foreground group-hover:text-primary" />
                       </button>
                     )}
                     {isAdmin && (

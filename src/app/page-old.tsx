@@ -1,5 +1,5 @@
-// "use client";
-
+"use client";
+// 
 // import Link from "next/link";
 // import { Suspense } from "react";
 
@@ -11,7 +11,7 @@
 //     if (!user) {
 //       return (
 //         <div className="flex gap-4 justify-center">
-//           <Link href="/sign-in" className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg font-semibold">
+//           <Link href="/sign-in" className="px-8 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 text-lg font-semibold">
 //             تسجيل الدخول
 //           </Link>
 //           <Link href="/sign-up" className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 text-lg font-semibold">
@@ -25,13 +25,13 @@
 //       <div className="space-y-4">
 //         <p className="text-lg">أهلاً {user.firstName || "المستخدم"}</p>
 //         <div className="flex gap-4 justify-center">
-//           <Link href="/beneficiaries" className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+//           <Link href="/beneficiaries" className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90">
 //             المستفيدين
 //           </Link>
 //           <Link href="/initiatives" className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700">
 //             المبادرات
 //           </Link>
-//           <Link href="/profile" className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+//           <Link href="/profile" className="px-6 py-3 bg-secondary text-white rounded-lg hover:bg-secondary/90">
 //             الملف الشخصي
 //           </Link>
 //         </div>
@@ -40,7 +40,7 @@
 //   } catch (error) {
 //     return (
 //       <div className="flex gap-4 justify-center">
-//         <Link href="/sign-in" className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg font-semibold">
+//         <Link href="/sign-in" className="px-8 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 text-lg font-semibold">
 //           تسجيل الدخول
 //         </Link>
 //         <Link href="/sign-up" className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 text-lg font-semibold">

@@ -1,4 +1,5 @@
 "use client";
+import BrandedLoader from "@/components/BrandedLoader";
 
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -153,7 +154,7 @@ export default function AdminInitiatives() {
         </div>
 
         {loading ? (
-          <div className="text-center py-12 text-muted-foreground">جاري التحميل...</div>
+          <BrandedLoader size="md" />
         ) : initiatives.length === 0 ? (
           <div className="bg-card border border-border rounded-lg shadow-sm p-8 text-center">
             <p className="text-muted-foreground text-lg">لا توجد مبادرات حالياً</p>
@@ -166,7 +167,7 @@ export default function AdminInitiatives() {
                   <h3 className="text-xl font-bold text-foreground">{initiative.name}</h3>
                   <span className={`px-2 py-1 rounded text-sm ${
                     initiative.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                    initiative.status === 'completed' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+                    initiative.status === 'completed' ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary' :
                     initiative.status === 'planned' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' :
                     'bg-muted text-foreground'
                   }`}>

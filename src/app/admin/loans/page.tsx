@@ -1,4 +1,5 @@
 "use client";
+import BrandedLoader from "@/components/BrandedLoader";
 
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -429,7 +430,7 @@ function AddCapitalModal({ isOpen, onClose, onSuccess, branchId, branchName }: {
       <div className="bg-background rounded-lg shadow-lg w-full max-w-md p-6">
         <h2 className="text-xl font-bold mb-4">إضافة رصيد للصندوق</h2>
         {branchName && (
-          <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 p-2 rounded mb-3 text-sm">
+          <div className="bg-primary/10 text-primary dark:bg-primary/20 p-2 rounded mb-3 text-sm">
             سيتم إضافة الرصيد لفرع: <strong>{branchName}</strong>
           </div>
         )}
@@ -504,7 +505,7 @@ function AddRepaymentModal({ isOpen, onClose, onSuccess, loan }: { isOpen: boole
           </div>
           <div className="flex gap-2 justify-end">
             <button type="button" onClick={onClose} className="px-4 py-2 border rounded">إلغاء</button>
-            <button type="submit" disabled={submitting} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">حفظ</button>
+            <button type="submit" disabled={submitting} className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90">حفظ</button>
           </div>
         </form>
       </div>
@@ -605,7 +606,7 @@ function LoanDetailsModal({ isOpen, onClose, loan, onRefresh }: { isOpen: boolea
             )}
             <div>
               <p className="text-sm text-muted-foreground">الحالة</p>
-              <span className={`px-2 py-1 rounded text-xs font-medium ${loan.status === 'completed' ? 'bg-green-100 text-green-700' : loan.status === 'defaulted' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+              <span className={`px-2 py-1 rounded text-xs font-medium ${loan.status === 'completed' ? 'bg-green-100 text-green-700' : loan.status === 'defaulted' ? 'bg-red-100 text-red-700' : 'bg-primary/10 text-primary'}`}>
                 {loan.status === 'completed' ? 'تم السداد' : loan.status === 'defaulted' ? 'متعثر' : 'نشط'}
               </span>
             </div>
@@ -620,7 +621,7 @@ function LoanDetailsModal({ isOpen, onClose, loan, onRefresh }: { isOpen: boolea
           <div className="grid grid-cols-3 gap-4 mb-3">
             <div className="text-center p-3 bg-background rounded-lg border border-border">
               <p className="text-xs text-muted-foreground">مبلغ القرض</p>
-              <p className="font-bold text-lg text-blue-600">{total.toLocaleString()} ج.م</p>
+              <p className="font-bold text-lg text-primary">{total.toLocaleString()} ج.م</p>
             </div>
             <div className="text-center p-3 bg-background rounded-lg border border-border">
               <p className="text-xs text-muted-foreground">المدفوع</p>
@@ -826,7 +827,7 @@ function CapitalHistoryModal({ isOpen, onClose, branchId }: { isOpen: boolean; o
           <button onClick={onClose}><X className="w-5 h-5" /></button>
         </div>
         
-        {!data ? <Loader2 className="animate-spin mx-auto" /> : (
+        {!data ? <BrandedLoader size="sm" /> : (
           <div className="space-y-4">
             {data.capitals?.length === 0 ? <p className="text-center text-muted-foreground">لا توجد سجلات</p> : (
               <table className="w-full text-sm">
@@ -860,7 +861,7 @@ function CapitalHistoryModal({ isOpen, onClose, branchId }: { isOpen: boolean; o
                           </>
                         ) : (
                           <>
-                            <button onClick={() => handleEdit(item)} className="text-blue-600 hover:underline">تعديل</button>
+                            <button onClick={() => handleEdit(item)} className="text-primary hover:underline">تعديل</button>
                             <button onClick={() => handleDelete(item._id)} className="text-red-500 hover:underline">حذف</button>
                           </>
                         )}
@@ -946,7 +947,7 @@ export default function GoodLoansPage() {
     }
   };
 
-  if (!isLoaded) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+  if (!isLoaded) return <BrandedLoader fullScreen />;
 
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
@@ -972,7 +973,7 @@ export default function GoodLoansPage() {
                 <button onClick={() => setIsAddCapitalOpen(true)} className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 flex items-center gap-2">
                   <PiggyBank className="w-4 h-4" /> إضافة رصيد
                 </button>
-                <button onClick={() => setIsAddLoanOpen(true)} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2">
+                <button onClick={() => setIsAddLoanOpen(true)} className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 flex items-center gap-2">
                   <Plus className="w-4 h-4" /> قرض جديد
                 </button>
               </div>
@@ -983,8 +984,8 @@ export default function GoodLoansPage() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard title="رصيد الصندوق الكلي" value={`${stats.totalFund.toLocaleString()} ج.م`} icon={<PiggyBank className="w-6 h-6" />} colorClass="bg-emerald-500 text-emerald-700 border-emerald-200" />
-          <StatCard title="إجمالي القروض المنصرفة" value={`${stats.totalDisbursed.toLocaleString()} ج.م`} icon={<Briefcase className="w-6 h-6" />} colorClass="bg-blue-500 text-blue-700 border-blue-200" />
-          <StatCard title="إجمالي المبالغ المسددة" value={`${stats.totalRepaid.toLocaleString()} ج.م`} icon={<CheckCircle className="w-6 h-6" />} colorClass="bg-indigo-500 text-indigo-700 border-indigo-200" />
+          <StatCard title="إجمالي القروض المنصرفة" value={`${stats.totalDisbursed.toLocaleString()} ج.م`} icon={<Briefcase className="w-6 h-6" />} colorClass="bg-primary/10 text-primary border-primary/20" />
+          <StatCard title="إجمالي المبالغ المسددة" value={`${stats.totalRepaid.toLocaleString()} ج.م`} icon={<CheckCircle className="w-6 h-6" />} colorClass="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800" />
           <StatCard title="المتاح حالياً للإقراض" value={`${stats.availableFund.toLocaleString()} ج.م`} icon={<AlertCircle className="w-6 h-6" />} colorClass="bg-amber-500 text-amber-700 border-amber-200" />
         </div>
 
@@ -1016,7 +1017,7 @@ export default function GoodLoansPage() {
                         <h3 className="font-bold text-lg">{loan.beneficiaryName}</h3>
                         <p className="text-sm text-muted-foreground">{loan.phone}</p>
                       </div>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${loan.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${loan.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-primary/10 text-primary'}`}>
                         {loan.status === 'completed' ? 'تم السداد' : 'نشط'}
                       </span>
                     </div>
@@ -1060,10 +1061,10 @@ export default function GoodLoansPage() {
                       <>
                         <button 
                           onClick={() => setEditLoan(loan)}
-                          className="px-3 py-2 border border-border bg-background rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors group"
+                          className="px-3 py-2 border border-border bg-background rounded-md hover:bg-primary/10 hover:border-primary/20 transition-colors group"
                           title="تعديل القرض"
                         >
-                          <Edit className="w-5 h-5 text-muted-foreground group-hover:text-blue-600" />
+                          <Edit className="w-5 h-5 text-muted-foreground group-hover:text-primary" />
                         </button>
                         <button 
                           onClick={() => handleDelete(loan._id)}

@@ -321,7 +321,7 @@ export default function MonthlyAllowancePrintModal({
             </div>
           ) : (
             <>
-              <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30 rounded-lg p-4">
                 <h3 className="font-semibold text-foreground mb-3">معلومات الطباعة:</h3>
                 <ul className="space-y-2 text-sm text-foreground">
                   <li className="flex items-center gap-2">

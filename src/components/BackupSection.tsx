@@ -99,8 +99,8 @@ export default function BackupSection() {
   return (
     <div className="bg-card border border-border rounded-lg shadow-sm p-6">
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg">
-          <HardDrive className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+        <div className="p-2 bg-primary/10 dark:bg-primary/20 rounded-lg">
+          <HardDrive className="h-5 w-5 text-primary" />
         </div>
         <h3 className="text-lg font-bold text-foreground">نسخ احتياطي للبيانات</h3>
       </div>
@@ -135,7 +135,7 @@ export default function BackupSection() {
       <button
         onClick={handleBackup}
         disabled={loading || (isSuperAdmin && !targetBranch)}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-cyan-600 hover:bg-cyan-700 text-white dark:bg-cyan-700 dark:hover:bg-cyan-600"
+        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-primary hover:bg-primary/90 text-primary-foreground"
       >
         {loading ? (
           <>

@@ -83,7 +83,7 @@ export default function BranchSelector({
               onClick={() => handleSelect(null)}
               className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-muted transition-colors text-right ${
                 !selectedBranchId
-                  ? "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300"
+                  ? "bg-primary/10 text-primary dark:bg-primary/20"
                   : ""
               }`}
             >
@@ -92,7 +92,7 @@ export default function BranchSelector({
                 <span>جميع الفروع</span>
               </div>
               {!selectedBranchId && (
-                <Check className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                <Check className="h-4 w-4 text-primary" />
               )}
             </button>
 

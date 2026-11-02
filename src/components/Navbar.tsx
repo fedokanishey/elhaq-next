@@ -45,7 +45,7 @@ export default function Navbar() {
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2 ">
               <Image 
-                src={isDark ? "/logos/3-04-white.png" : "/logos/شعار.png"} 
+                src="/logos/شعار.png" 
                 alt="دعوة الحق" 
                 width={56} 
                 height={56}
@@ -136,13 +136,13 @@ export default function Navbar() {
           <div className="flex md:hidden items-center gap-2">
             {isLoaded && user && <NotificationBell />}
             
-            <div className="flex items-center gap-2 bg-blue-500 rounded-3xl pr-1">
+            <div className="flex items-center gap-2 bg-primary rounded-3xl pr-1">
               {isLoaded && user && (
                 <UserButton afterSignOutUrl="/" />
               )}
               <button
                 onClick={toggleMenu}
-                className="inline-flex items-center justify-center rounded-md p-2 text-amber-50"
+                className="inline-flex items-center justify-center rounded-md p-2 text-primary-foreground"
               >
                 <span className="sr-only">Open main menu</span>
                 {menuOpen ? (

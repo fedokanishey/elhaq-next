@@ -1,4 +1,5 @@
 "use client";
+import BrandedLoader from "@/components/BrandedLoader";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -413,7 +414,7 @@ export default function NotebooksListPage() {
                       <div className="flex items-center gap-1 mr-3">
                         <button
                           onClick={() => handleStartEdit(n)}
-                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 p-2 rounded transition"
+                          className="text-primary hover:text-primary/80 hover:bg-primary/10 dark:hover:bg-primary/20 p-2 rounded transition"
                           type="button"
                           title="تعديل الدفتر"
                         >

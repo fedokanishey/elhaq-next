@@ -199,7 +199,7 @@ export default function BeneficiaryCard({
                   
                   {/* Category Badge */}
                   {category && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary">
                       فئة {category}
                     </span>
                   )}
@@ -247,7 +247,7 @@ export default function BeneficiaryCard({
               <a
                 href={`tel:${CallLink}`}
                 onClick={(e) => handleActionClick(e)}
-                className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700"
+                className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90"
               >
                 <Phone className="w-3 h-3" />
                 اتصال

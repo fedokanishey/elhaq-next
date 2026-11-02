@@ -1,4 +1,5 @@
 "use client";
+import BrandedLoader from "@/components/BrandedLoader";
 
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -86,13 +87,13 @@ export default function AdminReports() {
         </div>
 
         {loading ? (
-          <div className="text-center py-12 text-muted-foreground">جاري التحميل...</div>
+          <BrandedLoader size="md" />
         ) : stats ? (
           <div className="space-y-6">
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="relative bg-card border border-border rounded-lg shadow-sm p-6 overflow-hidden">
-                <span aria-hidden="true" className="absolute top-4 bottom-4 right-0 w-1 rounded-full bg-blue-500"></span>
+                <span aria-hidden="true" className="absolute top-4 bottom-4 right-0 w-1 rounded-full bg-primary"></span>
                 <h3 className="text-muted-foreground text-sm font-medium">إجمالي المبادرات</h3>
                 <p className="text-3xl font-bold text-foreground mt-2">{stats.totalInitiatives}</p>
               </div>
@@ -102,7 +103,7 @@ export default function AdminReports() {
                 <p className="text-3xl font-bold text-foreground mt-2">{stats.totalBeneficiaries}</p>
               </div>
               <div className="relative bg-card border border-border rounded-lg shadow-sm p-6 overflow-hidden">
-                <span aria-hidden="true" className="absolute top-4 bottom-4 right-0 w-1 rounded-full bg-purple-500"></span>
+                <span aria-hidden="true" className="absolute top-4 bottom-4 right-0 w-1 rounded-full bg-amber-500"></span>
                 <h3 className="text-muted-foreground text-sm font-medium">إجمالي المصروفات</h3>
                 <p className="text-3xl font-bold text-foreground mt-2">{stats.totalAmountSpent.toLocaleString()} ج.م</p>
               </div>
@@ -120,9 +121,9 @@ export default function AdminReports() {
                   <span className="block text-2xl font-bold text-green-700 dark:text-green-300">{stats.initiativesByStatus.active}</span>
                   <span className="text-sm text-green-600 dark:text-green-300/90">نشطة</span>
                 </div>
-                <div className="text-center p-4 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                  <span className="block text-2xl font-bold text-blue-700 dark:text-blue-300">{stats.initiativesByStatus.completed}</span>
-                  <span className="text-sm text-blue-600 dark:text-blue-300/90">مكتملة</span>
+                <div className="text-center p-4 bg-primary/10 rounded-lg">
+                  <span className="block text-2xl font-bold text-primary">{stats.initiativesByStatus.completed}</span>
+                  <span className="text-sm text-primary">مكتملة</span>
                 </div>
                 <div className="text-center p-4 bg-red-100 dark:bg-red-900/20 rounded-lg">
                   <span className="block text-2xl font-bold text-red-700 dark:text-red-300">{stats.initiativesByStatus.cancelled}</span>
@@ -141,9 +142,9 @@ export default function AdminReports() {
                         <p className="text-sm text-muted-foreground">قروض نشطة</p>
                         <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.loans.activeCount}</p>
                      </div>
-                     <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20">
+                     <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
                         <p className="text-sm text-muted-foreground">قروض مكتملة</p>
-                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.loans.completedCount}</p>
+                        <p className="text-2xl font-bold text-primary">{stats.loans.completedCount}</p>
                      </div>
                      <div className="col-span-2 p-4 rounded-lg bg-muted/50">
                         <div className="flex justify-between items-center mb-2">
@@ -166,10 +167,10 @@ export default function AdminReports() {
                 <div className="bg-card border border-border rounded-lg shadow-sm p-6">
                   <h3 className="text-lg font-bold text-foreground mb-4 border-b pb-2">إحصائيات المخزن</h3>
                    <div className="grid grid-cols-1 gap-4">
-                     <div className="flex items-center justify-between p-4 rounded-lg bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/20">
+                     <div className="flex items-center justify-between p-4 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/20">
                         <div>
                              <p className="text-sm text-muted-foreground">أصناف بالمخزن</p>
-                             <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.warehouse.itemsCount} <span className="text-sm font-normal text-muted-foreground">صنف</span></p>
+                             <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{stats.warehouse.itemsCount} <span className="text-sm font-normal text-muted-foreground">صنف</span></p>
                         </div>
                         <div className="text-left">
                              <p className="text-sm text-muted-foreground">قيمة المخزون (التقريبية)</p>
