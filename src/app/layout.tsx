@@ -53,8 +53,8 @@ export default function RootLayout({
           <PWARegister />
           <ThemeProvider
             attribute="class"
-            defaultTheme="system"
-            enableSystem
+            defaultTheme="light"
+            enableSystem={false}
             disableTransitionOnChange
           >
             <BranchProvider>
