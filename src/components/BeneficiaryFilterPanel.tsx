@@ -32,8 +32,8 @@ const defaultFilters: BeneficiaryFilterCriteria = {
   status: "",
   maritalStatus: "",
   listName: "",
-  priorityMin: 1,
-  priorityMax: 10,
+  priorityMin: undefined,
+  priorityMax: undefined,
   employment: "",
   acceptsMarriage: undefined,
   receivesMonthlyAllowance: undefined,
@@ -97,8 +97,8 @@ export default function BeneficiaryFilterPanel({
     filters.maritalStatus ||
     filters.listName ||
     filters.employment ||
-    filters.priorityMin !== 1 ||
-    filters.priorityMax !== 10 ||
+    (filters.priorityMin !== undefined && filters.priorityMin !== 1) ||
+    (filters.priorityMax !== undefined && filters.priorityMax !== 10) ||
     filters.acceptsMarriage ||
     filters.receivesMonthlyAllowance ||
     filters.searchByBeneficiaryId ||
@@ -270,9 +270,9 @@ export default function BeneficiaryFilterPanel({
               type="number"
               min="1"
               max="10"
-              value={filters.priorityMin || 1}
+              value={filters.priorityMin ?? 1}
               onChange={(e) =>
-                handleChange("priorityMin", parseInt(e.target.value) || 1)
+                handleChange("priorityMin", parseInt(e.target.value) || undefined)
               }
               title="أقل أولوية"
               aria-label="أقل قيمة للأولوية"
@@ -289,9 +289,9 @@ export default function BeneficiaryFilterPanel({
               type="number"
               min="1"
               max="10"
-              value={filters.priorityMax || 10}
+              value={filters.priorityMax ?? 10}
               onChange={(e) =>
-                handleChange("priorityMax", parseInt(e.target.value) || 10)
+                handleChange("priorityMax", parseInt(e.target.value) || undefined)
               }
               title="أقصى أولوية"
               aria-label="أقصى قيمة للأولوية"

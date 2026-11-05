@@ -212,11 +212,11 @@ export default function AdminBeneficiaries() {
     }
 
     if (filters.priorityMin !== undefined || filters.priorityMax !== undefined) {
-      result = result.filter((b) => {
-        const min = filters.priorityMin ?? 1;
-        const max = filters.priorityMax ?? 10;
-        return b.priority >= min && b.priority <= max;
-      });
+      const min = filters.priorityMin ?? 1;
+      const max = filters.priorityMax ?? 10;
+      if (min !== 1 || max !== 10) {
+        result = result.filter((b) => b.priority >= min && b.priority <= max);
+      }
     }
 
     if (filters.acceptsMarriage) {
