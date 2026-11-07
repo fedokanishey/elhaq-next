@@ -2,27 +2,18 @@
 
 import React, { Suspense, useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
-import { useUser } from "@clerk/nextjs";
 import {
   ArrowRight,
   Printer,
-  CheckSquare,
-  Square,
   Search,
-  Filter,
-  Layers,
-  CreditCard,
-  Phone,
-  Globe,
-  Home,
   RefreshCw,
-  Eye,
-  SlidersHorizontal,
-  ChevronDown
+  ChevronDown,
+  Layers,
+  Check,
+  CreditCard
 } from "lucide-react";
 import Code128Barcode from "@/components/Code128Barcode";
 import BrandedLoader from "@/components/BrandedLoader";
@@ -41,7 +32,6 @@ interface Beneficiary {
     nationalId?: string;
     phone?: string;
   };
-  category?: string;
 }
 
 type DisplayViewMode = "both" | "front" | "back" | "duplex";
@@ -54,7 +44,6 @@ const formatBarcodeValue = (internalId?: string | number) => {
 
 function CarnetInner() {
   const searchParams = useSearchParams();
-  const { user } = useUser();
 
   // URL query params initialization
   const initialMode = (searchParams.get("mode") as FilterMode) || "all";
@@ -62,8 +51,8 @@ function CarnetInner() {
   const initialTo = searchParams.get("to") || "";
   const initialIdsParam = searchParams.get("ids") || "";
 
-  // Data fetching
-  const { data, error, isLoading, mutate } = useSWR<{ beneficiaries: Beneficiary[] }>(
+  // Data fetching from beneficiaries database
+  const { data, isLoading, mutate } = useSWR<{ beneficiaries: Beneficiary[] }>(
     "/api/beneficiaries",
     fetcher,
     {
@@ -131,21 +120,91 @@ function CarnetInner() {
 
   // Print selection state (which cards from the filtered list should print)
   const [printSelection, setPrintSelection] = useState<Set<string>>(new Set());
+  const initialSyncDoneRef = React.useRef(false);
 
-  // Automatically select all in filtered list when filtered list changes
+  // Initialize selection once when data first arrives
   useEffect(() => {
-    if (filteredBeneficiaries.length > 0) {
-      setPrintSelection(new Set(filteredBeneficiaries.map((b) => b._id)));
-    } else {
-      setPrintSelection(new Set());
+    if (!initialSyncDoneRef.current && allBeneficiaries.length > 0) {
+      initialSyncDoneRef.current = true;
+      if (initialIdsParam) {
+        const ids = initialIdsParam.split(",").map((s) => s.trim()).filter(Boolean);
+        setPrintSelection(new Set(ids));
+      } else if (filterMode === "range" && rangeFrom && rangeTo) {
+        const from = parseInt(rangeFrom, 10);
+        const to = parseInt(rangeTo, 10);
+        const matched = allBeneficiaries
+          .filter((b) => {
+            const id = parseInt(b.internalId || "0", 10);
+            return id >= from && id <= to;
+          })
+          .map((b) => b._id);
+        setPrintSelection(new Set(matched));
+      } else {
+        setPrintSelection(new Set(allBeneficiaries.map((b) => b._id)));
+      }
     }
-  }, [filteredBeneficiaries]);
+  }, [allBeneficiaries, initialIdsParam, filterMode, rangeFrom, rangeTo]);
 
-  const togglePrintSelect = (id: string) => {
+  // Handler when user explicitly changes filter mode
+  const handleModeChange = (newMode: FilterMode) => {
+    setFilterMode(newMode);
+    if (newMode === "all") {
+      setPrintSelection(new Set(allBeneficiaries.map((b) => b._id)));
+    } else if (newMode === "range") {
+      const from = parseInt(rangeFrom, 10);
+      const to = parseInt(rangeTo, 10);
+      if (!isNaN(from) && !isNaN(to)) {
+        const matched = allBeneficiaries
+          .filter((b) => {
+            const id = parseInt(b.internalId || "0", 10);
+            return id >= from && id <= to;
+          })
+          .map((b) => b._id);
+        setPrintSelection(new Set(matched));
+      }
+    }
+  };
+
+  // Handler when user changes range inputs
+  const handleRangeFromChange = (val: string) => {
+    setRangeFrom(val);
+    const from = parseInt(val, 10);
+    const to = parseInt(rangeTo, 10);
+    if (!isNaN(from) && !isNaN(to)) {
+      const matched = allBeneficiaries
+        .filter((b) => {
+          const id = parseInt(b.internalId || "0", 10);
+          return id >= from && id <= to;
+        })
+        .map((b) => b._id);
+      setPrintSelection(new Set(matched));
+    }
+  };
+
+  const handleRangeToChange = (val: string) => {
+    setRangeTo(val);
+    const from = parseInt(rangeFrom, 10);
+    const to = parseInt(val, 10);
+    if (!isNaN(from) && !isNaN(to)) {
+      const matched = allBeneficiaries
+        .filter((b) => {
+          const id = parseInt(b.internalId || "0", 10);
+          return id >= from && id <= to;
+        })
+        .map((b) => b._id);
+      setPrintSelection(new Set(matched));
+    }
+  };
+
+  const togglePrintSelect = (id: string, explicitChecked?: boolean) => {
     setPrintSelection((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      const shouldSelect = explicitChecked !== undefined ? explicitChecked : !next.has(id);
+      if (shouldSelect) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
       return next;
     });
   };
@@ -175,177 +234,119 @@ function CarnetInner() {
   const cardsToRender = filteredBeneficiaries.slice(0, visibleCount);
   const printableList = filteredBeneficiaries.filter((b) => printSelection.has(b._id));
 
-  // Front Card Component
+  // Front Card matching daawat_alhaq_v9_kolna_wahed.html
   const renderFrontCard = (b: Beneficiary) => {
     const code = formatBarcodeValue(b.internalId);
     const spouseName = b.spouse?.name || b.marriageDetails || "-";
 
     return (
-      <div className="id-card-element front-card relative overflow-hidden rounded-[3.2mm] text-[#4A3626] bg-[#F3E4C4] border border-[#BFE6D9] shadow-sm select-none">
-        {/* Top Gold Line */}
-        <div className="absolute top-0 left-0 right-0 h-[4px] bg-[#F9CE5B] z-10" />
+      <div className="id-card front-card">
+        <img className="f-wm" src="/logos/kolna-wahed.png" alt="" />
+        <div className="f-sweep"></div>
+        <div className="f-line"></div>
 
-        {/* Bottom Gold Sweep */}
-        <div className="absolute bottom-0 left-0 right-0 h-[5px] bg-[#F9CE5B] z-10" />
-
-        {/* Subtle Watermark Logo */}
-        <div className="absolute top-1/2 right-[-8%] -translate-y-1/2 w-[60%] opacity-[0.06] pointer-events-none z-0">
-          <Image
-            src="/logos/logo-full.png"
-            alt="Watermark"
-            width={300}
-            height={300}
-            className="w-full h-auto object-contain"
-            priority={false}
-          />
-        </div>
-
-        {/* Content Header: Logo + Org Name + Badge */}
-        <div className="relative z-10 pt-2.5 px-3 flex items-center justify-between gap-2 border-b border-[#BFE6D9]/40 pb-1.5">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-white/70 p-0.5 border border-[#BFE6D9] shrink-0 flex items-center justify-center">
-              <Image
-                src="/logos/logo-full.png"
-                alt="Logo"
-                width={30}
-                height={30}
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <div className="text-right leading-tight">
-              <h4 className="text-[12px] font-black text-[#25695E] tracking-tight">
-                جمعية دعوة الحق الخيرية
-              </h4>
-              <p className="text-[8.5px] font-semibold text-[#6E9E94]">
-                معاً نُغيّر حياة — بطاقة معتمدة
-              </p>
+        {/* Header: logo+orgname together (left) | badge (right) */}
+        <div className="f-head">
+          <div className="f-brand-group">
+            <img className="f-logo" src="/logos/kolna-wahed.png" alt="" />
+            <div className="f-org">
+              <span className="f-name">دعوة الحق</span>
+              <span className="f-sub">معاً نُغيّر حياة</span>
             </div>
           </div>
-          <span className="px-2 py-0.5 rounded-full bg-[#4CB4A4] text-white text-[9px] font-bold shadow-xs whitespace-nowrap">
-            بطاقة مستفيد
-          </span>
+          <div className="f-badge">بطاقة مستفيد</div>
         </div>
 
-        {/* Card Body: 2 Columns (Right: Data Fields | Left: Barcode) */}
-        <div className="relative z-10 px-3 py-2 flex items-center justify-between gap-2">
-          {/* Data Fields */}
-          <div className="flex-1 space-y-1.5 text-right min-w-0">
-            <div>
-              <span className="text-[9px] font-bold text-[#3A9C8D] block">اسم المستفيد:</span>
-              <span className="text-[12.5px] font-black text-[#4A3626] block truncate" title={b.name}>
-                {b.name}
-              </span>
+        {/* Body: right=fields | left=barcode */}
+        <div className="f-body">
+          <div className="f-data">
+            <div className="f-row">
+              <div className="f-lbl">اسم المستفيد</div>
+              <div className="f-val">{b.name}</div>
             </div>
-
-            <div>
-              <span className="text-[9px] font-bold text-[#3A9C8D] block">الرقم القومي:</span>
-              <span className="text-[11.5px] font-bold text-[#25695E] font-mono tracking-wider block">
-                {b.nationalId || "غير مسجل"}
-              </span>
+            <div className="f-div"></div>
+            <div className="f-row">
+              <div className="f-lbl">الرقم القومي</div>
+              <div className="f-val num">{b.nationalId || "-"}</div>
             </div>
-
-            <div>
-              <span className="text-[8.5px] font-bold text-[#3A9C8D] block">الزوج / الزوجة:</span>
-              <span className="text-[10px] font-semibold text-[#4A3626] block truncate">
-                {spouseName}
-              </span>
+            <div className="f-div"></div>
+            <div className="f-row">
+              <div className="f-lbl">اسم الزوج / الزوجة</div>
+              <div className="f-val f-val-sm">{spouseName}</div>
             </div>
           </div>
-
-          {/* Barcode Area */}
-          <div className="w-[125px] shrink-0 flex flex-col items-center justify-center bg-white/90 p-1.5 rounded-lg border border-[#BFE6D9] shadow-xs">
-            <div className="w-full px-0.5">
-              <Code128Barcode value={code} height={36} barColor="#111827" />
+          <div className="f-bc-area">
+            <div className="f-bc-inner">
+              <div className="f-bcbox">
+                <Code128Barcode value={code} height={42} />
+              </div>
+              <div className="f-bcnum">{code}</div>
             </div>
-            <span className="text-[9px] font-mono font-bold text-[#25695E] tracking-widest mt-1">
-              {code}
-            </span>
-            <span className="text-[7.5px] text-[#6E9E94] font-medium">مسح الباركود المعتمد</span>
           </div>
-        </div>
-
-        {/* Footer Sub-strip */}
-        <div className="absolute bottom-[5px] left-0 right-0 px-3 py-0.5 bg-[#4CB4A4]/15 flex items-center justify-between text-[7.5px] font-bold text-[#25695E] z-10">
-          <span>رقم المستفيد: {b.internalId || "-"}</span>
-          <span>مسجد الصديق — فرع الرملة</span>
         </div>
       </div>
     );
   };
 
-  // Back Card Component
-  const renderBackCard = (b?: Beneficiary) => {
+  // Back Card matching daawat_alhaq_v9_kolna_wahed.html
+  const renderBackCard = () => {
     return (
-      <div className="id-card-element back-card relative overflow-hidden rounded-[3.2mm] text-[#4A3626] bg-[#F3E4C4] border border-[#BFE6D9] shadow-sm select-none">
-        {/* Top Gold Strip */}
-        <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#F9CE5B] z-10" />
+      <div className="id-card back-card">
+        {/* Gold top strip */}
+        <div className="bk-top-strip"></div>
 
-        {/* Left Teal Accent Line */}
-        <div className="absolute top-[6px] bottom-[18px] left-0 w-[4px] bg-[#4CB4A4] z-10" />
+        {/* Watermark */}
+        <img className="bk-wm" src="/logos/kolna-wahed.png" alt="" />
 
-        {/* Subtle Watermark Logo */}
-        <div className="absolute top-1/2 left-[-6%] -translate-y-1/2 w-[55%] opacity-[0.05] pointer-events-none z-0">
-          <Image
-            src="/logos/logo-full.png"
-            alt="Watermark"
-            width={280}
-            height={280}
-            className="w-full h-auto object-contain"
-            priority={false}
-          />
-        </div>
+        {/* Tq left accent */}
+        <div className="bk-left-accent"></div>
 
-        {/* Header Block: Logo + Brand + Tagline */}
-        <div className="relative z-10 pt-2 px-3 flex items-center justify-between border-b border-[#BFE6D9]/40 pb-1.5">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-white/70 p-0.5 border border-[#BFE6D9] shrink-0 flex items-center justify-center">
-              <Image
-                src="/logos/logo-full.png"
-                alt="Logo"
-                width={26}
-                height={26}
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <div className="text-right leading-tight">
-              <h4 className="text-[11.5px] font-black text-[#25695E]">
-                مؤسسة دعوة الحق الخيرية
-              </h4>
-              <p className="text-[8px] font-semibold text-[#6E9E94]">
-                مسجد الصديق — مركز خدمة وتنمية المجتمع
-              </p>
+        {/* Main content */}
+        <div className="bk-content">
+          {/* Logo + org name */}
+          <div className="bk-brand">
+            <img className="bk-logo" src="/logos/kolna-wahed.png" alt="" />
+            <div className="bk-brand-text">
+              <div className="bk-org-name">دعوة الحق</div>
+              <div className="bk-org-sub">مسجد الصديق — مركز خدمة المجتمع</div>
             </div>
           </div>
-          <span className="text-[8px] font-mono text-[#25695E] bg-white/80 px-1.5 py-0.5 rounded border border-[#BFE6D9]">
-            {b?.internalId ? `ID: #${b.internalId}` : "OFFICIAL ID"}
-          </span>
-        </div>
 
-        {/* Instructions Box */}
-        <div className="relative z-10 mx-3 my-1.5 p-2 rounded-lg bg-white/60 border border-[#BFE6D9] backdrop-blur-xs">
-          <div className="text-[8.5px] font-bold text-[#25695E] mb-1 flex items-center gap-1">
-            <span>📋</span>
-            <span>تعليمات الاستخدام الرسمية:</span>
+          {/* Separator */}
+          <div className="bk-sep"></div>
+
+          {/* Instructions box */}
+          <div className="bk-inst-box">
+            <div className="bk-inst-title">
+              <span className="bk-inst-icon">📋</span> تعليمات الاستخدام
+            </div>
+            <ul className="bk-inst-list">
+              <li>البطاقة شخصية ولا يحق لغير حاملها استخدامها.</li>
+              <li>تُستخدم للحصول على خدمات الجمعية المعتمدة.</li>
+              <li>يُرجى المحافظة عليها وعدم إتلافها.</li>
+              <li>في حال الفقدان أبلغ أقرب فرع فوراً.</li>
+            </ul>
           </div>
-          <ul className="text-[7.5px] font-medium text-[#4A3626] space-y-0.5 leading-snug list-disc pr-3">
-            <li>البطاقة شخصية وتعتبر وثيقة رسمية للمستفيد المعتمد.</li>
-            <li>تُستخدم لإثبات الهوية واستلام الخدمات والمساعدات الدورية.</li>
-            <li>يُرجى الحفاظ على سلامة شريط الباركود لسرعة عمليات الصرف.</li>
-            <li>في حال فقدان الكارنيه، يُرجى إبلاغ إدارة الجمعية فوراً.</li>
-          </ul>
         </div>
 
-        {/* Bottom Contact Strip */}
-        <div className="absolute bottom-0 left-0 right-0 h-[19px] bg-[#4CB4A4] text-white flex items-center justify-between px-3 text-[7.5px] font-bold z-10">
-          <span className="flex items-center gap-1">
-            <Home className="w-2.5 h-2.5" /> مسجد الصديق
-          </span>
-          <span className="flex items-center gap-1 font-mono">
-            <Globe className="w-2.5 h-2.5" /> elhaq-next.vercel.app
-          </span>
-          <span className="flex items-center gap-1 font-mono">
-            <Phone className="w-2.5 h-2.5" /> 01069217990
-          </span>
+        {/* Footer */}
+        <div className="bk-foot">
+          <div className="bk-foot-inner">
+            <div className="bk-foot-item">
+              <span className="bk-foot-icon">🕌</span>
+              <span>مسجد الصديق</span>
+            </div>
+            <div className="bk-foot-divider"></div>
+            <div className="bk-foot-item">
+              <span className="bk-foot-icon">🌐</span>
+              <span>elhaq-next.vercel.app</span>
+            </div>
+            <div className="bk-foot-divider"></div>
+            <div className="bk-foot-item">
+              <span className="bk-foot-icon">📞</span>
+              <span>01069217990</span>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -353,8 +354,8 @@ function CarnetInner() {
 
   return (
     <div className="min-h-screen bg-background text-foreground carnet-page-wrapper">
-      {/* Top Header / Breadcrumb - Hidden in Print */}
-      <header className="sticky top-0 z-30 bg-card/95 backdrop-blur border-b border-border shadow-xs no-print">
+      {/* Top Header - Hidden in Print */}
+      <header className="sticky top-0 z-30 bg-card border-b border-border shadow-sm no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Link
@@ -366,15 +367,16 @@ function CarnetInner() {
             </Link>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-foreground">
-                  منظومة الكارنيهات والبطاقات الرسمية
+                <h1 className="text-lg font-black text-foreground flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-[#4CB4A4]" />
+                  دعوة الحق — نظام بطاقات المستفيدين
                 </h1>
-                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                  إصدار ISO-7810
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[#4CB4A4]/15 text-[#25695E] dark:text-[#4CB4A4] border border-[#4CB4A4]/30">
+                  v9.0 الأصلية
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">
-                طباعة وتصدير بطاقات الهوية الرسمية (Face & Back) بنظام الباركود Code 128
+                التصميم المطابق لـ ISO/IEC 7810 ID-1 مع الباركود والتعليمات الرسمية
               </p>
             </div>
           </div>
@@ -384,7 +386,7 @@ function CarnetInner() {
               type="button"
               onClick={() => mutate()}
               disabled={isLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-background text-foreground hover:bg-muted text-xs font-semibold transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-background text-foreground hover:bg-muted text-xs font-bold transition-colors"
               title="تحديث البيانات"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
@@ -395,27 +397,27 @@ function CarnetInner() {
               type="button"
               onClick={handlePrint}
               disabled={printableList.length === 0}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-bold shadow-md shadow-primary/20 transition-all disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#4CB4A4] hover:bg-[#3A9C8D] text-white text-sm font-bold shadow-md shadow-[#4CB4A4]/25 transition-all disabled:opacity-50"
             >
               <Printer className="w-4 h-4" />
-              <span>طباعة المحددة ({printableList.length})</span>
+              <span>طباعة ({printableList.length} بطاقة)</span>
             </button>
           </div>
         </div>
       </header>
 
       {/* Control Panel / Filter Toolbar - Hidden in Print */}
-      <section className="border-b border-border bg-muted/20 px-4 sm:px-6 py-4 no-print">
+      <section className="border-b border-border bg-muted/30 px-4 sm:px-6 py-4 no-print">
         <div className="max-w-7xl mx-auto space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Filter Mode Tabs */}
             <div className="flex items-center gap-1.5 p-1 rounded-xl bg-card border border-border">
               <button
                 type="button"
-                onClick={() => setFilterMode("all")}
+                onClick={() => handleModeChange("all")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   filterMode === "all"
-                    ? "bg-primary text-primary-foreground shadow-xs"
+                    ? "bg-[#4CB4A4] text-white shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -423,21 +425,21 @@ function CarnetInner() {
               </button>
               <button
                 type="button"
-                onClick={() => setFilterMode("range")}
+                onClick={() => handleModeChange("range")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   filterMode === "range"
-                    ? "bg-primary text-primary-foreground shadow-xs"
+                    ? "bg-[#4CB4A4] text-white shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                نطاق أرقام (من - إلى)
+                من - إلى (نطاق)
               </button>
               <button
                 type="button"
-                onClick={() => setFilterMode("specific")}
+                onClick={() => handleModeChange("specific")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   filterMode === "specific"
-                    ? "bg-primary text-primary-foreground shadow-xs"
+                    ? "bg-[#4CB4A4] text-white shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -447,24 +449,24 @@ function CarnetInner() {
 
             {/* View Mode Selector */}
             <div className="flex items-center gap-1.5 p-1 rounded-xl bg-card border border-border">
-              <span className="text-[11px] font-semibold text-muted-foreground px-2">العرض:</span>
+              <span className="text-[11px] font-bold text-muted-foreground px-2">العرض:</span>
               <button
                 type="button"
                 onClick={() => setViewMode("both")}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   viewMode === "both"
-                    ? "bg-emerald-600 text-white shadow-xs"
+                    ? "bg-[#25695E] text-white shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                الوجهين (أمام + خلف)
+                الوجهين معاً
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode("front")}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   viewMode === "front"
-                    ? "bg-emerald-600 text-white shadow-xs"
+                    ? "bg-[#25695E] text-white shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -473,9 +475,9 @@ function CarnetInner() {
               <button
                 type="button"
                 onClick={() => setViewMode("back")}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   viewMode === "back"
-                    ? "bg-emerald-600 text-white shadow-xs"
+                    ? "bg-[#25695E] text-white shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -484,14 +486,14 @@ function CarnetInner() {
               <button
                 type="button"
                 onClick={() => setViewMode("duplex")}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   viewMode === "duplex"
-                    ? "bg-emerald-600 text-white shadow-xs"
+                    ? "bg-[#25695E] text-white shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
-                title="طباعة صفحة وجوه ثم صفحة ظهور متطابقة"
+                title="صفحة وجوه تليها صفحة ظهور"
               >
-                طباعة ثنائية (Duplex)
+                ثنائي الوجه (Duplex)
               </button>
             </div>
           </div>
@@ -501,34 +503,34 @@ function CarnetInner() {
             <div className="flex flex-wrap items-center gap-3">
               {filterMode === "range" && (
                 <div className="flex items-center gap-2 p-1.5 rounded-xl bg-card border border-border shadow-xs">
-                  <span className="text-xs font-semibold text-muted-foreground mr-1">من:</span>
+                  <span className="text-xs font-bold text-muted-foreground mr-1">من رقم:</span>
                   <input
                     type="number"
                     value={rangeFrom}
-                    onChange={(e) => setRangeFrom(e.target.value)}
-                    placeholder="مثال: 1"
-                    className="w-20 px-2.5 py-1 rounded-lg border border-border bg-background text-foreground text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    onChange={(e) => handleRangeFromChange(e.target.value)}
+                    placeholder="1"
+                    className="w-20 px-2.5 py-1 rounded-lg border border-border bg-background text-foreground text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#4CB4A4]/40"
                   />
-                  <span className="text-xs font-semibold text-muted-foreground">إلى:</span>
+                  <span className="text-xs font-bold text-muted-foreground">إلى:</span>
                   <input
                     type="number"
                     value={rangeTo}
-                    onChange={(e) => setRangeTo(e.target.value)}
-                    placeholder="مثال: 40"
-                    className="w-20 px-2.5 py-1 rounded-lg border border-border bg-background text-foreground text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    onChange={(e) => handleRangeToChange(e.target.value)}
+                    placeholder="40"
+                    className="w-20 px-2.5 py-1 rounded-lg border border-border bg-background text-foreground text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#4CB4A4]/40"
                   />
                 </div>
               )}
 
               {/* Instant Search Bar */}
-              <div className="relative min-w-[240px] sm:min-w-[300px]">
+              <div className="relative min-w-[240px] sm:min-w-[320px]">
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="بحث سريع بالاسم أو الرقم أو القومي..."
-                  className="w-full pr-9 pl-3 py-1.5 rounded-xl border border-border bg-card text-foreground text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  placeholder="بحث سريع بالاسم أو الرقم أو الرقم القومي..."
+                  className="w-full pr-9 pl-3 py-1.5 rounded-xl border border-border bg-card text-foreground text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#4CB4A4]/40"
                 />
               </div>
             </div>
@@ -536,13 +538,13 @@ function CarnetInner() {
             {/* Selection Quick Actions */}
             <div className="flex items-center gap-2 text-xs">
               <span className="font-bold text-foreground">
-                المحدد للطباعة: {printableList.length} من {filteredBeneficiaries.length}
+                المحدد: <span className="text-[#25695E] dark:text-[#4CB4A4]">{printableList.length}</span> من {filteredBeneficiaries.length}
               </span>
               <span className="text-muted-foreground">|</span>
               <button
                 type="button"
                 onClick={handleSelectAll}
-                className="text-primary hover:underline font-bold"
+                className="text-[#4CB4A4] hover:underline font-bold"
               >
                 تحديد الكل
               </button>
@@ -551,7 +553,7 @@ function CarnetInner() {
                 onClick={handleDeselectAll}
                 className="text-muted-foreground hover:text-foreground font-semibold"
               >
-                إلغاء
+                إلغاء التحديد
               </button>
               <button
                 type="button"
@@ -570,60 +572,55 @@ function CarnetInner() {
         {isLoading && !data ? (
           <div className="text-center py-20">
             <BrandedLoader />
-            <p className="mt-4 text-sm font-semibold text-muted-foreground animate-pulse">
-              جاري تجهيز الكارنيهات والرموز الشريطية...
+            <p className="mt-4 text-sm font-bold text-muted-foreground animate-pulse">
+              جاري تحميل بطاقات المستفيدين بالباركود...
             </p>
           </div>
         ) : filteredBeneficiaries.length === 0 ? (
           <div className="text-center py-24 border border-dashed border-border rounded-2xl bg-card">
             <div className="text-5xl mb-3">🪪</div>
-            <h3 className="text-lg font-bold text-foreground">لا توجد بطاقات مطابقة للشروط</h3>
+            <h3 className="text-lg font-bold text-foreground">لا توجد بطاقات مطابقة للاختيار</h3>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-              تأكد من ضبط نطاق الأرقام أو كلمات البحث لاختيار المستفيدين المطلوبين.
+              تأكد من شروط البحث أو تحديد نطاق المستفيدين.
             </p>
           </div>
         ) : (
           <>
-            {/* Visual Screen Grid (Interactive Web Preview) - Hidden in Print */}
+            {/* Visual Web Preview */}
             <div className="no-print">
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {cardsToRender.map((b) => {
+              <div className="cards-grid">
+                {cardsToRender.map((b, idx) => {
                   const isSelected = printSelection.has(b._id);
 
                   return (
                     <div
                       key={b._id}
-                      className={`p-3 rounded-2xl border transition-all ${
-                        isSelected
-                          ? "bg-card border-primary/50 shadow-md ring-1 ring-primary/20"
-                          : "bg-card/50 border-border opacity-70 hover:opacity-100"
-                      }`}
+                      className={`card-wrapper ${isSelected ? "sel-print" : ""}`}
+                      onClick={(e) => {
+                        // If clicked directly on the checkbox or an interactive element, do not double-toggle
+                        if ((e.target as HTMLElement).tagName !== "INPUT") {
+                          togglePrintSelect(b._id);
+                        }
+                      }}
                     >
-                      {/* Card Item Header */}
-                      <div className="flex items-center justify-between mb-2 px-1">
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => togglePrintSelect(b._id)}
-                            className="w-4 h-4 rounded text-primary border-border focus:ring-primary accent-[#4CB4A4]"
-                          />
-                          <span className="text-xs font-bold text-foreground">
-                            #{b.internalId || "-"} — {b.name}
-                          </span>
-                        </label>
-                        <span className="text-[10px] font-mono text-muted-foreground">
-                          {formatBarcodeValue(b.internalId)}
-                        </span>
+                      <input
+                        type="checkbox"
+                        className="card-checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          togglePrintSelect(b._id, e.target.checked);
+                        }}
+                      />
+                      <div className="card-label">
+                        بطاقة #{b.internalId || idx + 1} — {b.name}
                       </div>
-
-                      {/* Card Pair or Single View */}
-                      <div className="flex flex-col gap-3">
+                      <div className="card-pair">
                         {(viewMode === "both" || viewMode === "front" || viewMode === "duplex") && (
-                          <div>{renderFrontCard(b)}</div>
+                          renderFrontCard(b)
                         )}
                         {(viewMode === "both" || viewMode === "back") && (
-                          <div>{renderBackCard(b)}</div>
+                          renderBackCard()
                         )}
                       </div>
                     </div>
@@ -639,7 +636,7 @@ function CarnetInner() {
                     onClick={() => setVisibleCount((prev) => prev + 24)}
                     className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl border border-border bg-card text-foreground hover:bg-muted text-sm font-bold shadow-sm transition-colors"
                   >
-                    <ChevronDown className="w-4 h-4 text-primary" />
+                    <ChevronDown className="w-4 h-4 text-[#4CB4A4]" />
                     عرض المزيد ({filteredBeneficiaries.length - visibleCount} بطاقة متبقية)
                   </button>
                   <button
@@ -653,12 +650,11 @@ function CarnetInner() {
               )}
             </div>
 
-            {/* Print Sheets Layout (Rendered ONLY when printing) */}
+            {/* Print Output - Exact print layout matching daawat_alhaq_v9_kolna_wahed.html */}
             <div className="print-sheets-root">
               {viewMode === "duplex" ? (
-                // Duplex mode: First all fronts, then all backs
                 <>
-                  <div className="print-duplex-fronts print-grid-container">
+                  <div className="print-grid-container">
                     {printableList.map((b) => (
                       <div key={`front-${b._id}`} className="print-card-box">
                         {renderFrontCard(b)}
@@ -666,16 +662,15 @@ function CarnetInner() {
                     ))}
                   </div>
                   <div className="page-break" />
-                  <div className="print-duplex-backs print-grid-container">
+                  <div className="print-grid-container">
                     {printableList.map((b) => (
                       <div key={`back-${b._id}`} className="print-card-box">
-                        {renderBackCard(b)}
+                        {renderBackCard()}
                       </div>
                     ))}
                   </div>
                 </>
               ) : (
-                // Standard mode: Front only, Back only, or Both side-by-side
                 <div className="print-grid-container">
                   {printableList.map((b) => (
                     <React.Fragment key={b._id}>
@@ -683,7 +678,7 @@ function CarnetInner() {
                         <div className="print-card-box">{renderFrontCard(b)}</div>
                       )}
                       {(viewMode === "both" || viewMode === "back") && (
-                        <div className="print-card-box">{renderBackCard(b)}</div>
+                        <div className="print-card-box">{renderBackCard()}</div>
                       )}
                     </React.Fragment>
                   ))}
@@ -694,23 +689,534 @@ function CarnetInner() {
         )}
       </main>
 
-      {/* Media Print Stylesheet matching ISO ID-1 Standard (85.6mm x 54mm) */}
+      {/* EXACT STYLES FROM daawat_alhaq_v9_kolna_wahed.html */}
       <style jsx global>{`
+        /* CSS Variables */
+        :root {
+          --bg: #FCF4E4;
+          --panel: #FFFFFF;
+          --card-bg: #FFFFFF;
+          --border: #BFE6D9;
+          --blue: #4CB4A4;
+          --blue-lt: #4CB4A4;
+          --blue-dk: #25695E;
+          --accent: #4CB4A4;
+          --text: #4A3626;
+          --muted: #6E9E94;
+          --dim: #9DBBB1;
+          --green: #4CB4A4;
+          --red: #C0392B;
+          --orange: #F9CE5B;
+          --r: 12px;
+          --tq: #4CB4A4;
+          --tq-dk: #3A9C8D;
+          --tq-xdk: #25695E;
+          --tq-lt: #ECF7EC;
+          --gold: #F9CE5B;
+          --gold-dk: #D9AE3A;
+          --brown: #4A3626;
+          --cream: #FCF4E4;
+        }
+
+        .cards-grid {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 20px;
+          justify-content: flex-start;
+        }
+
+        .card-wrapper {
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          cursor: pointer;
+          transition: opacity 0.2s ease, filter 0.2s ease, transform 0.15s ease;
+        }
+
+        .card-wrapper:not(.sel-print) {
+          opacity: 0.35 !important;
+          filter: grayscale(70%) !important;
+        }
+
+        .card-wrapper.sel-print {
+          opacity: 1 !important;
+          filter: none !important;
+        }
+
+        .card-wrapper:hover {
+          opacity: 0.95 !important;
+          transform: translateY(-2px);
+        }
+
+        .card-label {
+          font-size: 8.5px;
+          color: var(--muted);
+          letter-spacing: 1.5px;
+          font-weight: 700;
+          text-transform: uppercase;
+          margin-bottom: 3px;
+        }
+
+        .card-checkbox {
+          position: absolute;
+          top: -9px;
+          right: -9px;
+          width: 18px;
+          height: 18px;
+          accent-color: var(--tq);
+          z-index: 10;
+          cursor: pointer;
+        }
+
+        .card-pair {
+          display: flex;
+          flex-direction: column;
+          gap: 7px;
+        }
+
+        /* ── ID Card (% responsive, ISO/IEC 7810 ID-1) ── */
+        .id-card {
+          font-family: 'Cairo', sans-serif !important;
+          width: 405px;
+          aspect-ratio: 85.6 / 54;
+          border-radius: 4%;
+          position: relative;
+          overflow: hidden;
+          color: var(--brown);
+          flex-shrink: 0;
+          background: #F3E4C4 !important;
+          box-shadow: 0 2px 12px rgba(0,0,0,.08), 0 0 0 1.5px var(--border);
+          direction: rtl;
+        }
+
+        .id-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        .id-card > * {
+          position: relative;
+          z-index: 2;
+        }
+
+        /* Front elements */
+        .f-wm {
+          position: absolute;
+          top: 50%;
+          right: -11%;
+          transform: translateY(-50%);
+          width: 64%;
+          opacity: 0.14 !important;
+          z-index: 1;
+          pointer-events: none;
+        }
+
+        .f-sweep, .f-line {
+          display: none !important;
+        }
+
+        .f-head {
+          position: absolute;
+          top: 4%;
+          left: 7% !important;
+          right: 7% !important;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 2%;
+          z-index: 3;
+          direction: ltr;
+        }
+
+        .f-brand-group {
+          display: flex;
+          align-items: center;
+          gap: 3%;
+          direction: ltr;
+        }
+
+        .f-logo {
+          width: 23.5% !important;
+          aspect-ratio: 1;
+          object-fit: contain;
+          flex-shrink: 0;
+        }
+
+        .f-org {
+          display: flex;
+          flex-direction: column;
+          line-height: 1.25;
+          direction: rtl;
+          text-align: right;
+        }
+
+        .f-name {
+          font-size: 15px !important;
+          font-weight: 900;
+          color: #4CB4A4;
+          font-family: 'Cairo', sans-serif;
+        }
+
+        .f-sub {
+          font-size: 10.8px !important;
+          color: #6E9E94;
+          font-weight: 500;
+          margin-top: 1%;
+          font-family: 'Cairo', sans-serif;
+        }
+
+        .f-badge {
+          font-size: 10.8px !important;
+          font-weight: 700;
+          color: #fff;
+          border: none;
+          border-radius: 20px;
+          padding: 1.5% 4%;
+          background: #4CB4A4;
+          white-space: nowrap;
+          flex-shrink: 0;
+          font-family: 'Cairo', sans-serif;
+        }
+
+        /* Front body */
+        .f-body {
+          position: absolute;
+          top: 31%;
+          bottom: 5%;
+          left: 7% !important;
+          right: 7% !important;
+          display: flex;
+          flex-direction: row;
+          align-items: stretch;
+          gap: 2%;
+          z-index: 3;
+          direction: rtl;
+        }
+
+        .f-data {
+          flex: 1 1 55%;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          min-width: 0;
+        }
+
+        .f-data .f-row {
+          display: flex;
+          flex-direction: column;
+          margin-bottom: 6%;
+        }
+
+        .f-data .f-row:last-child {
+          margin-bottom: 0;
+        }
+
+        .f-lbl {
+          font-size: clamp(9.83px, 1.88%, 16.38px);
+          color: #4CB4A4;
+          font-weight: 700;
+          margin-bottom: 1%;
+          font-family: 'Cairo', sans-serif !important;
+          display: block;
+          text-align: right;
+          direction: rtl;
+          background: none !important;
+          border: none !important;
+          padding: 0 !important;
+          white-space: nowrap;
+        }
+
+        .f-val {
+          font-size: clamp(14.75px, 3.76%, 32.77px);
+          font-weight: 700;
+          color: #4A3626;
+          white-space: normal !important;
+          overflow: visible !important;
+          text-overflow: clip !important;
+          line-height: 1.25 !important;
+          font-family: 'Cairo', sans-serif !important;
+          display: block;
+          text-align: right;
+          direction: rtl;
+          background: none !important;
+          border: none !important;
+          padding: 0 !important;
+        }
+
+        .f-val.num {
+          direction: ltr !important;
+          text-align: right;
+          font-size: clamp(13.11px, 3.11%, 27.85px);
+          letter-spacing: .15em;
+          color: #25695E;
+          font-weight: 600;
+          font-family: monospace !important;
+          background: none !important;
+          border: none !important;
+          padding: 0 !important;
+        }
+
+        .f-val-sm {
+          font-size: 8.6px !important;
+          color: #4A3626;
+          font-weight: 700;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          font-family: 'Cairo', sans-serif !important;
+          display: block;
+          text-align: right;
+          direction: rtl;
+          background: none !important;
+          border: none !important;
+          padding: 0 !important;
+        }
+
+        .f-div {
+          height: 1px;
+          background: transparent;
+          margin: 1.5% 0;
+        }
+
+        .f-bc-area {
+          flex: 0 0 40%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-right: 1.5px solid transparent;
+          padding-right: 3%;
+        }
+
+        .f-bc-inner {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4%;
+          width: 100%;
+        }
+
+        .f-bcbox {
+          background: #fff;
+          border: 1px solid #BFE6D9;
+          border-radius: 5px;
+          padding: 5% 4%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          box-shadow: 0 1px 4px rgba(0,0,0,.06);
+        }
+
+        .f-bcbox svg {
+          display: block;
+          width: 100%;
+          height: auto;
+        }
+
+        .f-bcnum {
+          font-size: 6.4px !important;
+          color: #25695E;
+          letter-spacing: .12em;
+          font-weight: 700;
+          direction: ltr;
+          text-align: center;
+          font-family: monospace;
+        }
+
+        /* ── BACK CARD ── */
+        .back-card {
+          background: #F3E4C4 !important;
+          color: #4A3626 !important;
+          font-family: 'Cairo', sans-serif !important;
+          overflow: hidden !important;
+          position: relative !important;
+        }
+
+        .bk-top-strip {
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          height: 7%;
+          background: #F9CE5B;
+          z-index: 2;
+        }
+
+        .bk-left-accent {
+          position: absolute;
+          top: 7%; bottom: 14%; left: 0;
+          width: 2.5%;
+          background: #4CB4A4;
+          z-index: 2;
+        }
+
+        .bk-wm {
+          position: absolute;
+          top: 50%; right: -5%;
+          transform: translateY(-50%);
+          width: 55%;
+          opacity: 0.14 !important;
+          z-index: 1;
+          pointer-events: none;
+        }
+
+        .bk-content {
+          position: absolute;
+          top: 9%; bottom: 16%;
+          left: 5%; right: 3%;
+          z-index: 3;
+          display: flex;
+          flex-direction: column;
+          gap: 4%;
+        }
+
+        .bk-brand {
+          display: flex;
+          align-items: center;
+          gap: 4%;
+        }
+
+        .bk-logo {
+          width: 18%;
+          aspect-ratio: 1;
+          object-fit: contain;
+          flex-shrink: 0;
+        }
+
+        .bk-brand-text {
+          display: flex;
+          flex-direction: column;
+          gap: 2%;
+        }
+
+        .bk-org-name {
+          font-size: clamp(14.75px, 3.44%, 27.85px);
+          font-weight: 900;
+          color: #4CB4A4;
+          line-height: 1.2;
+        }
+
+        .bk-org-sub {
+          font-size: clamp(8.19px, 1.72%, 13.93px);
+          color: #6E9E94;
+          font-weight: 500;
+          line-height: 1.4;
+        }
+
+        .bk-sep {
+          height: 1.5px;
+          background: #F9CE5B;
+          flex-shrink: 0;
+          opacity: .7;
+        }
+
+        .bk-inst-box {
+          background: rgba(255,255,255,0.15);
+          backdrop-filter: blur(2px);
+          -webkit-backdrop-filter: blur(2px);
+          border: 1px solid rgba(76,180,164,0.2);
+          border-right: 2px solid rgba(76,180,164,0.4);
+          border-radius: 6px;
+          padding: 4% 5%;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 5%;
+        }
+
+        .bk-inst-title {
+          font-size: clamp(9.83px, 2.05%, 16.38px);
+          font-weight: 800;
+          color: #4CB4A4;
+          display: flex;
+          align-items: center;
+          gap: 4%;
+        }
+
+        .bk-inst-icon {
+          font-size: clamp(11.47px, 2.29%, 18.02px);
+        }
+
+        .bk-inst-list {
+          list-style: none;
+          padding: 0; margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 4%;
+        }
+
+        .bk-inst-list li {
+          font-size: clamp(8.19px, 1.64%, 13.11px);
+          color: #3F6A62;
+          line-height: 1.4;
+          padding-right: 8%;
+          position: relative;
+        }
+
+        .bk-inst-list li::before {
+          content: '';
+          position: absolute;
+          right: 0; top: 45%;
+          transform: translateY(-50%);
+          width: clamp(3px, .7%, 5px);
+          height: clamp(3px, .7%, 5px);
+          background: #F9CE5B;
+          border-radius: 50%;
+        }
+
+        .bk-foot {
+          position: absolute;
+          bottom: 0; left: 0; right: 0;
+          height: 14%;
+          background: #4CB4A4;
+          z-index: 4;
+          display: flex;
+          align-items: center;
+        }
+
+        .bk-foot-inner {
+          display: flex;
+          align-items: center;
+          justify-content: space-around;
+          width: 100%;
+          padding: 0 2%;
+        }
+
+        .bk-foot-item {
+          display: flex;
+          align-items: center;
+          gap: 3%;
+          font-size: clamp(9.22px, 1.93%, 15.67px);
+          color: #fff;
+          font-weight: 600;
+          white-space: nowrap;
+          flex: 1;
+          justify-content: center;
+        }
+
+        .bk-foot-icon {
+          font-size: clamp(11.06px, 2.22%, 18.43px);
+        }
+
+        .bk-foot-divider {
+          width: 1px;
+          height: 55%;
+          background: rgba(255,255,255,.35);
+          flex-shrink: 0;
+        }
+
+        /* ── SCREEN vs PRINT ── */
         @media screen {
           .print-sheets-root {
             display: none !important;
-          }
-          .id-card-element {
-            width: 100%;
-            max-width: 380px;
-            aspect-ratio: 85.6 / 54;
           }
         }
 
         @media print {
           @page {
             size: A4 portrait;
-            margin: 8mm 6mm;
+            margin: 6mm 4mm;
           }
 
           *, *::before, *::after {
@@ -751,14 +1257,12 @@ function CarnetInner() {
             display: block !important;
           }
 
-          /* 8 Cards per A4 sheet (2 columns x 4 rows) */
           .print-grid-container {
             display: grid !important;
             grid-template-columns: repeat(2, 85.6mm) !important;
             gap: 4mm 6mm !important;
             justify-content: center !important;
             align-content: start !important;
-            page-break-inside: auto !important;
           }
 
           .print-card-box {
@@ -771,16 +1275,14 @@ function CarnetInner() {
             align-items: center !important;
           }
 
-          .id-card-element {
+          .id-card {
             width: 85.6mm !important;
-            height: 54mm !important;
             aspect-ratio: 85.6 / 54 !important;
             border-radius: 3.18mm !important;
             box-shadow: none !important;
-            border: 0.25mm solid #cbd5e1 !important;
-            background: #F3E4C4 !important;
-            color: #4A3626 !important;
-            box-sizing: border-box !important;
+            border: 0.2mm solid #bbb !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
 
           .page-break {
@@ -802,4 +1304,3 @@ export default function AdminCarnetsPage() {
     </Suspense>
   );
 }
-
