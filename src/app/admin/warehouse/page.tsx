@@ -1,5 +1,6 @@
 "use client";
 import BrandedLoader from "@/components/BrandedLoader";
+import ZkMainView from "@/components/zakat-rice/ZkMainView";
 
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -938,6 +939,7 @@ export default function WarehousePage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
+  const [warehouseMode, setWarehouseMode] = useState<"zakat-rice" | "products">("zakat-rice");
 
   useEffect(() => {
     if (isLoaded && role !== "admin" && role !== "member" && role !== "superadmin") {
@@ -992,57 +994,93 @@ export default function WarehousePage() {
 
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex flex-col gap-3">
-          <Link href="/admin/dashboard" className="text-muted-foreground hover:text-primary inline-flex items-center gap-2 w-fit">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Navigation & Mode Switcher */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <Link href="/admin/dashboard" className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1.5 w-fit">
             ← العودة للوحة التحكم
           </Link>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <h1 className="text-3xl font-bold flex items-center gap-2">
-                <Package className="w-8 h-8" /> إدارة المنتجات
-              </h1>
-              <p className="text-muted-foreground mt-1">تتبع المنتجات والتكاليف والإيرادات</p>
-            </div>
-            {isAdmin && (
-              <button 
-                onClick={() => setIsAddProductOpen(true)}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-md shadow-sm hover:shadow hover:bg-primary/90 transition-all font-medium flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" /> منتج جديد
-              </button>
-            )}
+
+          {/* Mode Switcher */}
+          <div className="flex items-center gap-1 bg-muted/80 p-1 rounded-2xl border border-border">
+            <button
+              onClick={() => setWarehouseMode("zakat-rice")}
+              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-black transition-all ${
+                warehouseMode === "zakat-rice"
+                  ? "bg-emerald-700 text-white shadow-md shadow-emerald-700/20"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span>🌾</span>
+              <span>مخزن الحبوب وزكاة الأرز والمحاصيل</span>
+            </button>
+            <button
+              onClick={() => setWarehouseMode("products")}
+              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-black transition-all ${
+                warehouseMode === "products"
+                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Package className="w-4 h-4" />
+              <span>المخزن العام والمنتجات الأخرى</span>
+            </button>
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard 
-            title="إجمالي المنتجات" 
-            value={`${stats.totalProducts}`} 
-            icon={<Package className="w-6 h-6" />} 
-            colorClass="bg-primary/10 dark:bg-primary/20 text-primary border-primary/20" 
-          />
-          <StatCard 
-            title="إجمالي التكاليف" 
-            value={`${stats.totalCost.toLocaleString()} ج.م`} 
-            icon={<TrendingDown className="w-6 h-6" />} 
-            colorClass="bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800" 
-          />
-          <StatCard 
-            title="إجمالي الإيرادات" 
-            value={`${stats.totalRevenue.toLocaleString()} ج.م`} 
-            icon={<TrendingUp className="w-6 h-6" />} 
-            colorClass="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800" 
-          />
-          <StatCard 
-            title="صافي الربح" 
-            value={`${stats.netProfit.toLocaleString()} ج.م`} 
-            icon={<DollarSign className="w-6 h-6" />} 
-            colorClass={stats.netProfit >= 0 ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800" : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800"} 
-          />
-        </div>
+        {/* ZAKAT RICE & CROP WAREHOUSE VIEW */}
+        {warehouseMode === "zakat-rice" && (
+          <ZkMainView />
+        )}
+
+        {/* LEGACY GENERAL PRODUCTS VIEW */}
+        {warehouseMode === "products" && (
+          <div className="space-y-8">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h1 className="text-2xl font-bold flex items-center gap-2">
+                  <Package className="w-6 h-6 text-primary" /> إدارة المنتجات والمخزن العام
+                </h1>
+                <p className="text-muted-foreground text-xs mt-1">تتبع المنتجات والتكاليف والإيرادات العامة</p>
+              </div>
+              {isAdmin && (
+                <button 
+                  onClick={() => setIsAddProductOpen(true)}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-xl shadow-sm hover:shadow hover:bg-primary/90 transition-all font-medium text-xs flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" /> منتج جديد
+                </button>
+              )}
+            </div>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard 
+                title="إجمالي المنتجات" 
+                value={`${stats.totalProducts}`} 
+                icon={<Package className="w-6 h-6" />} 
+                colorClass="bg-primary/10 dark:bg-primary/20 text-primary border-primary/20" 
+              />
+              <StatCard 
+                title="إجمالي التكاليف" 
+                value={`${stats.totalCost.toLocaleString()} ج.م`} 
+                icon={<TrendingDown className="w-6 h-6" />} 
+                colorClass="bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800" 
+              />
+              <StatCard 
+                title="إجمالي الإيرادات" 
+                value={`${stats.totalRevenue.toLocaleString()} ج.م`} 
+                icon={<TrendingUp className="w-6 h-6" />} 
+                colorClass="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800" 
+              />
+              <StatCard 
+                title="صافي الربح" 
+                value={`${stats.netProfit.toLocaleString()} ج.م`} 
+                icon={<DollarSign className="w-6 h-6" />} 
+                colorClass={stats.netProfit >= 0 ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800" : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800"} 
+              />
+            </div>
 
         {/* Search & Filters */}
         <div className="flex flex-col md:flex-row gap-4">
@@ -1167,6 +1205,7 @@ export default function WarehousePage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Modals */}
       <AddProductModal
@@ -1219,6 +1258,7 @@ export default function WarehousePage() {
         }}
         onRefresh={() => mutate()}
       />
+      </div>
     </div>
   );
 }

@@ -27,10 +27,9 @@ export async function GET(request: Request) {
     // Build branch filter based on user role and optional override
     const branchFilter = getBranchFilterWithOverride(authResult, branchIdOverride);
 
-    // Get all beneficiaries filtered by branch
+    // Get all beneficiaries filtered by branch (lean query without heavy relationship population)
     const beneficiaries = await Beneficiary.find(branchFilter)
       .sort({ internalId: 1 })
-      .populate("relationships.relative", "name nationalId phone whatsapp")
       .populate("branch", "name code")
       .lean();
 

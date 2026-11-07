@@ -58,6 +58,31 @@ interface Beneficiary {
   };
 }
 
+function BeneficiaryCardSkeleton() {
+  return (
+    <div className="bg-card border border-border/80 rounded-xl p-5 shadow-sm space-y-4 animate-pulse">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-muted/80 shrink-0" />
+          <div className="space-y-2">
+            <div className="h-4 w-32 bg-muted/80 rounded" />
+            <div className="h-3 w-20 bg-muted/60 rounded" />
+          </div>
+        </div>
+        <div className="h-6 w-14 bg-muted/70 rounded-full shrink-0" />
+      </div>
+      <div className="space-y-2 pt-2 border-t border-border/40">
+        <div className="h-3.5 w-3/4 bg-muted/60 rounded" />
+        <div className="h-3.5 w-1/2 bg-muted/60 rounded" />
+      </div>
+      <div className="pt-3 flex gap-2 border-t border-border/40">
+        <div className="h-9 flex-1 bg-muted/70 rounded-lg" />
+        <div className="h-9 w-20 bg-muted/50 rounded-lg" />
+      </div>
+    </div>
+  );
+}
+
 export default function AdminBeneficiaries() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
@@ -67,6 +92,7 @@ export default function AdminBeneficiaries() {
   const [sortByInternalId, setSortByInternalId] = useState(true);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [showIdCardsModal, setShowIdCardsModal] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(30);
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -270,6 +296,14 @@ export default function AdminBeneficiaries() {
     return result;
   }, [data?.beneficiaries, debouncedSearch, filters, sortByInternalId]);
 
+  useEffect(() => {
+    setVisibleCount(30);
+  }, [debouncedSearch, filters, sortByInternalId]);
+
+  const displayedBeneficiaries = useMemo(() => {
+    return filteredBeneficiaries.slice(0, visibleCount);
+  }, [filteredBeneficiaries, visibleCount]);
+
   const handleDelete = async (id: string) => {
     if (!confirm("هل أنت متأكد من حذف هذا المستفيد؟")) return;
 
@@ -290,7 +324,7 @@ export default function AdminBeneficiaries() {
     }
   };
 
-  if (!isLoaded || isLoading) {
+  if (!isLoaded) {
     return <BrandedLoader fullScreen />;
   }
 
@@ -384,42 +418,60 @@ export default function AdminBeneficiaries() {
         </div>
 
         {/* Beneficiaries Grid */}
-        {isLoading ? (
-          <BrandedLoader size="md" />
-        ) : filteredBeneficiaries.length > 0 ? (
+        {isLoading && !data ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {filteredBeneficiaries.map((beneficiary) => (
-              <div key={beneficiary._id}>
-                <BeneficiaryCard
-                  id={beneficiary._id}
-                  name={beneficiary.name}
-                  phone={beneficiary.phone}
-                  whatsapp={beneficiary.whatsapp}
-                  address={beneficiary.address}
-                  familyMembers={beneficiary.familyMembers}
-                  priority={beneficiary.priority}
-                  profileImage={beneficiary.profileImage}
-                  idImage={beneficiary.idImage}
-                  internalId={beneficiary.internalId}
-                  nationalId={beneficiary.nationalId}
-                  maritalStatus={beneficiary.maritalStatus}
-                  spouseName={beneficiary.spouse?.name}
-                  receivesMonthlyAllowance={beneficiary.receivesMonthlyAllowance}
-                  monthlyAllowanceAmount={beneficiary.monthlyAllowanceAmount}
-                  listName={beneficiary.listName}
-                  listNames={beneficiary.listNames}
-                  status={beneficiary.status}
-                  category={beneficiary.category}
-                  loanDetails={beneficiary.loanDetails as any}
-                  acceptsMarriage={beneficiary.acceptsMarriage}
-                  onView={() => handleOpenView(beneficiary._id)}
-                  onEdit={() => handleOpenEdit(beneficiary._id)}
-                  onDelete={() => handleDelete(beneficiary._id)}
-                  isReadOnly={false}
-                />
-              </div>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <BeneficiaryCardSkeleton key={i} />
             ))}
           </div>
+        ) : filteredBeneficiaries.length > 0 ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {displayedBeneficiaries.map((beneficiary) => (
+                <div key={beneficiary._id}>
+                  <BeneficiaryCard
+                    id={beneficiary._id}
+                    name={beneficiary.name}
+                    phone={beneficiary.phone}
+                    whatsapp={beneficiary.whatsapp}
+                    address={beneficiary.address}
+                    familyMembers={beneficiary.familyMembers}
+                    priority={beneficiary.priority}
+                    profileImage={beneficiary.profileImage}
+                    idImage={beneficiary.idImage}
+                    internalId={beneficiary.internalId}
+                    nationalId={beneficiary.nationalId}
+                    maritalStatus={beneficiary.maritalStatus}
+                    spouseName={beneficiary.spouse?.name}
+                    receivesMonthlyAllowance={beneficiary.receivesMonthlyAllowance}
+                    monthlyAllowanceAmount={beneficiary.monthlyAllowanceAmount}
+                    listName={beneficiary.listName}
+                    listNames={beneficiary.listNames}
+                    status={beneficiary.status}
+                    category={beneficiary.category}
+                    loanDetails={beneficiary.loanDetails as any}
+                    acceptsMarriage={beneficiary.acceptsMarriage}
+                    onView={() => handleOpenView(beneficiary._id)}
+                    onEdit={() => handleOpenEdit(beneficiary._id)}
+                    onDelete={() => handleDelete(beneficiary._id)}
+                    isReadOnly={false}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {displayedBeneficiaries.length < filteredBeneficiaries.length && (
+              <div className="mt-8 text-center">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((prev) => prev + 30)}
+                  className="px-6 py-3 bg-card border border-border hover:bg-muted text-foreground font-medium rounded-xl transition-all shadow-sm hover:shadow"
+                >
+                  عرض المزيد من المستفيدين (تم عرض {displayedBeneficiaries.length} من أصل {filteredBeneficiaries.length})
+                </button>
+              </div>
+            )}
+          </>
         ) : (data?.beneficiaries || []).length > 0 ? (
           <div className="bg-card border border-border rounded-lg shadow-sm p-8 text-center">
             <p className="text-muted-foreground text-lg">
@@ -449,6 +501,7 @@ export default function AdminBeneficiaries() {
         <BeneficiaryIdCardsModal
           isOpen={showIdCardsModal}
           onClose={() => setShowIdCardsModal(false)}
+          isLoading={isLoading}
           beneficiaries={filteredBeneficiaries.map((beneficiary) => ({
             _id: beneficiary._id,
             name: beneficiary.name,

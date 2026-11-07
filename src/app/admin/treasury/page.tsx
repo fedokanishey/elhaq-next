@@ -750,6 +750,12 @@ export default function TreasuryPage() {
             <p className="text-muted-foreground">تتبع الوارد والصادر وراقب الرصيد المتبقي بسهولة.</p>
             <div className="mt-2 flex flex-wrap gap-2">
               <Link
+                href="/admin/warehouse"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-emerald-700 text-white hover:bg-emerald-800 transition-colors font-bold shadow-xs"
+              >
+                🌾 مخزن زكاة الأرز والمحاصيل
+              </Link>
+              <Link
                 href="/admin/donors"
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
               >
