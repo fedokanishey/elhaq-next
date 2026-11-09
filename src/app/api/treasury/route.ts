@@ -105,6 +105,8 @@ export async function POST(req: Request) {
       notebookId,
       notebookName,
       beneficiaryIds,
+      beneficiaryShares,
+      isMonthlyAllowance,
     } = body;
 
     const normalizedType = type === "expense" ? "expense" : type === "income" ? "income" : null;
@@ -222,29 +224,65 @@ export async function POST(req: Request) {
       }
     }
 
-    // Resolve beneficiary names snapshot
+    // Resolve beneficiaries, shares, and snapshots for expense transactions
     const resolvedBeneficiaryIds = normalizedType === "expense" && Array.isArray(beneficiaryIds) 
       ? beneficiaryIds.filter((id: string) => isValidObjectId(id))
       : [];
-    const beneficiaryNamesSnapshot = normalizedType === "expense" && resolvedBeneficiaryIds.length > 0
-      ? (await Promise.all(
-          resolvedBeneficiaryIds.map((id: string) => Beneficiary.findById(id).lean().then(b => b?.name || '').catch(() => ''))
-        )).filter(Boolean)
-      : [];
+
+    let resolvedShares: { beneficiaryId: any; name: string; amount: number }[] = [];
+    let beneficiaryNamesSnapshot: string[] = [];
+    const isMonthly = Boolean(
+      isMonthlyAllowance ||
+      (normalizedCategory && (normalizedCategory.includes("شهرية") || normalizedCategory.includes("شهريات"))) ||
+      (description && (description.includes("شهرية") || description.includes("شهريات")))
+    );
 
     if (normalizedType === "expense" && resolvedBeneficiaryIds.length > 0) {
-      const amountPerBeneficiary = normalizedAmount / resolvedBeneficiaryIds.length;
-      await Beneficiary.updateMany(
-        { _id: { $in: resolvedBeneficiaryIds } },
-        {
-          $inc: {
-            totalReceived: amountPerBeneficiary,
-            financialAidCount: 1
-          },
-          $set: {
-            lastFinancialAidDate: transactionDate ? new Date(transactionDate) : new Date()
-          }
-        }
+      const beneficiariesList = await Beneficiary.find({
+        _id: { $in: resolvedBeneficiaryIds }
+      }).select("_id name monthlyAllowanceAmount receivesMonthlyAllowance").lean();
+
+      beneficiaryNamesSnapshot = beneficiariesList.map((b: any) => b.name);
+
+      if (Array.isArray(beneficiaryShares) && beneficiaryShares.length > 0) {
+        resolvedShares = beneficiaryShares
+          .filter((s: any) => s && isValidObjectId(s.beneficiaryId))
+          .map((s: any) => {
+            const ben = beneficiariesList.find((b: any) => b._id.toString() === s.beneficiaryId.toString());
+            return {
+              beneficiaryId: s.beneficiaryId,
+              name: s.name || ben?.name || "",
+              amount: Number(s.amount) || 0,
+            };
+          });
+      } else if (isMonthly) {
+        resolvedShares = beneficiariesList.map((b: any) => ({
+          beneficiaryId: b._id,
+          name: b.name,
+          amount: Number(b.monthlyAllowanceAmount) || 0,
+        }));
+      } else {
+        const equalShare = normalizedAmount / resolvedBeneficiaryIds.length;
+        resolvedShares = beneficiariesList.map((b: any) => ({
+          beneficiaryId: b._id,
+          name: b.name,
+          amount: equalShare,
+        }));
+      }
+
+      // Update each beneficiary with their exact share
+      await Promise.all(
+        resolvedShares.map(async (share) => {
+          await Beneficiary.findByIdAndUpdate(share.beneficiaryId, {
+            $inc: {
+              totalReceived: share.amount,
+              financialAidCount: 1,
+            },
+            $set: {
+              lastFinancialAidDate: transactionDate ? new Date(transactionDate) : new Date(),
+            },
+          });
+        })
       );
     }
 
@@ -255,7 +293,7 @@ export async function POST(req: Request) {
       createdBy: userId,
     });
 
-    const entry = await TreasuryTransaction.create({
+    const entry: any = await (TreasuryTransaction as any).create({
       amount: normalizedAmount,
       type: normalizedType,
       description: description.trim(),
@@ -270,6 +308,8 @@ export async function POST(req: Request) {
       notebookNameSnapshot: resolvedNotebook?.name || trimmedNotebookName || undefined,
       beneficiaryIds: resolvedBeneficiaryIds,
       beneficiaryNamesSnapshot,
+      beneficiaryShares: resolvedShares,
+      isMonthlyAllowance: isMonthly,
       branch: targetBranch,
       branchName: targetBranchName,
     });

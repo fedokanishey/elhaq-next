@@ -37,6 +37,8 @@ interface TreasuryTransaction {
   notebookNameSnapshot?: string;
   beneficiaryIds?: string[];
   beneficiaryNamesSnapshot?: string[];
+  beneficiaryShares?: { beneficiaryId: string; name?: string; amount: number }[];
+  isMonthlyAllowance?: boolean;
   createdAt: string;
 }
 
@@ -340,6 +342,52 @@ export default function TreasuryPage() {
     });
   }, [beneficiaries, beneficiarySearchTerm, beneficiaryFilters]);
 
+  const isMonthlyListActive = useMemo(() => {
+    const listName = (beneficiaryFilters.listName || "").trim().toLowerCase();
+    return (
+      listName.includes("شهر") ||
+      beneficiaryFilters.receivesMonthlyAllowance === true
+    );
+  }, [beneficiaryFilters.listName, beneficiaryFilters.receivesMonthlyAllowance]);
+
+  const selectedMonthlyTotal = useMemo(() => {
+    const idSet = new Set(formData.beneficiaryIds);
+    return beneficiaries
+      .filter((b: BeneficiarySummary) => idSet.has(b._id))
+      .reduce((sum: number, b: BeneficiarySummary) => sum + (Number(b.monthlyAllowanceAmount) || 0), 0);
+  }, [beneficiaries, formData.beneficiaryIds]);
+
+  const handleUpdateBeneficiarySelection = (newIds: string[]) => {
+    setFormData((prev) => {
+      let nextAmount = prev.amount;
+      if (isMonthlyListActive) {
+        const sum = beneficiaries
+          .filter((b: BeneficiarySummary) => newIds.includes(b._id))
+          .reduce((total: number, b: BeneficiarySummary) => total + (Number(b.monthlyAllowanceAmount) || 0), 0);
+        nextAmount = sum > 0 ? sum.toString() : "";
+      }
+      return {
+        ...prev,
+        beneficiaryIds: newIds,
+        amount: nextAmount,
+      };
+    });
+  };
+
+  useEffect(() => {
+    if (formData.type === "expense" && isMonthlyListActive && formData.beneficiaryIds.length > 0) {
+      const sum = beneficiaries
+        .filter((b: BeneficiarySummary) => formData.beneficiaryIds.includes(b._id))
+        .reduce((total: number, b: BeneficiarySummary) => total + (Number(b.monthlyAllowanceAmount) || 0), 0);
+      if (sum > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          amount: sum.toString(),
+        }));
+      }
+    }
+  }, [isMonthlyListActive, beneficiaries, formData.type]);
+
   useEffect(() => {
     if (isLoaded && !canAccess) {
       router.push("/");
@@ -409,6 +457,21 @@ export default function TreasuryPage() {
     setSubmitting(true);
     setError("");
 
+    const isMonthly = formData.type === "expense" && isMonthlyListActive;
+    const beneficiaryShares = formData.type === "expense" && formData.beneficiaryIds.length > 0
+      ? formData.beneficiaryIds.map((id) => {
+          const ben = beneficiaries.find((b: BeneficiarySummary) => b._id === id);
+          const share = isMonthly
+            ? (Number(ben?.monthlyAllowanceAmount) || 0)
+            : (amountNumber / formData.beneficiaryIds.length);
+          return {
+            beneficiaryId: id,
+            name: ben?.name || "",
+            amount: share,
+          };
+        })
+      : [];
+
     try {
       if (editingTransactionId) {
         // Update existing transaction
@@ -418,6 +481,8 @@ export default function TreasuryPage() {
           body: JSON.stringify({
             ...formData,
             amount: amountNumber,
+            beneficiaryShares,
+            isMonthlyAllowance: isMonthly,
           }),
         });
 
@@ -440,6 +505,8 @@ export default function TreasuryPage() {
           body: JSON.stringify({
             ...formData,
             amount: amountNumber,
+            beneficiaryShares,
+            isMonthlyAllowance: isMonthly,
             recordedBy: user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() : undefined,
             // Include branch for SuperAdmin when a specific branch is selected
             ...(isSuperAdmin && selectedBranchId ? {
@@ -522,6 +589,12 @@ export default function TreasuryPage() {
       notebookId: transaction.notebookId,
       beneficiaryIds: transaction.beneficiaryIds || [],
     });
+    if (transaction.isMonthlyAllowance || (transaction.category && transaction.category.includes("شهر"))) {
+      setBeneficiaryFilters({
+        listName: "كشف الشهرية",
+        receivesMonthlyAllowance: true,
+      });
+    }
     setEditingTransactionId(transactionId);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -847,6 +920,14 @@ export default function TreasuryPage() {
                     value={formData.amount}
                     onChange={handleInputChange}
                   />
+                  {formData.type === "expense" && isMonthlyListActive && formData.beneficiaryIds.length > 0 && (
+                    <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-medium">
+                      <span>💰</span>
+                      <span>
+                        تم احتساب المبلغ تلقائياً من إجمالي الشهريات ({formData.beneficiaryIds.length} مستفيد: {selectedMonthlyTotal.toLocaleString("ar-EG")} ج.م)
+                      </span>
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="transactionDate" className="block text-sm font-medium text-muted-foreground mb-1">
@@ -1032,24 +1113,20 @@ export default function TreasuryPage() {
                         onClick={() => {
                           const isAllSelected = filteredBeneficiaries.length > 0 && filteredBeneficiaries.every((b: BeneficiarySummary) => formData.beneficiaryIds.includes(b._id));
                           if (isAllSelected) {
-                            setFormData(prev => ({
-                              ...prev,
-                              beneficiaryIds: prev.beneficiaryIds.filter(id => !filteredBeneficiaries.some((b: BeneficiarySummary) => b._id === id))
-                            }));
+                            const newIds = formData.beneficiaryIds.filter(id => !filteredBeneficiaries.some((b: BeneficiarySummary) => b._id === id));
+                            handleUpdateBeneficiarySelection(newIds);
                           } else {
-                            setFormData(prev => {
-                              const newSelection = [...prev.beneficiaryIds];
-                              filteredBeneficiaries.forEach((b: BeneficiarySummary) => {
-                                if (!newSelection.includes(b._id)) {
-                                  newSelection.push(b._id);
-                                }
-                              });
-                              return { ...prev, beneficiaryIds: newSelection };
+                            const newIds = [...formData.beneficiaryIds];
+                            filteredBeneficiaries.forEach((b: BeneficiarySummary) => {
+                              if (!newIds.includes(b._id)) {
+                                newIds.push(b._id);
+                              }
                             });
+                            handleUpdateBeneficiarySelection(newIds);
                           }
                         }}
                         disabled={filteredBeneficiaries.length === 0}
-                        className="px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded-md text-xs hover:bg-primary/20 transition-colors disabled:opacity-50"
+                        className="px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded-md text-xs hover:bg-primary/20 transition-colors disabled:opacity-50 cursor-pointer"
                       >
                         {filteredBeneficiaries.length > 0 && filteredBeneficiaries.every((b: BeneficiarySummary) => formData.beneficiaryIds.includes(b._id)) ? "إلغاء تحديد الكل" : "تحديد الكل"}
                       </button>
@@ -1058,7 +1135,30 @@ export default function TreasuryPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="mb-3 flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+
+                  {/* Monthly allowance summary banner */}
+                  {isMonthlyListActive && (
+                    <div className="mb-3 p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-xs">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                          💰
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                            كشف الشهريات — إجمالي الشهريات للمحددين ({formData.beneficiaryIds.length} مستفيد)
+                          </div>
+                          <div className="text-xl font-extrabold text-emerald-700 dark:text-emerald-400">
+                            {selectedMonthlyTotal.toLocaleString("ar-EG")} <span className="text-xs font-normal">ج.م</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-xs px-2.5 py-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 font-medium self-start sm:self-center border border-emerald-300/50 dark:border-emerald-700/50">
+                        ✓ تم تسجيل المبلغ تلقائياً في خانة المبلغ
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mb-3 flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
                     <div className="flex-1 w-full">
                       <SearchFilterBar
                         searchTerm={beneficiarySearchTerm}
@@ -1067,8 +1167,42 @@ export default function TreasuryPage() {
                         onClearSearch={() => setBeneficiarySearchTerm("")}
                       />
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isMonthlyListActive) {
+                          setBeneficiaryFilters((prev) => ({
+                            ...prev,
+                            listName: "",
+                            receivesMonthlyAllowance: undefined,
+                          }));
+                          if (formData.category === "شهريات") {
+                            setFormData((prev) => ({ ...prev, category: DEFAULT_ACCOUNT_CATEGORY }));
+                          }
+                        } else {
+                          setBeneficiaryFilters((prev) => ({
+                            ...prev,
+                            listName: "كشف الشهرية",
+                            receivesMonthlyAllowance: true,
+                          }));
+                          if (!formData.category || formData.category === DEFAULT_ACCOUNT_CATEGORY) {
+                            setFormData((prev) => ({ ...prev, category: "شهريات" }));
+                          }
+                        }
+                      }}
+                      className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all border whitespace-nowrap cursor-pointer ${
+                        isMonthlyListActive
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-sm hover:bg-emerald-700"
+                          : "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 dark:hover:bg-emerald-900/40"
+                      }`}
+                      title={isMonthlyListActive ? "إلغاء تصفية كشف الشهريات" : "تصفية مستفيدي كشف الشهريات"}
+                    >
+                      <span>💰 كشف الشهريات</span>
+                      {isMonthlyListActive && <span>✓</span>}
+                    </button>
                     <BeneficiaryFilterPanel
                       onFilterChange={setBeneficiaryFilters}
+                      currentFilters={beneficiaryFilters}
                       variant="dropdown"
                     />
                   </div>
@@ -1080,18 +1214,22 @@ export default function TreasuryPage() {
                         return beneficiary ? (
                           <span
                             key={beneficiaryId}
-                            className="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary px-3 py-1 text-sm"
+                            className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-3 py-1 text-sm border border-primary/20"
                           >
-                            {beneficiary.name}
+                            <span>{beneficiary.name}</span>
+                            {(isMonthlyListActive || (beneficiary.monthlyAllowanceAmount && beneficiary.monthlyAllowanceAmount > 0)) && (
+                              <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded-full">
+                                {(beneficiary.monthlyAllowanceAmount || 0).toLocaleString("ar-EG")} ج.م
+                              </span>
+                            )}
                             <button
                               type="button"
                               onClick={() => {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  beneficiaryIds: prev.beneficiaryIds.filter(id => id !== beneficiaryId)
-                                }));
+                                handleUpdateBeneficiarySelection(
+                                  formData.beneficiaryIds.filter(id => id !== beneficiaryId)
+                                );
                               }}
-                              className="text-xs text-primary/70 hover:text-primary"
+                              className="text-xs text-primary/70 hover:text-primary hover:bg-primary/20 rounded-full w-4 h-4 flex items-center justify-center cursor-pointer"
                             >
                               ×
                             </button>
@@ -1114,14 +1252,12 @@ export default function TreasuryPage() {
                             key={b._id}
                             type="button"
                             onClick={() => {
-                              setFormData((prev) => ({
-                                ...prev,
-                                beneficiaryIds: isSelected
-                                  ? prev.beneficiaryIds.filter(id => id !== b._id)
-                                  : [...prev.beneficiaryIds, b._id]
-                              }));
+                              const newIds = isSelected
+                                ? formData.beneficiaryIds.filter(id => id !== b._id)
+                                : [...formData.beneficiaryIds, b._id];
+                              handleUpdateBeneficiarySelection(newIds);
                             }}
-                            className={`w-full text-right px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 transition-colors ${
+                            className={`w-full text-right px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 transition-colors cursor-pointer ${
                               isSelected ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"
                             }`}
                           >
@@ -1133,9 +1269,9 @@ export default function TreasuryPage() {
                                 </span>
                               )}
                               {b.phone && <span className="text-sm text-muted-foreground">📞 {b.phone}</span>}
-                              {b.receivesMonthlyAllowance && (
-                                <span className="text-xs px-2 py-1 bg-green-500/20 text-green-600 dark:text-green-400 rounded-full">
-                                  💰 شهرية: {b.monthlyAllowanceAmount || 0} ج.م
+                              {(b.receivesMonthlyAllowance || (b.monthlyAllowanceAmount && b.monthlyAllowanceAmount > 0)) && (
+                                <span className="text-xs px-2 py-1 bg-green-500/20 text-green-600 dark:text-green-400 rounded-full font-medium">
+                                  💰 شهرية: {(b.monthlyAllowanceAmount || 0).toLocaleString("ar-EG")} ج.م
                                 </span>
                               )}
                               {b.acceptsMarriage && (
@@ -1144,6 +1280,11 @@ export default function TreasuryPage() {
                                 </span>
                               )}
                             </div>
+                            {isSelected && (
+                              <span className="text-xs font-semibold text-primary">
+                                ✓ محدد
+                              </span>
+                            )}
                           </button>
                         );
                       })

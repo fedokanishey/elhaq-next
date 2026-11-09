@@ -42,6 +42,8 @@ export async function PUT(
       notebookName,
       notebookId,
       beneficiaryIds,
+      beneficiaryShares,
+      isMonthlyAllowance,
     } = body;
     const normalizedCategory = typeof category === "string" ? category.trim() : "";
 
@@ -78,14 +80,47 @@ export async function PUT(
     // Prepare beneficiary data
     let resolvedBeneficiaryIds: string[] = [];
     let beneficiaryNamesSnapshot: string[] = [];
+    let resolvedShares: { beneficiaryId: any; name: string; amount: number }[] = [];
+    const isMonthly = Boolean(
+      isMonthlyAllowance ||
+      (normalizedCategory && (normalizedCategory.includes("شهرية") || normalizedCategory.includes("شهريات"))) ||
+      (description && (description.includes("شهرية") || description.includes("شهريات")))
+    );
+
     if (type === "expense" && Array.isArray(beneficiaryIds) && beneficiaryIds.length > 0) {
       const validIds = beneficiaryIds.filter((id: string) => isValidObjectId(id));
       if (validIds.length > 0) {
         const beneficiaries = await Beneficiary.find({
           _id: { $in: validIds },
-        }).select("name");
-        beneficiaryNamesSnapshot = beneficiaries.map((b) => b.name);
-        resolvedBeneficiaryIds = beneficiaries.map((b) => b._id.toString());
+        }).select("_id name monthlyAllowanceAmount receivesMonthlyAllowance").lean();
+        beneficiaryNamesSnapshot = beneficiaries.map((b: any) => b.name);
+        resolvedBeneficiaryIds = beneficiaries.map((b: any) => b._id.toString());
+
+        if (Array.isArray(beneficiaryShares) && beneficiaryShares.length > 0) {
+          resolvedShares = beneficiaryShares
+            .filter((s: any) => s && isValidObjectId(s.beneficiaryId))
+            .map((s: any) => {
+              const ben = beneficiaries.find((b: any) => b._id.toString() === s.beneficiaryId.toString());
+              return {
+                beneficiaryId: s.beneficiaryId,
+                name: s.name || ben?.name || "",
+                amount: Number(s.amount) || 0,
+              };
+            });
+        } else if (isMonthly) {
+          resolvedShares = beneficiaries.map((b: any) => ({
+            beneficiaryId: b._id,
+            name: b.name,
+            amount: Number(b.monthlyAllowanceAmount) || 0,
+          }));
+        } else {
+          const equalShare = amount / (validIds.length || 1);
+          resolvedShares = beneficiaries.map((b: any) => ({
+            beneficiaryId: b._id,
+            name: b.name,
+            amount: equalShare,
+          }));
+        }
       }
     }
 
@@ -232,6 +267,8 @@ export async function PUT(
         beneficiaryIds: type === "expense" ? resolvedBeneficiaryIds : [],
         beneficiaryNamesSnapshot:
           type === "expense" ? beneficiaryNamesSnapshot : [],
+        beneficiaryShares: type === "expense" ? resolvedShares : [],
+        isMonthlyAllowance: type === "expense" ? isMonthly : false,
       },
       { new: true }
     );

@@ -1,5 +1,11 @@
 import mongoose, { Schema, Document } from "mongoose";
 
+export interface IBeneficiaryShare {
+  beneficiaryId: Schema.Types.ObjectId;
+  name?: string;
+  amount: number;
+}
+
 export interface ITreasuryTransaction extends Document {
   type: "income" | "expense";
   amount: number;
@@ -15,6 +21,8 @@ export interface ITreasuryTransaction extends Document {
   notebookNameSnapshot?: string;
   beneficiaryIds?: Schema.Types.ObjectId[];
   beneficiaryNamesSnapshot?: string[];
+  beneficiaryShares?: IBeneficiaryShare[];
+  isMonthlyAllowance?: boolean;
   branch?: mongoose.Types.ObjectId; // Reference to Branch model
   branchName?: string; // Cached branch name
   createdAt: Date;
@@ -88,6 +96,29 @@ const TreasuryTransactionSchema = new Schema<ITreasuryTransaction>(
       type: [String],
       default: [],
     },
+    beneficiaryShares: {
+      type: [
+        {
+          beneficiaryId: {
+            type: Schema.Types.ObjectId,
+            ref: "Beneficiary",
+          },
+          name: {
+            type: String,
+            trim: true,
+          },
+          amount: {
+            type: Number,
+            min: 0,
+          },
+        },
+      ],
+      default: [],
+    },
+    isMonthlyAllowance: {
+      type: Boolean,
+      default: false,
+    },
     branch: { 
       type: Schema.Types.ObjectId, 
       ref: 'Branch',
@@ -103,9 +134,8 @@ const TreasuryTransactionSchema = new Schema<ITreasuryTransaction>(
   }
 );
 
-export default
-  mongoose.models.TreasuryTransaction ||
+export default (mongoose.models.TreasuryTransaction ||
   mongoose.model<ITreasuryTransaction>(
     "TreasuryTransaction",
     TreasuryTransactionSchema
-  );
+  )) as mongoose.Model<ITreasuryTransaction>;

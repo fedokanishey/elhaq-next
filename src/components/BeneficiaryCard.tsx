@@ -290,10 +290,10 @@ export default function BeneficiaryCard({
             <span>الأولوية: {priority}</span>
           </div>
 
-          {receivesMonthlyAllowance && monthlyAllowanceAmount && (
+          {(receivesMonthlyAllowance || (monthlyAllowanceAmount && monthlyAllowanceAmount > 0)) && Boolean(monthlyAllowanceAmount) && (
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full text-sm font-medium">
-                💰 شهرية: {monthlyAllowanceAmount.toLocaleString("ar-EG")} ج.م
+                💰 شهرية: {monthlyAllowanceAmount?.toLocaleString("ar-EG")} ج.م
               </span>
             </div>
           )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Filter, X } from "lucide-react";
 
 export interface BeneficiaryFilterCriteria {
@@ -23,6 +23,7 @@ interface BeneficiaryFilterPanelProps {
   onFilterChange: (filters: BeneficiaryFilterCriteria) => void;
   variant?: "dropdown" | "inline"; // dropdown = floating panel, inline = always visible section
   showLabel?: boolean;
+  currentFilters?: BeneficiaryFilterCriteria;
 }
 
 const defaultFilters: BeneficiaryFilterCriteria = {
@@ -45,11 +46,18 @@ export default function BeneficiaryFilterPanel({
   onFilterChange,
   variant = "dropdown",
   showLabel = true,
+  currentFilters,
 }: BeneficiaryFilterPanelProps) {
-  const [filters, setFilters] = useState<BeneficiaryFilterCriteria>(defaultFilters);
+  const [filters, setFilters] = useState<BeneficiaryFilterCriteria>(currentFilters || defaultFilters);
   const [isOpen, setIsOpen] = useState(variant === "inline");
   const [listNameSuggestions, setListNameSuggestions] = useState<string[]>([]);
   const [showListNameSuggestions, setShowListNameSuggestions] = useState(false);
+
+  useEffect(() => {
+    if (currentFilters) {
+      setFilters(currentFilters);
+    }
+  }, [currentFilters]);
 
   const handleChange = (field: keyof BeneficiaryFilterCriteria, value: any) => {
     const updated = { ...filters, [field]: value };

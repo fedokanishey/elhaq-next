@@ -65,24 +65,53 @@ export async function GET(
     const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59); // December 31st
     
     const treasuryTransactions = await TreasuryTransaction.find({
-      beneficiaryIds: id,
+      beneficiaryIds: id as any,
       type: "expense",
       transactionDate: { $gte: startOfYear, $lte: endOfYear },
     })
       .sort({ transactionDate: -1 })
-      .select("amount description category transactionDate beneficiaryNamesSnapshot beneficiaryIds")
+      .select("amount description category transactionDate beneficiaryNamesSnapshot beneficiaryIds beneficiaryShares isMonthlyAllowance")
       .lean();
 
-    // Calculate share for each transaction (amount / number of beneficiaries)
-    const transactionsWithShare = treasuryTransactions.map((tx: any) => ({
-      _id: tx._id,
-      amount: tx.amount,
-      description: tx.description,
-      category: tx.category,
-      transactionDate: tx.transactionDate,
-      beneficiaryCount: tx.beneficiaryIds?.length || 1,
-      shareAmount: tx.beneficiaryIds?.length > 0 ? Math.round(tx.amount / tx.beneficiaryIds.length) : tx.amount,
-    }));
+    // Calculate share for each transaction (using exact beneficiaryShare or monthly allowance if available)
+    const transactionsWithShare = treasuryTransactions.map((tx: any) => {
+      const myShare = (tx.beneficiaryShares || []).find(
+        (s: any) => s.beneficiaryId?.toString() === id.toString()
+      );
+
+      let shareAmount: number;
+      let isMonthly = false;
+
+      if (myShare && typeof myShare.amount === "number") {
+        shareAmount = myShare.amount;
+        isMonthly = Boolean(tx.isMonthlyAllowance);
+      } else {
+        // Fallback: check if monthly allowance transaction
+        const isMonthlyTx = Boolean(
+          tx.isMonthlyAllowance ||
+          (tx.category && (tx.category.includes("شهرية") || tx.category.includes("شهريات"))) ||
+          (tx.description && (tx.description.includes("شهرية") || tx.description.includes("شهريات")))
+        );
+
+        if (isMonthlyTx && (beneficiary.monthlyAllowanceAmount || beneficiary.receivesMonthlyAllowance)) {
+          shareAmount = beneficiary.monthlyAllowanceAmount || 0;
+          isMonthly = true;
+        } else {
+          shareAmount = tx.beneficiaryIds?.length > 0 ? Math.round(tx.amount / tx.beneficiaryIds.length) : tx.amount;
+        }
+      }
+
+      return {
+        _id: tx._id,
+        amount: tx.amount,
+        description: tx.description,
+        category: tx.category,
+        transactionDate: tx.transactionDate,
+        beneficiaryCount: tx.beneficiaryIds?.length || 1,
+        shareAmount,
+        isMonthly,
+      };
+    });
 
     // Calculate total received this year
     const totalReceivedThisYear = transactionsWithShare.reduce((sum: number, tx: any) => sum + tx.shareAmount, 0);

@@ -129,6 +129,7 @@ interface TreasuryTransactionSummary {
   transactionDate: string;
   beneficiaryCount: number;
   shareAmount: number;
+  isMonthly?: boolean;
 }
 
 const EDUCATION_STAGE_LABELS: Record<string, string> = {
@@ -951,7 +952,7 @@ ${clone.innerHTML}
                 <tbody>
                   {children.map((child: Child, index: number) => (
                     <tr
-                      key={child._id || `${child.name}-${child.nationalId}`}
+                      key={`${child._id || child.nationalId || child.name}-${index}`}
                       className={`${index % 2 === 0 ? "bg-background" : "bg-muted/10"} border-t border-border/60`}
                     >
                       <td className="px-4 py-3 text-foreground font-medium">{child.name || "-"}</td>
@@ -1014,9 +1015,7 @@ ${clone.innerHTML}
                 <tbody>
                   {relationships.map((relationship: RelationshipEntry, index: number) => (
                     <tr
-                      key={
-                        relationship.relative?._id || relationship.relativeNationalId || `${relationship.relativeName}-${index}`
-                      }
+                      key={`${relationship.relative?._id || relationship.relativeNationalId || relationship.relativeName}-${index}`}
                       className={`${index % 2 === 0 ? "bg-background" : "bg-muted/10"} border-t border-border/60`}
                     >
                       <td className="px-4 py-3 text-foreground font-medium">
@@ -1152,7 +1151,7 @@ ${clone.innerHTML}
                 <tbody>
                   {treasuryTransactions.map((tx: TreasuryTransactionSummary, index: number) => (
                     <tr
-                      key={tx._id}
+                      key={`${tx._id}-${index}`}
                       className={`${index % 2 === 0 ? "bg-background" : "bg-muted/10"} border-t border-border/60`}
                     >
                       <td className="px-4 py-3 text-foreground">
@@ -1174,10 +1173,16 @@ ${clone.innerHTML}
                         <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                           {formatCurrency(tx.shareAmount)} ج.م
                         </span>
-                        {tx.beneficiaryCount > 1 && (
-                          <span className="text-xs text-muted-foreground block">
-                            (1/{tx.beneficiaryCount})
+                        {tx.isMonthly ? (
+                          <span className="text-xs text-emerald-600 dark:text-emerald-400 block font-medium">
+                            شهرية مستحقة
                           </span>
+                        ) : (
+                          tx.beneficiaryCount > 1 && (
+                            <span className="text-xs text-muted-foreground block">
+                              (1/{tx.beneficiaryCount})
+                            </span>
+                          )
                         )}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
