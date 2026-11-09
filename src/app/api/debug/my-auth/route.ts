@@ -32,7 +32,7 @@ export async function GET() {
       },
       branchFilter,
       treasuryCount,
-      sampleTransactions: sampleTransactions.map(t => ({
+      sampleTransactions: sampleTransactions.map((t: any) => ({
         ...t,
         branch: t.branch?.toString(),
       })),

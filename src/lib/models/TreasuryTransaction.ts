@@ -138,4 +138,4 @@ export default (mongoose.models.TreasuryTransaction ||
   mongoose.model<ITreasuryTransaction>(
     "TreasuryTransaction",
     TreasuryTransactionSchema
-  )) as mongoose.Model<ITreasuryTransaction>;
+  )) as any;
