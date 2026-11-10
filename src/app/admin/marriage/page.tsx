@@ -912,7 +912,7 @@ export default function MarriageAssistancePage() {
                         />
                       </div>
                       <div className="max-h-48 overflow-y-auto border border-border rounded-xl divide-y divide-border bg-background">
-                        {isLoadingBeneficiaries ? (
+                        {isLoadingBeneficiaries && filteredBeneficiaries.length === 0 ? (
                           <div className="p-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
                             <Loader2 className="w-4 h-4 animate-spin text-primary" />
                             <span>جاري البحث في قاعدة البيانات...</span>

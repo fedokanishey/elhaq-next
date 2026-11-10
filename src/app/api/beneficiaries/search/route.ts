@@ -11,12 +11,23 @@ export const fetchCache = "force-no-store";
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const buildArabicRegex = (text: string) => {
-  const escaped = escapeRegex(text.trim());
-  const pattern = escaped
-    .replace(/[اأإآ]/g, "[اأإآ]")
-    .replace(/[ةه]/g, "[ةه]")
-    .replace(/[يى]/g, "[يى]");
-  return new RegExp(pattern, "i");
+  const rawWords = text.trim().split(/\s+/).filter(Boolean);
+  if (rawWords.length === 0) return new RegExp("", "i");
+
+  const wordPatterns = rawWords.map((w) => {
+    let p = escapeRegex(w)
+      .replace(/[اأإآ]/g, "[اأإآ]")
+      .replace(/[ةه]/g, "[ةه]")
+      .replace(/[يى]/g, "[يى]");
+
+    // Allow optional spaces after common compound prefixes e.g. "ابو" / "عبد"
+    p = p.replace(/\[اأإآ\]بو/g, "[اأإآ]بو\\s*");
+    p = p.replace(/عبد/g, "عبد\\s*");
+
+    return p;
+  });
+
+  return new RegExp(wordPatterns.join(".*"), "i");
 };
 
 export async function GET(req: Request) {
