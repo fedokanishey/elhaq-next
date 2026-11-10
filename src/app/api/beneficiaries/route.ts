@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import dbConnect from "@/lib/mongodb";
 import Beneficiary from "@/lib/models/Beneficiary";
+import MarriageCase from "@/lib/models/MarriageCase";
 import { NextResponse } from "next/server";
 import {
   sanitizeBeneficiaryPayload,
@@ -8,7 +9,12 @@ import {
 } from "@/lib/beneficiaries/sanitizePayload";
 import { addReciprocalRelationsForNew } from "@/lib/beneficiaries/reciprocal";
 import { getAuthenticatedUser, getBranchFilterWithOverride } from "@/lib/auth-helpers";
-import { createActivityNotification } from "@/lib/notifications";
+import { createActivityNotification, getActorName } from "@/lib/notifications";
+import {
+  getCachedBeneficiaries,
+  setCachedBeneficiaries,
+  invalidateBeneficiariesCache,
+} from "@/lib/cache/beneficiariesCache";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -27,6 +33,20 @@ export async function GET(request: Request) {
     // Build branch filter based on user role and optional override
     const branchFilter = getBranchFilterWithOverride(authResult, branchIdOverride);
 
+    // Check server in-memory cache
+    const cacheKey = JSON.stringify({
+      userBranch: authResult.branch?.toString() || "all",
+      override: branchIdOverride || "none",
+      isSuperAdmin: authResult.isSuperAdmin,
+    });
+
+    const cachedData = getCachedBeneficiaries(cacheKey);
+    if (cachedData) {
+      const cachedResponse = NextResponse.json(cachedData);
+      cachedResponse.headers.set("X-Cache", "HIT");
+      return cachedResponse;
+    }
+
     // Get all beneficiaries filtered by branch (lean query without heavy relationship population)
     const beneficiaries = await Beneficiary.find(branchFilter)
       .sort({ internalId: 1 })
@@ -41,14 +61,20 @@ export async function GET(request: Request) {
 
     const total = await Beneficiary.countDocuments(branchFilter);
 
-    return NextResponse.json({
+    const responseData = {
       beneficiaries: beneficiariesWithCategory,
       total,
       page: 1,
       pages: 1,
       branch: authResult.branchName,
       isSuperAdmin: authResult.isSuperAdmin,
-    });
+    };
+
+    setCachedBeneficiaries(cacheKey, responseData);
+
+    const response = NextResponse.json(responseData);
+    response.headers.set("X-Cache", "MISS");
+    return response;
   } catch (error) {
     console.error("Error fetching beneficiaries:", error);
     return NextResponse.json(
@@ -251,6 +277,48 @@ export async function POST(req: Request) {
       nationalId: beneficiary.nationalId,
     });
 
+    // If beneficiary accepts marriage assistance, auto-create a pending marriage case
+    if (beneficiary.acceptsMarriage) {
+      try {
+        const existingCase = await MarriageCase.findOne({ beneficiary: beneficiary._id });
+        if (!existingCase) {
+          let personName = "مقبل على الزواج (قيد استكمال البيانات)";
+          let relationship: any = "daughter";
+
+          if (beneficiary.children && beneficiary.children.length > 0) {
+            const singleChild =
+              beneficiary.children.find((c: any) => c.maritalStatus === "single") ||
+              beneficiary.children[0];
+            if (singleChild?.name) {
+              personName = singleChild.name;
+              relationship = singleChild.gender === "female" ? "daughter" : "son";
+            }
+          }
+
+          await MarriageCase.create({
+            beneficiary: beneficiary._id,
+            beneficiaryName: beneficiary.name,
+            beneficiaryNationalId: beneficiary.nationalId,
+            beneficiaryPhone: beneficiary.phone,
+            beneficiaryAddress: beneficiary.address,
+            personName,
+            relationship,
+            status: "pending",
+            itemsProvided: [],
+            cashAssistance: 0,
+            totalCost: 0,
+            certificateImage: beneficiary.marriageCertificateImage || "",
+            notes: beneficiary.marriageDetails || "تم تسجيل رغبة مساعدة الزواج من استمارة المستفيد",
+            branch: targetBranch,
+            branchName: targetBranchName,
+            createdBy: getActorName(authResult),
+          });
+        }
+      } catch (marriageErr) {
+        console.error("Failed to auto-create MarriageCase from beneficiary create:", marriageErr);
+      }
+    }
+
     // Create reciprocal relations on referenced beneficiaries
     try {
       await addReciprocalRelationsForNew(
@@ -262,6 +330,9 @@ export async function POST(req: Request) {
     } catch (e) {
       console.error("❌ Failed to add reciprocal relations after create:", e);
     }
+
+    // Invalidate server cache when a new beneficiary is created
+    invalidateBeneficiariesCache();
 
     return NextResponse.json(beneficiary, { status: 201 });
   } catch (error) {

@@ -3,6 +3,7 @@ import dbConnect from "@/lib/mongodb";
 import Beneficiary from "@/lib/models/Beneficiary";
 import Initiative from "@/lib/models/Initiative";
 import TreasuryTransaction from "@/lib/models/TreasuryTransaction";
+import MarriageCase from "@/lib/models/MarriageCase";
 import { NextResponse } from "next/server";
 import {
   sanitizeBeneficiaryPayload,
@@ -10,7 +11,8 @@ import {
 } from "@/lib/beneficiaries/sanitizePayload";
 import { syncReciprocalRelations } from "@/lib/beneficiaries/reciprocal";
 import { getAuthenticatedUser } from "@/lib/auth-helpers";
-import { createActivityNotification } from "@/lib/notifications";
+import { createActivityNotification, getActorName } from "@/lib/notifications";
+import { invalidateBeneficiariesCache } from "@/lib/cache/beneficiariesCache";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -116,12 +118,18 @@ export async function GET(
     // Calculate total received this year
     const totalReceivedThisYear = transactionsWithShare.reduce((sum: number, tx: any) => sum + tx.shareAmount, 0);
 
+    // Fetch marriage assistance cases for this beneficiary
+    const marriageCases = await MarriageCase.find({ beneficiary: id })
+      .sort({ createdAt: -1 })
+      .lean();
+
     return NextResponse.json({ 
       beneficiary: beneficiaryWithCategory, 
       initiatives,
       treasuryTransactions: transactionsWithShare,
       totalReceivedThisYear,
       transactionYear: currentYear,
+      marriageCases,
     });
   } catch (error) {
     console.error("Error fetching beneficiary:", error);
@@ -216,6 +224,73 @@ export async function PUT(
       branchName: beneficiary.branchName || null,
     });
 
+    // Two-way sync: If acceptsMarriage is active, ensure a MarriageCase exists for /admin/marriage
+    try {
+      if (beneficiary.acceptsMarriage) {
+        const existingCase = await MarriageCase.findOne({ beneficiary: beneficiary._id });
+        if (!existingCase) {
+          let personName = "مقبل على الزواج (قيد استكمال البيانات)";
+          let relationship: any = "daughter";
+
+          if (beneficiary.children && beneficiary.children.length > 0) {
+            const singleChild =
+              beneficiary.children.find((c: any) => c.maritalStatus === "single") ||
+              beneficiary.children[0];
+            if (singleChild?.name) {
+              personName = singleChild.name;
+              relationship = singleChild.gender === "female" ? "daughter" : "son";
+            }
+          }
+
+          await MarriageCase.create({
+            beneficiary: beneficiary._id,
+            beneficiaryName: beneficiary.name,
+            beneficiaryNationalId: beneficiary.nationalId,
+            beneficiaryPhone: beneficiary.phone,
+            beneficiaryAddress: beneficiary.address,
+            personName,
+            relationship,
+            status: "pending",
+            itemsProvided: [],
+            cashAssistance: 0,
+            totalCost: 0,
+            certificateImage: beneficiary.marriageCertificateImage || "",
+            notes: beneficiary.marriageDetails || "تم تفعيل رغبة مساعدة الزواج من استمارة المستفيد",
+            branch: beneficiary.branch,
+            branchName: beneficiary.branchName,
+            createdBy: getActorName(authResult),
+          });
+        } else {
+          // Keep cached beneficiary fields in sync
+          const updatePayload: any = {
+            beneficiaryName: beneficiary.name,
+            beneficiaryNationalId: beneficiary.nationalId,
+            beneficiaryPhone: beneficiary.phone,
+            beneficiaryAddress: beneficiary.address,
+          };
+          if (beneficiary.marriageCertificateImage && !existingCase.certificateImage) {
+            updatePayload.certificateImage = beneficiary.marriageCertificateImage;
+          }
+          if (beneficiary.marriageDetails && !existingCase.notes) {
+            updatePayload.notes = beneficiary.marriageDetails;
+          }
+          await MarriageCase.updateMany({ beneficiary: beneficiary._id }, updatePayload);
+        }
+      } else {
+        // If user unchecked acceptsMarriage, remove any unassisted pending placeholder case
+        await MarriageCase.deleteMany({
+          beneficiary: beneficiary._id,
+          status: "pending",
+          totalCost: 0,
+          itemsProvided: { $size: 0 },
+        });
+      }
+    } catch (syncErr) {
+      console.error("Failed to sync marriage case on beneficiary update:", syncErr);
+    }
+
+    invalidateBeneficiariesCache();
+
     return NextResponse.json(beneficiary);
   } catch (error) {
     console.error("Error updating beneficiary:", error);
@@ -250,6 +325,8 @@ export async function DELETE(
       id: beneficiary._id,
       name: beneficiary.name,
     });
+
+    invalidateBeneficiariesCache();
 
     return NextResponse.json({ message: "Beneficiary deleted successfully" });
   } catch (error) {

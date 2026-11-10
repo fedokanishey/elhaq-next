@@ -10,6 +10,15 @@ export const fetchCache = "force-no-store";
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const buildArabicRegex = (text: string) => {
+  const escaped = escapeRegex(text.trim());
+  const pattern = escaped
+    .replace(/[اأإآ]/g, "[اأإآ]")
+    .replace(/[ةه]/g, "[ةه]")
+    .replace(/[يى]/g, "[يى]");
+  return new RegExp(pattern, "i");
+};
+
 export async function GET(req: Request) {
   try {
     const { userId } = await auth();
@@ -22,11 +31,7 @@ export async function GET(req: Request) {
     const excludeId = searchParams.get("excludeId")?.trim();
     const branchIdOverride = searchParams.get("branchId");
     const limitParam = Number(searchParams.get("limit"));
-    const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 20) : 10;
-
-    if (query.length < 2) {
-      return NextResponse.json({ beneficiaries: [] });
-    }
+    const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 50) : 25;
 
     await dbConnect();
     
@@ -34,37 +39,46 @@ export async function GET(req: Request) {
     const authResult = await getAuthenticatedUser();
     const branchFilter = getBranchFilterWithOverride(authResult, branchIdOverride);
 
-    console.log("🔍 Search beneficiaries:", {
-      query,
-      branchIdOverride,
-      userBranch: authResult.branch?.toString(),
-      isSuperAdmin: authResult.isSuperAdmin,
-      branchFilter: JSON.stringify(branchFilter),
-    });
+    let filter: Record<string, unknown> = { ...branchFilter };
 
-    const regex = new RegExp(escapeRegex(query), "i");
-    const filter: Record<string, unknown> = {
-      ...branchFilter,
-      $or: [{ name: regex }, { nationalId: { $regex: query } }],
-    };
+    if (query) {
+      const regex = buildArabicRegex(query);
+      filter = {
+        ...branchFilter,
+        $or: [
+          { name: regex },
+          { nationalId: { $regex: escapeRegex(query), $options: "i" } },
+          { phone: { $regex: escapeRegex(query), $options: "i" } },
+          { internalId: { $regex: escapeRegex(query), $options: "i" } },
+        ],
+      };
+    }
 
     if (excludeId) {
       filter._id = { $ne: excludeId };
     }
 
     const beneficiaries = await Beneficiary.find(filter)
-      .select("name nationalId phone whatsapp")
+      .select("name nationalId phone whatsapp address internalId children")
       .limit(limit)
       .sort({ name: 1 })
       .lean();
 
     return NextResponse.json({
-      beneficiaries: beneficiaries.map((beneficiary) => ({
-        _id: beneficiary._id,
-        name: beneficiary.name,
-        nationalId: beneficiary.nationalId,
-        phone: beneficiary.phone,
-        whatsapp: beneficiary.whatsapp,
+      beneficiaries: beneficiaries.map((b: any) => ({
+        _id: b._id,
+        name: b.name,
+        nationalId: b.nationalId,
+        phone: b.phone,
+        whatsapp: b.whatsapp,
+        address: b.address,
+        internalId: b.internalId,
+        children: (b.children || []).map((c: any) => ({
+          _id: c._id,
+          name: c.name,
+          gender: c.gender,
+          maritalStatus: c.maritalStatus,
+        })),
       })),
     });
   } catch (error) {

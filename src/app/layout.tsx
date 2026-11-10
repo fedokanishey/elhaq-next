@@ -48,6 +48,7 @@ export default function RootLayout({
           <link rel="manifest" href="/manifest.json" />
         </head>
         <body
+          suppressHydrationWarning
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
         >
           <PWARegister />

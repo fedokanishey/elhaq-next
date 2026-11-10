@@ -26,16 +26,26 @@ import {
   Barcode as BarcodeIcon,
   FileText,
   Printer,
+  Heart,
+  PackageCheck,
+  CheckCircle2,
+  Clock,
+  Plus,
+  Coins,
+  Sparkles,
+  ExternalLink,
 } from "lucide-react";
 import Barcode from "@/components/Barcode";
 import { QRCodeSVG } from "qrcode.react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import CloudinaryImage from "@/components/CloudinaryImage";
+import ImageUpload from "@/components/ImageUpload";
 
 interface Child {
   _id?: string;
   name?: string;
+  gender?: "male" | "female" | string;
   nationalId?: string;
   school?: string;
   educationStage?: string;
@@ -130,6 +140,31 @@ interface TreasuryTransactionSummary {
   beneficiaryCount: number;
   shareAmount: number;
   isMonthly?: boolean;
+}
+
+interface ProvidedItemSummary {
+  itemName: string;
+  quantity: number;
+  cost?: number;
+  notes?: string;
+  deliveredAt?: string;
+}
+
+interface MarriageCaseSummary {
+  _id: string;
+  personName: string;
+  relationship: "daughter" | "son" | "self" | "other";
+  spouseName?: string;
+  phone?: string;
+  nationalId?: string;
+  marriageDate?: string;
+  status: "pending" | "in_progress" | "completed" | "cancelled";
+  itemsProvided: ProvidedItemSummary[];
+  cashAssistance?: number;
+  totalCost: number;
+  certificateImage?: string;
+  notes?: string;
+  createdAt: string;
 }
 
 const EDUCATION_STAGE_LABELS: Record<string, string> = {
@@ -251,6 +286,84 @@ export default function BeneficiaryDetailsView({
     return `https://wa.me/${formatted}`;
     
   }, [beneficiary?.whatsapp]);
+
+  const marriageCases: MarriageCaseSummary[] = data?.marriageCases || [];
+
+  // Marriage modal states
+  const [isAddMarriageModalOpen, setIsAddMarriageModalOpen] = useState(false);
+  const [marriagePersonName, setMarriagePersonName] = useState("");
+  const [marriageRelationship, setMarriageRelationship] = useState<"daughter" | "son" | "self" | "other">("daughter");
+  const [marriageSpouseName, setMarriageSpouseName] = useState("");
+  const [marriagePhone, setMarriagePhone] = useState("");
+  const [marriageDate, setMarriageDate] = useState("");
+  const [marriageStatus, setMarriageStatus] = useState<"pending" | "in_progress" | "completed" | "cancelled">("pending");
+  const [marriageItems, setMarriageItems] = useState<ProvidedItemSummary[]>([]);
+  const [marriageCash, setMarriageCash] = useState<number>(0);
+  const [marriageCertImage, setMarriageCertImage] = useState("");
+  const [marriageNotes, setMarriageNotes] = useState("");
+  const [isSavingMarriage, setIsSavingMarriage] = useState(false);
+  const [marriageFormError, setMarriageFormError] = useState("");
+  const [previewMarriageImage, setPreviewMarriageImage] = useState<string | null>(null);
+
+  const marriageFormTotal = useMemo(() => {
+    const itemsTotal = marriageItems.reduce(
+      (sum, item) => sum + (Number(item.cost || 0) * Number(item.quantity || 1)),
+      0
+    );
+    return itemsTotal + Number(marriageCash || 0);
+  }, [marriageItems, marriageCash]);
+
+  const handleSaveMarriageCase = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!marriagePersonName.trim()) {
+      setMarriageFormError("يرجى إدخال اسم المقبل على الزواج");
+      return;
+    }
+
+    try {
+      setIsSavingMarriage(true);
+      setMarriageFormError("");
+
+      const res = await fetch("/api/marriage-cases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          beneficiaryId: beneficiary._id,
+          personName: marriagePersonName,
+          relationship: marriageRelationship,
+          spouseName: marriageSpouseName,
+          phone: marriagePhone,
+          marriageDate: marriageDate || undefined,
+          status: marriageStatus,
+          itemsProvided: marriageItems,
+          cashAssistance: Number(marriageCash || 0),
+          certificateImage: marriageCertImage,
+          notes: marriageNotes,
+        }),
+      });
+
+      const resData = await res.json();
+      if (!res.ok) {
+        throw new Error(resData.error || "فشل تسجيل حالة الزواج");
+      }
+
+      toast.success("تم تسجيل حالة تيسير الزواج بنجاح");
+      setIsAddMarriageModalOpen(false);
+      setMarriagePersonName("");
+      setMarriageSpouseName("");
+      setMarriagePhone("");
+      setMarriageDate("");
+      setMarriageItems([]);
+      setMarriageCash(0);
+      setMarriageCertImage("");
+      setMarriageNotes("");
+      mutate();
+    } catch (err: any) {
+      setMarriageFormError(err.message || "حدث خطأ أثناء الحفظ");
+    } finally {
+      setIsSavingMarriage(false);
+    }
+  };
 
   // Handle year change for treasury transactions
   const handleYearChange = (direction: 'prev' | 'next') => {
@@ -921,15 +1034,228 @@ ${clone.innerHTML}
           </div>
         )}
 
-        {beneficiary.acceptsMarriage && beneficiary.marriageDetails && (
-          <div className="bg-card border border-border rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5 text-primary" />
-              💍 تفاصيل مستلزمات الزواج
-            </h2>
-            <p className="text-foreground whitespace-pre-wrap">{beneficiary.marriageDetails}</p>
+        {/* Marriage Assistance Section */}
+        <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                <Heart className="w-5 h-5 fill-rose-500/20" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-foreground">
+                    مساعدات المقبلين على الزواج (تيسير الزواج)
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+                    {marriageCases.length} {marriageCases.length === 1 ? "حالة" : "حالات"}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  متابعة الأجهزة والمنتجات المقدمة للمقبلين على الزواج من الأسرة
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMarriagePersonName("");
+                  setMarriageRelationship("daughter");
+                  setMarriageSpouseName("");
+                  setMarriagePhone("");
+                  setMarriageDate("");
+                  setMarriageStatus("pending");
+                  setMarriageItems([]);
+                  setMarriageCash(0);
+                  setMarriageCertImage("");
+                  setMarriageNotes("");
+                  setMarriageFormError("");
+                  setIsAddMarriageModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition shadow-sm cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>تسجيل حالة زواج جديدة</span>
+              </button>
+
+              <Link
+                href="/admin/marriage"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground text-xs font-medium transition cursor-pointer"
+              >
+                <span>نظام تيسير الزواج</span>
+                <ExternalLink className="w-3 h-3" />
+              </Link>
+            </div>
           </div>
-        )}
+
+          {/* Cases List */}
+          {marriageCases.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {marriageCases.map((mc, idx) => {
+                const weddingDateObj = mc.marriageDate ? new Date(mc.marriageDate) : null;
+                const relLabel =
+                  mc.relationship === "daughter"
+                    ? "ابنة المستفيد"
+                    : mc.relationship === "son"
+                    ? "ابن المستفيد"
+                    : mc.relationship === "self"
+                    ? "المستفيد نفسه"
+                    : "أخرى";
+
+                return (
+                  <div
+                    key={`${mc._id}-${idx}`}
+                    className="p-4 rounded-xl border border-border/80 bg-muted/20 hover:border-primary/40 transition space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-foreground text-base">
+                            {mc.personName}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-900/40">
+                            {relLabel}
+                          </span>
+                        </div>
+                        {mc.spouseName && (
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            الطرف الآخر: <span className="text-foreground">{mc.spouseName}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          mc.status === "completed"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
+                            : mc.status === "in_progress"
+                            ? "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
+                            : mc.status === "pending"
+                            ? "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {mc.status === "completed" && <CheckCircle2 className="w-3 h-3" />}
+                        {mc.status === "in_progress" && <PackageCheck className="w-3 h-3" />}
+                        {mc.status === "pending" && <Clock className="w-3 h-3" />}
+                        {mc.status === "completed"
+                          ? "تمت المساعدة"
+                          : mc.status === "in_progress"
+                          ? "جاري التجهيز"
+                          : mc.status === "pending"
+                          ? "في الانتظار"
+                          : "ملغي"}
+                      </span>
+                    </div>
+
+                    {weddingDateObj && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Clock className="w-3.5 h-3.5 text-primary" />
+                        <span>موعد الزفاف:</span>
+                        <span className="font-semibold text-foreground">
+                          {weddingDateObj.toLocaleDateString("ar-EG", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Items Delivered */}
+                    <div className="space-y-1.5 pt-2 border-t border-border/50 text-xs">
+                      <div className="flex items-center justify-between font-semibold text-foreground">
+                        <span className="flex items-center gap-1">
+                          <PackageCheck className="w-3.5 h-3.5 text-primary" />
+                          الأجهزة والمنتجات ({mc.itemsProvided?.length || 0}):
+                        </span>
+                        {mc.totalCost > 0 && (
+                          <span className="text-primary font-bold">
+                            {mc.totalCost.toLocaleString()} ج.م
+                          </span>
+                        )}
+                      </div>
+
+                      {mc.itemsProvided && mc.itemsProvided.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {mc.itemsProvided.map((item, i) => (
+                            <span
+                              key={i}
+                              className="px-2 py-0.5 rounded-md bg-background border border-border/80 text-[11px] text-foreground font-medium"
+                            >
+                              {item.itemName} {item.quantity > 1 ? `(×${item.quantity})` : ""}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground italic">
+                          لم يتم تحديد أجهزة بعد
+                        </p>
+                      )}
+
+                      {mc.cashAssistance && mc.cashAssistance > 0 ? (
+                        <div className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">
+                          + مساعدة مالية: {mc.cashAssistance.toLocaleString()} ج.م
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {/* Certificate & Notes */}
+                    {(mc.certificateImage || mc.notes) && (
+                      <div className="pt-2 border-t border-border/50 text-xs space-y-1">
+                        {mc.certificateImage && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewMarriageImage(mc.certificateImage || null)}
+                            className="text-primary text-[11px] hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                          >
+                            <FileText className="w-3 h-3" />
+                            <span>معاينة وثيقة الزواج</span>
+                          </button>
+                        )}
+                        {mc.notes && (
+                          <p className="text-[11px] text-muted-foreground bg-background/60 p-1.5 rounded-md">
+                            {mc.notes}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-5 bg-muted/20 border border-border/70 rounded-xl text-center space-y-2">
+              <p className="text-sm text-muted-foreground">
+                {beneficiary.marriageDetails
+                  ? `تفاصيل سابقة مسجلة: ${beneficiary.marriageDetails}`
+                  : "لم يتم تسجيل أي حالات تيسير زواج بعد لهذا المستفيد."}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setMarriagePersonName("");
+                  setMarriageRelationship("daughter");
+                  setMarriageSpouseName("");
+                  setMarriagePhone("");
+                  setMarriageDate("");
+                  setMarriageStatus("pending");
+                  setMarriageItems([]);
+                  setMarriageCash(0);
+                  setMarriageCertImage(beneficiary.marriageCertificateImage || "");
+                  setMarriageNotes(beneficiary.marriageDetails || "");
+                  setMarriageFormError("");
+                  setIsAddMarriageModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 text-xs font-semibold transition cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>تسجيل وتحديد الأجهزة للحالة الآن</span>
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="bg-card border border-border rounded-lg p-6">
           <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -1237,6 +1563,388 @@ ${clone.innerHTML}
                   className="w-full h-auto rounded-lg border border-border"
                 />
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Marriage Certificate Preview Modal */}
+        {previewMarriageImage && (
+          <div
+            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+            onClick={() => setPreviewMarriageImage(null)}
+          >
+            <div
+              className="bg-card rounded-xl max-w-2xl w-full max-h-[85vh] overflow-auto relative p-6 space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h3 className="text-base font-bold">وثيقة / قسيمة الزواج</h3>
+                <button
+                  onClick={() => setPreviewMarriageImage(null)}
+                  className="p-1 rounded-lg hover:bg-muted"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="relative rounded-lg overflow-hidden border border-border flex justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewMarriageImage}
+                  alt="قسيمة الزواج"
+                  className="max-h-[70vh] object-contain"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Marriage Case Modal */}
+        {isAddMarriageModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-5 my-8">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                    <Heart className="w-5 h-5 fill-rose-500/20" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground">
+                      تسجيل حالة تيسير زواج للمستفيد ({beneficiary.name})
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      تحديد المستلزمات والأجهزة المقدمة وموعد الزفاف
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsAddMarriageModalOpen(false)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {marriageFormError && (
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-xl text-xs flex items-center gap-2 border border-rose-200 dark:border-rose-900">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{marriageFormError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveMarriageCase} className="space-y-4">
+                {/* Quick Children Select */}
+                {children.length > 0 && (
+                  <div className="p-3 bg-muted/40 rounded-xl border border-border/60 space-y-2">
+                    <span className="text-xs font-semibold text-foreground block">
+                      اختيار سريع من أبناء المستفيد المسجلين:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {children.map((child: Child, idx: number) => (
+                        <button
+                          key={`${child._id || idx}`}
+                          type="button"
+                          onClick={() => {
+                            setMarriagePersonName(child.name || "");
+                            setMarriageRelationship(
+                              child.gender === "female" ? "daughter" : "son"
+                            );
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-background border border-border text-xs text-foreground hover:border-primary hover:text-primary transition font-medium cursor-pointer"
+                        >
+                          {child.name} ({child.gender === "female" ? "ابنة" : "ابن"})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      اسم الشخص المقبل على الزواج <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={marriagePersonName}
+                      onChange={(e) => setMarriagePersonName(e.target.value)}
+                      placeholder="اسم العريس / العروسة"
+                      required
+                      className="w-full px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground focus:ring-1 focus:ring-primary outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      صلة القرابة
+                    </label>
+                    <select
+                      value={marriageRelationship}
+                      onChange={(e) => setMarriageRelationship(e.target.value as any)}
+                      className="w-full px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground focus:ring-1 focus:ring-primary outline-none cursor-pointer"
+                    >
+                      <option value="daughter">ابنة المستفيد</option>
+                      <option value="son">ابن المستفيد</option>
+                      <option value="self">المستفيد نفسه</option>
+                      <option value="other">أخرى</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      اسم الطرف الآخر (اختياري)
+                    </label>
+                    <input
+                      type="text"
+                      value={marriageSpouseName}
+                      onChange={(e) => setMarriageSpouseName(e.target.value)}
+                      placeholder="اسم العريس / العروسة"
+                      className="w-full px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground focus:ring-1 focus:ring-primary outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      موعد الزفاف
+                    </label>
+                    <input
+                      type="date"
+                      value={marriageDate}
+                      onChange={(e) => setMarriageDate(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground focus:ring-1 focus:ring-primary outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      رقم الهاتف
+                    </label>
+                    <input
+                      type="text"
+                      value={marriagePhone}
+                      onChange={(e) => setMarriagePhone(e.target.value)}
+                      placeholder="اختياري"
+                      className="w-full px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground focus:ring-1 focus:ring-primary outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      حالة المساعدة
+                    </label>
+                    <select
+                      value={marriageStatus}
+                      onChange={(e) => setMarriageStatus(e.target.value as any)}
+                      className="w-full px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground focus:ring-1 focus:ring-primary outline-none cursor-pointer font-semibold"
+                    >
+                      <option value="pending">في الانتظار والدراسة</option>
+                      <option value="in_progress">جاري التجهيز والمساعدة</option>
+                      <option value="completed">تمت المساعدة وتجهيز الحالة</option>
+                      <option value="cancelled">ملغي</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Items & Goods */}
+                <div className="space-y-3 pt-3 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1">
+                      <PackageCheck className="w-3.5 h-3.5 text-primary" />
+                      الأجهزة والمستلزمات المقدمة:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMarriageItems((prev) => [
+                          ...prev,
+                          { itemName: "", quantity: 1, cost: 0, notes: "" },
+                        ])
+                      }
+                      className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" />
+                      إضافة جهاز مخصص
+                    </button>
+                  </div>
+
+                  {/* Chips */}
+                  <div className="flex flex-wrap gap-1 p-2 bg-muted/30 rounded-xl border border-border/50">
+                    <span className="text-[10px] text-muted-foreground self-center ml-1">إضافة سريعة:</span>
+                    {[
+                      "غسالة",
+                      "ثلاجة",
+                      "بوتاجاز",
+                      "شاشة تلفزيون",
+                      "خلاط وعجان",
+                      "مطبخ ألوميتال",
+                      "سخان مياه",
+                      "مفرش وسجاد",
+                      "طقم أواني",
+                      "مساعدة مالية",
+                    ].map((ci) => (
+                      <button
+                        key={ci}
+                        type="button"
+                        onClick={() =>
+                          setMarriageItems((prev) => [
+                            ...prev,
+                            { itemName: ci, quantity: 1, cost: 0, notes: "" },
+                          ])
+                        }
+                        className="px-2 py-0.5 text-xs rounded-md bg-background border border-border text-foreground hover:border-primary hover:text-primary transition font-medium cursor-pointer"
+                      >
+                        + {ci}
+                      </button>
+                    ))}
+                  </div>
+
+                  {marriageItems.length > 0 && (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                      {marriageItems.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2.5 bg-muted/20 border border-border rounded-lg grid grid-cols-12 gap-2 items-center text-xs"
+                        >
+                          <div className="col-span-5">
+                            <input
+                              type="text"
+                              value={item.itemName}
+                              onChange={(e) => {
+                                const copy = [...marriageItems];
+                                copy[idx] = { ...copy[idx], itemName: e.target.value };
+                                setMarriageItems(copy);
+                              }}
+                              placeholder="اسم الجهاز"
+                              required
+                              className="w-full px-2 py-1 text-xs bg-background border border-input rounded-md text-foreground"
+                            />
+                          </div>
+
+                          <div className="col-span-2">
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const copy = [...marriageItems];
+                                copy[idx] = { ...copy[idx], quantity: Number(e.target.value) };
+                                setMarriageItems(copy);
+                              }}
+                              title="الكمية"
+                              className="w-full px-2 py-1 text-xs bg-background border border-input rounded-md text-foreground text-center"
+                            />
+                          </div>
+
+                          <div className="col-span-2">
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.cost || ""}
+                              onChange={(e) => {
+                                const copy = [...marriageItems];
+                                copy[idx] = { ...copy[idx], cost: Number(e.target.value) };
+                                setMarriageItems(copy);
+                              }}
+                              placeholder="السعر"
+                              title="التكلفة ج.م"
+                              className="w-full px-2 py-1 text-xs bg-background border border-input rounded-md text-foreground text-center"
+                            />
+                          </div>
+
+                          <div className="col-span-2">
+                            <input
+                              type="text"
+                              value={item.notes || ""}
+                              onChange={(e) => {
+                                const copy = [...marriageItems];
+                                copy[idx] = { ...copy[idx], notes: e.target.value };
+                                setMarriageItems(copy);
+                              }}
+                              placeholder="ملاحظات"
+                              className="w-full px-2 py-1 text-xs bg-background border border-input rounded-md text-foreground"
+                            />
+                          </div>
+
+                          <div className="col-span-1 text-center">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setMarriageItems((prev) => prev.filter((_, i) => i !== idx))
+                              }
+                              className="text-muted-foreground hover:text-rose-600 transition"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Cash assistance & total */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold text-foreground mb-1">
+                        مساعدة مالية نقدية إضافية
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={marriageCash || ""}
+                        onChange={(e) => setMarriageCash(Number(e.target.value))}
+                        placeholder="0 ج.م"
+                        className="w-full px-3 py-1.5 text-xs bg-background border border-input rounded-xl text-foreground outline-none"
+                      />
+                    </div>
+
+                    <div className="p-2.5 bg-muted/40 rounded-xl border border-border flex items-center justify-between self-end">
+                      <span className="text-xs text-muted-foreground font-semibold">إجمالي التكلفة:</span>
+                      <span className="text-sm font-extrabold text-primary">
+                        {marriageFormTotal.toLocaleString()} ج.م
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Certificate & Notes */}
+                <div className="space-y-3 pt-3 border-t border-border">
+                  <ImageUpload
+                    label="صورة وثيقة / قسيمة الزواج (اختياري)"
+                    onImageUpload={(url) => setMarriageCertImage(url)}
+                    currentImage={marriageCertImage}
+                  />
+
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      ملاحظات إضافية
+                    </label>
+                    <textarea
+                      value={marriageNotes}
+                      onChange={(e) => setMarriageNotes(e.target.value)}
+                      rows={2}
+                      className="w-full px-3 py-1.5 text-xs bg-background border border-input rounded-xl text-foreground outline-none resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddMarriageModalOpen(false)}
+                    className="px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted rounded-xl transition cursor-pointer"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingMarriage}
+                    className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-primary text-primary-foreground font-semibold text-xs shadow hover:bg-primary/90 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingMarriage && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    حفظ حالة الزواج
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

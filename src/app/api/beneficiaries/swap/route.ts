@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Beneficiary from "@/lib/models/Beneficiary";
 import { getAuthenticatedUser } from "@/lib/auth-helpers";
+import { invalidateBeneficiariesCache } from "@/lib/cache/beneficiariesCache";
 
 export async function POST(req: Request) {
   try {
@@ -74,6 +75,8 @@ export async function POST(req: Request) {
     // Temp (A) -> B
     currentBeneficiary.internalId = targetIdInput;
     await currentBeneficiary.save();
+
+    invalidateBeneficiariesCache();
 
     return NextResponse.json({
       success: true,

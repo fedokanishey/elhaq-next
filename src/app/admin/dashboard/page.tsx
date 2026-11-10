@@ -19,7 +19,8 @@ import {
   Archive,
   HandCoins,
   Building2,
-  Crown
+  Crown,
+  Heart
 } from "lucide-react";
 import { useBranchContext } from "@/contexts/BranchContext";
 import BranchSelector from "@/components/BranchSelector";
@@ -273,6 +274,19 @@ export default function AdminDashboard() {
               <h3 className="text-lg font-bold text-foreground">المخزن</h3>
             </div>
             <p className="text-muted-foreground text-sm">تتبع حركة المخزن الواردة والصادرة</p>
+          </Link>
+
+          <Link
+            href="/admin/marriage"
+            className="group bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
+          >
+            <div className="flex items-center gap-4 mb-3">
+              <div className="p-3 bg-rose-500/10 dark:bg-rose-500/20 rounded-full group-hover:bg-rose-500/20 transition-colors">
+                <Heart className="h-6 w-6 text-rose-600 dark:text-rose-400" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">تيسير الزواج</h3>
+            </div>
+            <p className="text-muted-foreground text-sm">متابعة وتجهيز المقبلين على الزواج وتوفير الأجهزة</p>
           </Link>
 
           {/* Branches Management - SuperAdmin only */}

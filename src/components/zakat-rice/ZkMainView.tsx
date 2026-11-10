@@ -2564,16 +2564,15 @@ function ReceiptFormModal({
                 </div>
                 <div>
                   <label className="font-bold text-slate-800 dark:text-slate-200 block mb-1">وزن الشيكارة (كجم)</label>
-                  <select
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
                     value={bagKg}
                     onChange={(e) => setBagKg(e.target.value)}
-                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="25">25 كجم</option>
-                    <option value="50">50 كجم</option>
-                    <option value="10">10 كجم</option>
-                    <option value="5">5 كجم</option>
-                  </select>
+                    placeholder="مثال: 25"
+                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
                 </div>
                 <div>
                   <label className="font-bold text-slate-800 dark:text-slate-200 block mb-1">الوزن الإجمالي (كجم) *</label>
@@ -3301,7 +3300,9 @@ function DistributionFormModal({
   // Compute final kg deducted
   const finalKgDeducted = useMemo(() => {
     if (unit === "شيكارة") {
-      return (Number(bags) || 1) * (Number(bagKg) || 25);
+      const b = Number(bags);
+      const k = Number(bagKg);
+      return (b > 0 ? b : 1) * (k > 0 ? k : 0);
     }
     return Number(enteredQty) || 0;
   }, [unit, bags, bagKg, enteredQty]);
@@ -3471,17 +3472,16 @@ function DistributionFormModal({
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-800 dark:text-slate-200 block mb-1">فئة وزن الشيكارة</label>
-                  <select
+                  <label className="font-bold text-slate-800 dark:text-slate-200 block mb-1">وزن الشيكارة (كجم)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
                     value={bagKg}
                     onChange={(e) => setBagKg(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="25">25 كجم</option>
-                    <option value="50">50 كجم</option>
-                    <option value="10">10 كجم</option>
-                    <option value="5">5 كجم</option>
-                  </select>
+                    placeholder="مثال: 25"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
                 </div>
               </div>
             )}

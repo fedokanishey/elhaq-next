@@ -131,7 +131,10 @@ export default function AdminBeneficiaries() {
     fetcher,
     {
       revalidateOnFocus: false,
+      revalidateIfStale: true,
       revalidateOnReconnect: true,
+      dedupingInterval: 60000,
+      keepPreviousData: true,
     }
   );
 

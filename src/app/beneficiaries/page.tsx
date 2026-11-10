@@ -133,10 +133,16 @@ export default function BeneficiariesPage() {
   const { data, error: swrError, isLoading, mutate } = useSWR(
     swrKey,
     fetcher,
-    { revalidateOnFocus: false, revalidateOnMount: true }
+    {
+      revalidateOnFocus: false,
+      revalidateIfStale: true,
+      revalidateOnReconnect: true,
+      dedupingInterval: 60000,
+      keepPreviousData: true,
+    }
   );
 
-  const loading = isLoading;
+  const loading = isLoading && !data;
   const error = swrError ? "فشل تحميل البيانات" : "";
 
   useEffect(() => {
