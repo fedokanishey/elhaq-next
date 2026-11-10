@@ -1,6 +1,5 @@
 import dbConnect from "@/lib/mongodb";
 import {
-  ZkSettings,
   ZkDonor,
   ZkReceipt,
   ZkMill,
@@ -65,6 +64,7 @@ export async function getZkReportData(reportKey: string, params: { season?: stri
       });
 
       receipts.forEach((r) => {
+        if (!r.donor_id || (r as any).operation_type === "purchase" || (r as any).operation_type === "sale") return;
         const dId = String(r.donor_id);
         if (!donorsMap[dId]) {
           donorsMap[dId] = {
@@ -113,26 +113,38 @@ export async function getZkReportData(reportKey: string, params: { season?: stri
     case "receipts": {
       const receipts = await ZkReceipt.find(query).sort({ date: -1, no: -1 }).lean();
       return {
-        title: "تقرير الاستلامات المفصل",
+        title: "تقرير الاستلامات والتوريدات والمشتريات",
         season,
-        headers: ["رقم الإيصال", "التاريخ", "اسم المتبرع", "نوع الصنف", "الكمية / الوزن", "الوحدة", "الشكاير", "المبلغ", "المخزن", "الموظف"],
-        rows: receipts.map((r) => [
-          r.no,
-          new Date(r.date).toLocaleDateString("ar-EG"),
-          r.donor_name,
-          r.item === "barley" ? "شعير" : r.item === "rice" ? "أرز" : r.item === "cash" ? "نقدي" : (r.item_name || "صنف آخر"),
-          formatNumber(r.quantity),
-          r.unit,
-          r.bags > 0 ? `${r.bags} (${r.bag_kg}كجم)` : "—",
-          r.amount ? formatCurrency(r.amount) : "—",
-          r.store_label,
-          r.createdByName || "—",
-        ]),
+        headers: ["رقم العملية", "التاريخ", "نوع العملية", "الجهة / المتبرع", "نوع الصنف", "الكمية / الوزن", "الوحدة", "الشكاير", "المبلغ المالي", "المخزن", "الموظف"],
+        rows: receipts.map((r: any) => {
+          const op = r.operation_type || "donation";
+          const opLabel = op === "purchase" ? "شراء من التبرعات" : op === "sale" ? "بيع رجيع / مخرجات" : "تبرع وارد";
+          let amtLabel = "—";
+          if (op === "purchase") amtLabel = `-${formatCurrency(r.amount)}`;
+          else if (op === "sale") amtLabel = `+${formatCurrency(r.amount)}`;
+          else if (r.item === "cash") amtLabel = `+${formatCurrency(r.amount || r.quantity)}`;
+
+          return [
+            r.no,
+            new Date(r.date).toLocaleDateString("ar-EG"),
+            opLabel,
+            r.donor_name,
+            r.item === "barley" ? "شعير" : r.item === "rice" ? "أرز" : r.item === "cash" ? "نقدي" : r.item === "bran" ? "رجيع/ردة" : (r.item_name || "صنف آخر"),
+            formatNumber(r.quantity),
+            r.unit,
+            r.bags > 0 ? `${r.bags} (${r.bag_kg}كجم)` : "—",
+            amtLabel,
+            r.store_label,
+            r.createdByName || "—",
+          ];
+        }),
         summary: {
           count: receipts.length,
-          barleyKg: receipts.filter((r) => r.item === "barley").reduce((acc, r) => acc + r.quantity, 0),
-          riceKg: receipts.filter((r) => r.item === "rice").reduce((acc, r) => acc + r.quantity, 0),
-          cash: receipts.filter((r) => r.item === "cash").reduce((acc, r) => acc + (r.amount || r.quantity), 0),
+          barleyKg: receipts.filter((r) => r.item === "barley" && (r as any).operation_type !== "sale").reduce((acc, r) => acc + r.quantity, 0),
+          riceKg: receipts.filter((r) => r.item === "rice" && (r as any).operation_type !== "sale").reduce((acc, r) => acc + r.quantity, 0),
+          cashDonations: receipts.filter((r) => r.item === "cash" && ((r as any).operation_type === "donation" || !(r as any).operation_type)).reduce((acc, r) => acc + (r.amount || r.quantity || 0), 0),
+          purchasesTotal: receipts.filter((r) => (r as any).operation_type === "purchase").reduce((acc, r) => acc + (r.amount || 0), 0),
+          salesTotal: receipts.filter((r) => (r as any).operation_type === "sale").reduce((acc, r) => acc + (r.amount || 0), 0),
         },
       };
     }
@@ -479,6 +491,7 @@ export async function getSeasonSummary(seasonFilter?: string) {
   const donorWeightMap: Record<string, { name: string; barley: number; rice: number; cash: number }> = {};
 
   receipts.forEach((r) => {
+    if (!r.donor_id || (r as any).operation_type === "purchase" || (r as any).operation_type === "sale") return;
     const id = String(r.donor_id);
     if (!donorWeightMap[id]) {
       donorWeightMap[id] = { name: r.donor_name, barley: 0, rice: 0, cash: 0 };
@@ -497,8 +510,8 @@ export async function getSeasonSummary(seasonFilter?: string) {
   const totalRiceOut = stock.rice.fromMilling;
   const averageMillingRate = totalBarleyIn > 0 ? (totalRiceOut / totalBarleyIn) * 100 : 0;
 
-  // Cash surplus or deficit
-  const cashNet = stock.cash.totalAmount - stock.expenses.totalAmount;
+  // Cash surplus or deficit (already net of purchases and expenses)
+  const cashNet = stock.cash.totalAmount;
 
   return {
     org_name: settings.org_name,
@@ -508,7 +521,9 @@ export async function getSeasonSummary(seasonFilter?: string) {
     stock,
     averageMillingRate: Number(averageMillingRate.toFixed(1)),
     cashSummary: {
-      totalDonations: stock.cash.totalAmount,
+      totalDonations: stock.cash.donationsTotal ?? stock.cash.totalAmount,
+      totalPurchases: stock.cash.purchasesTotal ?? 0,
+      totalSales: stock.cash.salesTotal ?? 0,
       totalExpenses: stock.expenses.totalAmount,
       cashNet,
     },

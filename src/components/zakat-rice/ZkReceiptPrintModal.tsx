@@ -10,6 +10,7 @@ interface ZkReceiptPrintModalProps {
   onClose: () => void;
   data: {
     type: "receipt" | "distribution";
+    operationType?: "donation" | "purchase" | "sale";
     no: string;
     date: string | Date;
     partyName: string;
@@ -39,7 +40,24 @@ export default function ZkReceiptPrintModal({
   if (!isOpen || !data) return null;
 
   const isReceipt = data.type === "receipt";
-  const title = isReceipt ? "إيصال استلام تبرع / محصول" : "إذن صرف وتوزيع أرز";
+  const op = data.operationType || "donation";
+  
+  let title = isReceipt ? "إيصال استلام تبرع / محصول" : "إذن صرف وتوزيع أرز";
+  let partyLabel = isReceipt ? "اسم المتبرع الكريم:" : "اسم المستفيد المستحق:";
+  let itemLabel = isReceipt ? "نوع الصنف المستلَم:" : "المقر / موقع الصرف:";
+  let amountLabel = "المبلغ النقدي:";
+
+  if (isReceipt && op === "purchase") {
+    title = "إذن شراء وتوريد محاصيل (خصماً من التبرعات النقدية للأرز)";
+    partyLabel = "التاجر / المورد:";
+    itemLabel = "نوع المحصول المشترى:";
+    amountLabel = "المبلغ المدفوع (خصماً من التبرعات):";
+  } else if (isReceipt && op === "sale") {
+    title = "إيصال بيع مخرجات / رجيع (إيداع بصندوق تبرعات الأرز)";
+    partyLabel = "المشتري / التاجر:";
+    itemLabel = "نوع الصنف المباع:";
+    amountLabel = "المبلغ المحصل (توريد لصندوق الأرز):";
+  }
   const orgName = data.orgName || "دعوة الحق الزرقا";
   const dateFormatted = new Date(data.date).toLocaleDateString("ar-EG", {
     weekday: "long",
@@ -115,7 +133,7 @@ export default function ZkReceiptPrintModal({
           <div className="grid grid-cols-2 gap-4 text-sm mt-3 bg-white p-4 rounded-xl border border-slate-200">
             <div>
               <span className="text-xs font-semibold text-slate-500 block">
-                {isReceipt ? "اسم المتبرع الكريم:" : "اسم المستفيد المستحق:"}
+                {partyLabel}
               </span>
               <span className="text-base font-bold text-slate-900">{data.partyName}</span>
               {data.partyDetails && (
@@ -125,7 +143,7 @@ export default function ZkReceiptPrintModal({
 
             <div>
               <span className="text-xs font-semibold text-slate-500 block">
-                {isReceipt ? "نوع الصنف المستلَم:" : "المقر / موقع الصرف:"}
+                {itemLabel}
               </span>
               <span className="text-base font-bold text-emerald-800">
                 {isReceipt ? data.itemTitle : (data.place || "المقر الرئيسي للجمعية")}
@@ -150,7 +168,7 @@ export default function ZkReceiptPrintModal({
 
               {data.amount && data.amount > 0 && (
                 <div className="text-left">
-                  <span className="text-xs font-semibold text-slate-500 block">المبلغ النقدي:</span>
+                  <span className="text-xs font-semibold text-slate-500 block">{amountLabel}</span>
                   <span className="text-xl font-black text-emerald-700">
                     {formatCurrency(data.amount)}
                   </span>

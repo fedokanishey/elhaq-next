@@ -80,6 +80,7 @@ export function padSerialNo(num: number | string): string {
  */
 export const ARABIC_FIELD_LABELS: Record<string, string> = {
   no: "رقم العملية",
+  operation_type: "نوع العملية",
   date: "التاريخ",
   season: "الموسم",
   name: "الاسم",

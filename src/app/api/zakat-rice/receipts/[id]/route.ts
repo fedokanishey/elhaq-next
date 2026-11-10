@@ -46,13 +46,20 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const before = receipt.toObject();
 
-    if (body.donor_id && body.donor_id !== String(receipt.donor_id)) {
-      const donor = await ZkDonor.findById(body.donor_id);
-      if (donor) {
-        receipt.donor_id = donor._id;
-        receipt.donor_name = donor.name;
+    if (body.operation_type !== undefined) receipt.operation_type = body.operation_type;
+
+    if (body.donor_id !== undefined) {
+      if (body.donor_id) {
+        const donor = await ZkDonor.findById(body.donor_id);
+        if (donor) {
+          receipt.donor_id = donor._id;
+          receipt.donor_name = donor.name;
+        }
+      } else {
+        receipt.donor_id = null;
       }
     }
+    if (body.donor_name !== undefined) receipt.donor_name = body.donor_name;
     if (body.date) receipt.date = new Date(body.date);
     if (body.item) receipt.item = body.item;
     if (body.item_name !== undefined) receipt.item_name = body.item_name;

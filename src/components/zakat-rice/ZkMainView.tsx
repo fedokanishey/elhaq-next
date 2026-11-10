@@ -35,6 +35,9 @@ import {
   ArrowRight,
   ShieldCheck,
   ChevronDown,
+  ShoppingCart,
+  TrendingUp,
+  Coins,
 } from "lucide-react";
 import { formatNumber, formatCurrency, padSerialNo } from "@/lib/services/zakat-rice/utils";
 import ZkReceiptPrintModal from "./ZkReceiptPrintModal";
@@ -60,6 +63,7 @@ export default function ZkMainView() {
 
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [editingReceipt, setEditingReceipt] = useState<any | null>(null);
+  const [receiptTypeFilter, setReceiptTypeFilter] = useState<"all" | "donation" | "purchase" | "sale">("all");
 
   const [isMillModalOpen, setIsMillModalOpen] = useState(false);
   const [editingMill, setEditingMill] = useState<any | null>(null);
@@ -117,6 +121,13 @@ export default function ZkMainView() {
     fetcher
   );
   const receipts = receiptsRes?.data || [];
+  const filteredReceipts = useMemo(() => {
+    return receipts.filter((r: any) => {
+      if (receiptTypeFilter === "all") return true;
+      const op = r.operation_type || "donation";
+      return op === receiptTypeFilter;
+    });
+  }, [receipts, receiptTypeFilter]);
 
   const { data: millsRes, mutate: mutateMills } = useSWR(
     activeTab === "mills"
@@ -606,17 +617,46 @@ export default function ZkMainView() {
               {/* Financial Card */}
               <div className="p-5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-blue-900 dark:text-blue-200">المالية والمصروفات</span>
+                  <span className="text-xs font-bold text-blue-900 dark:text-blue-200">المالية وصندوق التبرعات</span>
                   <Receipt className="w-5 h-5 text-blue-600" />
                 </div>
-                <div className="mt-3 space-y-2 text-xs">
+                <div className="mt-3 space-y-1.5 text-xs">
                   <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded-lg border border-blue-100 dark:border-blue-900">
                     <span className="text-slate-600 dark:text-slate-400">التبرعات النقدية:</span>
-                    <strong className="text-emerald-700 dark:text-emerald-400">{formatCurrency(stock.cash.totalAmount)}</strong>
+                    <strong className="text-emerald-700 dark:text-emerald-400">
+                      {formatCurrency(stock.cash.donationsTotal ?? stock.cash.totalAmount)}
+                    </strong>
                   </div>
+                  {(stock.cash.salesTotal ?? 0) > 0 && (
+                    <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded-lg border border-blue-100 dark:border-blue-900">
+                      <span className="text-slate-600 dark:text-slate-400">مبيعات الرجيع:</span>
+                      <strong className="text-amber-700 dark:text-amber-400">
+                        +{formatCurrency(stock.cash.salesTotal)}
+                      </strong>
+                    </div>
+                  )}
+                  {(stock.cash.purchasesTotal ?? 0) > 0 && (
+                    <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded-lg border border-blue-100 dark:border-blue-900">
+                      <span className="text-slate-600 dark:text-slate-400">مشتريات ممولة من الصندوق:</span>
+                      <strong className="text-rose-700 dark:text-rose-400">
+                        -{formatCurrency(stock.cash.purchasesTotal)}
+                      </strong>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded-lg border border-blue-100 dark:border-blue-900">
-                    <span className="text-slate-600 dark:text-slate-400">مصروفات التشغيل:</span>
-                    <strong className="text-rose-700 dark:text-rose-400">{formatCurrency(stock.expenses.totalAmount)}</strong>
+                    <span className="text-slate-600 dark:text-slate-400">مصروفات التشغيل (طحن ونقل وعمالة):</span>
+                    <strong className="text-rose-700 dark:text-rose-400">
+                      -{formatCurrency(stock.expenses.totalAmount)}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-950/40 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                    <div>
+                      <span className="text-emerald-900 dark:text-emerald-200 font-bold block text-xs">صافي رصيد الصندوق المتبقي:</span>
+                      <span className="text-[10px] text-slate-500 block">(بعد خصم المشتريات والمصروفات)</span>
+                    </div>
+                    <strong className={`text-sm font-black ${stock.cash.totalAmount >= 0 ? "text-emerald-800 dark:text-emerald-300" : "text-rose-700 dark:text-rose-400"}`}>
+                      {formatCurrency(stock.cash.totalAmount)}
+                    </strong>
                   </div>
                 </div>
                 <button
@@ -811,21 +851,65 @@ export default function ZkMainView() {
         )}
 
         {/* ==============================================================
-            TAB 3: الاستلام والتوريد (RECEIPTS)
+            TAB 3: الاستلام والتوريد (RECEIPTS, PURCHASES & SALES)
            ============================================================== */}
         {activeTab === "receipts" && (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="relative w-full sm:w-80">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="relative w-full sm:w-72">
                   <Search className="w-4 h-4 absolute right-3 top-3 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="بحث برقم الإيصال أو المتبرع أو الصنف..."
+                    placeholder="بحث برقم العملية أو الطرف أو الصنف..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pr-9 pl-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
+                </div>
+
+                {/* Segmented Type Filter */}
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs">
+                  <button
+                    onClick={() => setReceiptTypeFilter("all")}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                      receiptTypeFilter === "all"
+                        ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                    }`}
+                  >
+                    الكل ({receipts.length})
+                  </button>
+                  <button
+                    onClick={() => setReceiptTypeFilter("donation")}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                      receiptTypeFilter === "donation"
+                        ? "bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                    }`}
+                  >
+                    تبرعات ({receipts.filter((r: any) => (r.operation_type || "donation") === "donation").length})
+                  </button>
+                  <button
+                    onClick={() => setReceiptTypeFilter("purchase")}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                      receiptTypeFilter === "purchase"
+                        ? "bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                    }`}
+                  >
+                    مشتريات ({receipts.filter((r: any) => r.operation_type === "purchase").length})
+                  </button>
+                  <button
+                    onClick={() => setReceiptTypeFilter("sale")}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                      receiptTypeFilter === "sale"
+                        ? "bg-white dark:bg-slate-900 text-amber-700 dark:text-amber-400 shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                    }`}
+                  >
+                    مبيعات ({receipts.filter((r: any) => r.operation_type === "sale").length})
+                  </button>
                 </div>
               </div>
 
@@ -838,7 +922,7 @@ export default function ZkMainView() {
                   className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow transition-colors"
                 >
                   <Plus className="w-4 h-4" />
-                  تسجيل توريد / استلام جديد
+                  تسجيل عملية جديدة
                 </button>
               </div>
             </div>
@@ -848,11 +932,13 @@ export default function ZkMainView() {
               <table className="w-full text-xs text-right">
                 <thead className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold border-b border-slate-200 dark:border-slate-700">
                   <tr>
-                    <th className="p-3">رقم الإيصال</th>
+                    <th className="p-3">رقم العملية</th>
                     <th className="p-3">التاريخ</th>
-                    <th className="p-3">اسم المتبرع</th>
+                    <th className="p-3">نوع العملية</th>
+                    <th className="p-3">الجهة / المتبرع</th>
                     <th className="p-3">نوع الصنف</th>
                     <th className="p-3">الكمية / الوزن</th>
+                    <th className="p-3">المبلغ المالي</th>
                     <th className="p-3">الشكاير</th>
                     <th className="p-3">المخزن</th>
                     <th className="p-3">الموظف</th>
@@ -860,109 +946,152 @@ export default function ZkMainView() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {receipts.length === 0 ? (
+                  {filteredReceipts.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="p-8 text-center text-slate-600 dark:text-slate-300 font-bold text-sm">
-                        لا توجد استلامات مسجلة
+                      <td colSpan={11} className="p-8 text-center text-slate-600 dark:text-slate-300 font-bold text-sm">
+                        لا توجد عمليات مسجلة في هذا القسم
                       </td>
                     </tr>
                   ) : (
-                    receipts.map((r: any) => (
-                      <tr key={r._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                        <td className="p-3 font-mono font-bold text-emerald-800 dark:text-emerald-300">
-                          {r.no}
-                        </td>
-                        <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">
-                          {new Date(r.date).toLocaleDateString("ar-EG")}
-                        </td>
-                        <td className="p-3 font-bold text-slate-900 dark:text-white">{r.donor_name}</td>
-                        <td className="p-3">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              r.item === "barley"
-                                ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                                : r.item === "rice"
-                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                                : r.item === "cash"
-                                ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
-                                : "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300"
-                            }`}
-                          >
-                            {r.item === "barley" ? "شعير" : r.item === "rice" ? "أرز" : r.item === "cash" ? "نقدي" : (r.item_name || "صنف آخر")}
-                          </span>
-                        </td>
-                        <td className="p-3 font-black text-slate-900 dark:text-white">
-                          {r.item === "cash" ? formatCurrency(r.amount || r.quantity) : `${formatNumber(r.quantity)} ${r.unit}`}
-                        </td>
-                        <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">
-                          {r.bags > 0 ? `${r.bags} (${r.bag_kg}كجم)` : "—"}
-                        </td>
-                        <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">{r.store_label}</td>
-                        <td className="p-3 text-slate-700 dark:text-slate-300">{r.createdByName || "—"}</td>
-                        <td className="p-3">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              onClick={() => {
-                                setPrintReceiptData({
-                                  type: "receipt",
-                                  no: r.no,
-                                  date: r.date,
-                                  partyName: r.donor_name,
-                                  itemTitle: r.item === "barley" ? "شعير خام" : r.item === "rice" ? "أرز أبيض" : r.item === "cash" ? "تبرع نقدي" : r.item_name,
-                                  quantity: r.quantity,
-                                  unit: r.unit,
-                                  bags: r.bags,
-                                  bagKg: r.bag_kg,
-                                  amount: r.amount,
-                                  paymentMethod: r.payment_method,
-                                  storeLabel: r.store_label,
-                                  notes: r.notes,
-                                  createdByName: r.createdByName,
-                                });
-                              }}
-                              className="p-1.5 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 rounded-md"
-                              title="طباعة إيصال استلام"
+                    filteredReceipts.map((r: any) => {
+                      const op = r.operation_type || "donation";
+                      return (
+                        <tr key={r._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="p-3 font-mono font-bold text-emerald-800 dark:text-emerald-300">
+                            {r.no}
+                          </td>
+                          <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">
+                            {new Date(r.date).toLocaleDateString("ar-EG")}
+                          </td>
+                          <td className="p-3">
+                            {op === "purchase" ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                                <ShoppingCart className="w-3 h-3" />
+                                شراء ممول
+                              </span>
+                            ) : op === "sale" ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                <TrendingUp className="w-3 h-3" />
+                                بيع مخرجات
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                <HeartHandshake className="w-3 h-3" />
+                                تبرع وارد
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 font-bold text-slate-900 dark:text-white">
+                            {r.donor_name || (op === "purchase" ? "شراء من التبرعات" : "بيع رجيع")}
+                          </td>
+                          <td className="p-3">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                r.item === "barley"
+                                  ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                                  : r.item === "rice"
+                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                                  : r.item === "cash"
+                                  ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
+                                  : r.item === "bran"
+                                  ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300"
+                                  : "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300"
+                              }`}
                             >
-                              <Printer className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingReceipt(r);
-                                setIsReceiptModalOpen(true);
-                              }}
-                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-md"
-                              title="تعديل"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setDeleteConfirm({
-                                  isOpen: true,
-                                  title: "تأكيد حذف الاستلام",
-                                  message: `هل أنت متأكد من حذف استلام رقم (${r.no}) للمتبرع (${r.donor_name})؟ سيتم خصم الكمية من رصيد المخزن آليًا.`,
-                                  onConfirm: async () => {
-                                    const res = await fetch(`/api/zakat-rice/receipts/${r._id}`, { method: "DELETE" });
-                                    const result = await res.json();
-                                    if (result.ok) {
-                                      toast.success("تم حذف الاستلام");
-                                      mutateReceipts();
-                                      mutate(`/api/zakat-rice/stock?season=${season}`);
-                                    } else {
-                                      toast.error(result.error?.message || "فشل الحذف");
-                                    }
-                                  },
-                                });
-                              }}
-                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-md"
-                              title="حذف"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                              {r.item === "barley" ? "شعير" : r.item === "rice" ? "أرز" : r.item === "cash" ? "نقدي" : r.item === "bran" ? "رجيع/ردة" : (r.item_name || "صنف آخر")}
+                            </span>
+                          </td>
+                          <td className="p-3 font-black text-slate-900 dark:text-white">
+                            {r.item === "cash" ? "—" : `${formatNumber(r.quantity)} ${r.unit}`}
+                          </td>
+                          <td className="p-3">
+                            {op === "purchase" ? (
+                              <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
+                                -{formatCurrency(r.amount)}
+                              </span>
+                            ) : op === "sale" ? (
+                              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                +{formatCurrency(r.amount)}
+                              </span>
+                            ) : r.item === "cash" ? (
+                              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                +{formatCurrency(r.amount || r.quantity)}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">
+                            {r.bags > 0 ? `${r.bags} (${r.bag_kg}كجم)` : "—"}
+                          </td>
+                          <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">{r.store_label}</td>
+                          <td className="p-3 text-slate-700 dark:text-slate-300">{r.createdByName || "—"}</td>
+                          <td className="p-3">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setPrintReceiptData({
+                                    type: "receipt",
+                                    operationType: r.operation_type || "donation",
+                                    no: r.no,
+                                    date: r.date,
+                                    partyName: r.donor_name,
+                                    itemTitle: r.item === "barley" ? "شعير خام" : r.item === "rice" ? "أرز أبيض" : r.item === "cash" ? "تبرع نقدي" : r.item === "bran" ? "رجيع / ردة" : r.item_name,
+                                    quantity: r.quantity,
+                                    unit: r.unit,
+                                    bags: r.bags,
+                                    bagKg: r.bag_kg,
+                                    amount: r.amount,
+                                    paymentMethod: r.payment_method,
+                                    storeLabel: r.store_label,
+                                    notes: r.notes,
+                                    createdByName: r.createdByName,
+                                  });
+                                }}
+                                className="p-1.5 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 rounded-md"
+                                title="طباعة إيصال"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingReceipt(r);
+                                  setIsReceiptModalOpen(true);
+                                }}
+                                className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-md"
+                                title="تعديل"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setDeleteConfirm({
+                                    isOpen: true,
+                                    title: `تأكيد حذف عملية ${op === "purchase" ? "الشراء" : op === "sale" ? "البيع" : "الاستلام"}`,
+                                    message: `هل أنت متأكد من حذف عملية رقم (${r.no}) لـ (${r.donor_name})؟ سيتم عكس التأثير على رصيد المخزن والنقدية آلياً.`,
+                                    onConfirm: async () => {
+                                      const res = await fetch(`/api/zakat-rice/receipts/${r._id}`, { method: "DELETE" });
+                                      const result = await res.json();
+                                      if (result.ok) {
+                                        toast.success("تم حذف العملية بنجاح");
+                                        mutateReceipts();
+                                        mutate(`/api/zakat-rice/stock?season=${season}`);
+                                      } else {
+                                        toast.error(result.error?.message || "فشل الحذف");
+                                      }
+                                    },
+                                  });
+                                }}
+                                className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-md"
+                                title="حذف"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -2035,6 +2164,7 @@ export default function ZkMainView() {
           receipt={editingReceipt}
           season={season}
           donors={donors}
+          availableCash={stock?.cash?.totalAmount || 0}
           onClose={() => setIsReceiptModalOpen(false)}
           onSuccess={(savedReceipt) => {
             mutateReceipts();
@@ -2043,10 +2173,11 @@ export default function ZkMainView() {
             if (savedReceipt) {
               setPrintReceiptData({
                 type: "receipt",
+                operationType: savedReceipt.operation_type || "donation",
                 no: savedReceipt.no,
                 date: savedReceipt.date,
                 partyName: savedReceipt.donor_name,
-                itemTitle: savedReceipt.item === "barley" ? "شعير خام" : savedReceipt.item === "rice" ? "أرز أبيض" : savedReceipt.item === "cash" ? "تبرع نقدي" : savedReceipt.item_name,
+                itemTitle: savedReceipt.item === "barley" ? "شعير خام" : savedReceipt.item === "rice" ? "أرز أبيض" : savedReceipt.item === "cash" ? "تبرع نقدي" : savedReceipt.item === "bran" ? "رجيع / ردة" : savedReceipt.item_name,
                 quantity: savedReceipt.quantity,
                 unit: savedReceipt.unit,
                 bags: savedReceipt.bags,
@@ -2382,12 +2513,13 @@ function DonorFormModal({
   );
 }
 
-// --- 2. Receipt Form Modal ---
+// --- 2. Receipt / Movement Form Modal (Donation, Purchase, Sale) ---
 function ReceiptFormModal({
   isOpen,
   receipt,
   season,
   donors,
+  availableCash = 0,
   onClose,
   onSuccess,
   onOpenAddDonor,
@@ -2396,11 +2528,18 @@ function ReceiptFormModal({
   receipt: any | null;
   season: string;
   donors: any[];
+  availableCash?: number;
   onClose: () => void;
   onSuccess: (saved: any) => void;
   onOpenAddDonor: () => void;
 }) {
+  const [operationType, setOperationType] = useState<"donation" | "purchase" | "sale">(
+    receipt?.operation_type || "donation"
+  );
   const [donorId, setDonorId] = useState(receipt?.donor_id || "");
+  const [partyName, setPartyName] = useState(
+    receipt?.donor_name && !receipt?.donor_id ? receipt.donor_name : ""
+  );
   const [item, setItem] = useState<string>(receipt?.item || "barley");
   const [itemName, setItemName] = useState(receipt?.item_name || "");
   const [bags, setBags] = useState<number | string>(receipt?.bags || "");
@@ -2408,10 +2547,15 @@ function ReceiptFormModal({
   const [quantity, setQuantity] = useState<number | string>(receipt?.quantity || "");
   const [unit, setUnit] = useState<string>(receipt?.unit || "كجم");
   const [amount, setAmount] = useState<number | string>(receipt?.amount || "");
+  const [pricePerUnit, setPricePerUnit] = useState<number | string>("");
   const [purpose, setPurpose] = useState(receipt?.purpose || "شراء أرز للمستحقين");
   const [paymentMethod, setPaymentMethod] = useState(receipt?.payment_method || "نقدًا");
   const [notes, setNotes] = useState(receipt?.notes || "");
-  const [date, setDate] = useState(receipt?.date ? new Date(receipt.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(
+    receipt?.date
+      ? new Date(receipt.date).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0]
+  );
   const [submitting, setSubmitting] = useState(false);
 
   // Searchable donor options
@@ -2425,9 +2569,26 @@ function ReceiptFormModal({
     }));
   }, [donors]);
 
-  // Auto calculate total kg when bags or bagKg changes for barley/rice
+  // Switch operation type handler
+  const handleSwitchOpType = (type: "donation" | "purchase" | "sale") => {
+    setOperationType(type);
+    if (type === "donation") {
+      if (item === "bran") setItem("barley");
+      setPurpose("شراء أرز للمستحقين");
+    } else if (type === "purchase") {
+      if (item === "cash" || item === "bran") setItem("barley");
+      setUnit("كجم");
+      setPurpose("شراء محاصيل من أموال التبرعات");
+    } else if (type === "sale") {
+      setItem("bran");
+      setUnit("كجم");
+      setPurpose("بيع رجيع ومخرجات لصالح صندوق الأرز");
+    }
+  };
+
+  // Auto calculate total kg when bags or bagKg changes for barley/rice/bran
   useEffect(() => {
-    if ((item === "barley" || item === "rice") && bags && bagKg) {
+    if ((item === "barley" || item === "rice" || item === "bran") && bags && bagKg) {
       const calc = Number(bags) * Number(bagKg);
       if (!isNaN(calc) && calc > 0) {
         setQuantity(calc);
@@ -2435,28 +2596,62 @@ function ReceiptFormModal({
     }
   }, [bags, bagKg, item]);
 
+  // Auto calculate total amount from pricePerUnit * quantity
+  useEffect(() => {
+    if ((operationType === "purchase" || operationType === "sale") && pricePerUnit && quantity) {
+      const calc = Number(pricePerUnit) * Number(quantity);
+      if (!isNaN(calc) && calc > 0) {
+        setAmount(Math.round(calc));
+      }
+    }
+  }, [pricePerUnit, quantity, operationType]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!donorId) return toast.error("يجب اختيار المتبرع");
+    if (operationType === "donation") {
+      if (!donorId) return toast.error("يجب اختيار المتبرع الكريم في عملية التبرع");
+      if (item === "cash" && (!amount || Number(amount) <= 0)) {
+        return toast.error("يجب إدخال مبلغ التبرع النقدي");
+      }
+      if (item !== "cash" && (!quantity || Number(quantity) <= 0)) {
+        return toast.error("يجب إدخال كمية الصنف المستلم");
+      }
+    } else if (operationType === "purchase") {
+      if (!quantity || Number(quantity) <= 0) {
+        return toast.error("يجب تحديد الكمية المشتراة بالكيلوجرام");
+      }
+      if (!amount || Number(amount) <= 0) {
+        return toast.error("يجب تحديد إجمالي المبلغ المدفوع للشراء (يُخصم من التبرعات النقدية)");
+      }
+    } else if (operationType === "sale") {
+      if (!amount || Number(amount) <= 0) {
+        return toast.error("يجب تحديد المبلغ المحصل من البيع (يُضاف لرصيد التبرعات النقدية)");
+      }
+    }
+
     setSubmitting(true);
 
     try {
       const url = receipt ? `/api/zakat-rice/receipts/${receipt._id}` : "/api/zakat-rice/receipts";
       const method = receipt ? "PATCH" : "POST";
+      const defaultParty = operationType === "purchase" ? "شراء من التبرعات النقدية" : "بيع رجيع ومخرجات";
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          donor_id: donorId,
+          operation_type: operationType,
+          donor_id: operationType === "donation" ? donorId : null,
+          donor_name: operationType === "donation" ? undefined : (partyName.trim() || defaultParty),
           date,
           item,
-          item_name: itemName,
+          item_name: item === "bran" ? "رجيع / ردة" : itemName,
           bags: Number(bags) || 0,
           bag_kg: Number(bagKg) || 0,
           quantity: item === "cash" ? Number(amount) : Number(quantity),
           unit: item === "cash" ? "جنيه" : unit,
           amount: Number(amount) || 0,
-          purpose,
+          purpose: purpose || (operationType === "purchase" ? "شراء محصول من أموال التبرعات" : operationType === "sale" ? "بيع رجيع ومخرجات لصالح الصندوق" : "شراء أرز للمستحقين"),
           payment_method: paymentMethod,
           notes,
           season,
@@ -2465,13 +2660,21 @@ function ReceiptFormModal({
       });
       const r = await res.json();
       if (r.ok) {
-        toast.success(receipt ? "تم تحديث الاستلام" : "تم تسجيل الاستلام بنجاح");
+        toast.success(
+          receipt
+            ? "تم تحديث العملية بنجاح"
+            : operationType === "purchase"
+            ? "تم تسجيل عملية الشراء وخصم المبلغ من رصيد التبرعات بنجاح"
+            : operationType === "sale"
+            ? "تم تسجيل عملية البيع وإضافة المبلغ لرصيد التبرعات بنجاح"
+            : "تم تسجيل إيصال الاستلام بنجاح"
+        );
         onSuccess(r.data);
       } else {
         toast.error(r.error?.message || "فشلت العملية");
       }
     } catch (err: any) {
-      toast.error("حدث خطأ أثناء حفظ الاستلام");
+      toast.error("حدث خطأ أثناء حفظ العملية");
     } finally {
       setSubmitting(false);
     }
@@ -2481,46 +2684,161 @@ function ReceiptFormModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs overflow-y-auto">
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-xl w-full shadow-2xl border border-slate-200 dark:border-slate-800 dir-rtl text-right my-auto">
         <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 dark:border-slate-800">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">
-            {receipt ? `تعديل إيصال استلام رقم ${receipt.no}` : "تسجيل إيصال توريد / استلام جديد"}
+          <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            {receipt ? (
+              `تعديل عملية رقم ${receipt.no}`
+            ) : operationType === "purchase" ? (
+              <>
+                <ShoppingCart className="w-5 h-5 text-blue-600" />
+                تسجيل شراء محاصيل (خصماً من التبرعات النقدية للأرز)
+              </>
+            ) : operationType === "sale" ? (
+              <>
+                <TrendingUp className="w-5 h-5 text-amber-600" />
+                تسجيل بيع مخرجات / رجيع (إيداع بصندوق التبرعات)
+              </>
+            ) : (
+              <>
+                <HeartHandshake className="w-5 h-5 text-emerald-600" />
+                تسجيل إيصال توريد / استلام تبرع جديد
+              </>
+            )}
           </h3>
           <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 rounded-full">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          {/* Donor Selection with Quick Add Button */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="font-bold text-slate-700 dark:text-slate-300">
-                المتبرع الكريم <span className="text-rose-500">*</span>
-              </label>
-              <button
-                type="button"
-                onClick={onOpenAddDonor}
-                className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline"
-              >
-                + متبرع جديد للمخزن
-              </button>
-            </div>
-            <ZkSearchableSelect
-              options={donorOptions}
-              value={donorId}
-              onChange={setDonorId}
-              required
-              placeholder="-- اختر أو ابحث عن اسم المتبرع --"
-              searchPlaceholder="ابحث باسم المتبرع، الهاتف، أو وصف الأرض..."
-              emptyMessage="لا يوجد متبرع بهذا الاسم، يمكنك إضافته عبر زر (+ متبرع جديد)"
-            />
-          </div>
 
-          {/* Item Selector Chips */}
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          {/* 1. Operation Type Selector Tabs */}
           <div>
             <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
-              نوع الصنف المستلَم <span className="text-rose-500">*</span>
+              نوع العملية <span className="text-rose-500">*</span>
+            </label>
+            <div className="grid grid-cols-3 gap-2 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => handleSwitchOpType("donation")}
+                className={`py-2 px-3 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                  operationType === "donation"
+                    ? "bg-emerald-700 text-white shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 hover:bg-white/50 dark:hover:bg-slate-700"
+                }`}
+              >
+                <HeartHandshake className="w-4 h-4" />
+                تبرع (وارد)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSwitchOpType("purchase")}
+                className={`py-2 px-3 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                  operationType === "purchase"
+                    ? "bg-blue-700 text-white shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 hover:bg-white/50 dark:hover:bg-slate-700"
+                }`}
+              >
+                <ShoppingCart className="w-4 h-4" />
+                شراء من التبرعات
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSwitchOpType("sale")}
+                className={`py-2 px-3 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                  operationType === "sale"
+                    ? "bg-amber-600 text-white shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 hover:bg-white/50 dark:hover:bg-slate-700"
+                }`}
+              >
+                <TrendingUp className="w-4 h-4" />
+                بيع مخرجات (رجيع)
+              </button>
+            </div>
+          </div>
+
+          {/* 2. Party Selection (Donor for Donation, Supplier for Purchase, Buyer for Sale) */}
+          {operationType === "donation" ? (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="font-bold text-slate-700 dark:text-slate-300">
+                  المتبرع الكريم <span className="text-rose-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={onOpenAddDonor}
+                  className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline"
+                >
+                  + متبرع جديد للمخزن
+                </button>
+              </div>
+              <ZkSearchableSelect
+                options={donorOptions}
+                value={donorId}
+                onChange={setDonorId}
+                required
+                placeholder="-- اختر أو ابحث عن اسم المتبرع --"
+                searchPlaceholder="ابحث باسم المتبرع، الهاتف، أو وصف الأرض..."
+                emptyMessage="لا يوجد متبرع بهذا الاسم، يمكنك إضافته عبر زر (+ متبرع جديد)"
+              />
+            </div>
+          ) : operationType === "purchase" ? (
+            <div className="space-y-2">
+              <div className="p-3 bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900 flex items-center justify-between">
+                <div>
+                  <span className="text-blue-950 dark:text-blue-200 font-bold block text-xs">
+                    رصيد التبرعات النقدية المتوفر للشراء:
+                  </span>
+                  <span className="text-base font-black text-blue-700 dark:text-blue-300">
+                    {formatCurrency(availableCash)}
+                  </span>
+                </div>
+                {availableCash <= 0 && (
+                  <span className="text-[11px] px-2 py-1 rounded bg-rose-100 text-rose-800 font-bold">
+                    ⚠️ الرصيد منخفض
+                  </span>
+                )}
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  التاجر / المورد المشترى منه (اختياري)
+                </label>
+                <input
+                  type="text"
+                  value={partyName}
+                  onChange={(e) => setPartyName(e.target.value)}
+                  placeholder="مثال: تاجر أرز محلي، مضرب النور... (اختياري)"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="p-2.5 bg-amber-50/70 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900 text-amber-950 dark:text-amber-200 text-xs font-semibold">
+                💰 إيراد بيع الرجيع والمخرجات يتم إيداعه بالكامل لصالح صندوق التبرعات النقدية لشراء الأرز.
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  المشتري / التاجر (اختياري)
+                </label>
+                <input
+                  type="text"
+                  value={partyName}
+                  onChange={(e) => setPartyName(e.target.value)}
+                  placeholder="مثال: تاجر أعلاف، مشتري الرجيع... (اختياري)"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 3. Item Selector Chips */}
+          <div>
+            <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+              {operationType === "purchase" ? "الصنف المشترى للمخزن" : operationType === "sale" ? "الصنف المباع" : "نوع الصنف المستلَم"} <span className="text-rose-500">*</span>
             </label>
             <div className="grid grid-cols-4 gap-2 text-center">
-              {[
+              {operationType === "donation" && [
                 { id: "barley", label: "شعير خام", emoji: "🌾" },
                 { id: "rice", label: "أرز أبيض", emoji: "🍚" },
                 { id: "cash", label: "تبرع نقدي", emoji: "💵" },
@@ -2544,11 +2862,58 @@ function ReceiptFormModal({
                   {it.label}
                 </button>
               ))}
+
+              {operationType === "purchase" && [
+                { id: "barley", label: "شعير خام", emoji: "🌾" },
+                { id: "rice", label: "أرز أبيض", emoji: "🍚" },
+                { id: "other", label: "صنف آخر", emoji: "📦" },
+              ].map((it) => (
+                <button
+                  key={it.id}
+                  type="button"
+                  onClick={() => {
+                    setItem(it.id);
+                    setUnit("كجم");
+                  }}
+                  className={`p-2.5 rounded-xl border font-bold transition-all ${
+                    item === it.id
+                      ? "bg-blue-700 text-white border-blue-700 shadow-sm"
+                      : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  <span className="text-base block mb-0.5">{it.emoji}</span>
+                  {it.label}
+                </button>
+              ))}
+
+              {operationType === "sale" && [
+                { id: "bran", label: "رجيع / ردة", emoji: "🌾" },
+                { id: "other", label: "كسر أرز", emoji: "🍚" },
+                { id: "rice", label: "أرز أبيض", emoji: "🍚" },
+                { id: "barley", label: "شعير خام", emoji: "🌾" },
+              ].map((it) => (
+                <button
+                  key={it.id}
+                  type="button"
+                  onClick={() => {
+                    setItem(it.id);
+                    setUnit("كجم");
+                  }}
+                  className={`p-2.5 rounded-xl border font-bold transition-all ${
+                    item === it.id
+                      ? "bg-amber-600 text-white border-amber-600 shadow-sm"
+                      : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  <span className="text-base block mb-0.5">{it.emoji}</span>
+                  {it.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Barley / Rice Inputs */}
-          {(item === "barley" || item === "rice") && (
+          {/* 4. Crop Inputs (Barley, Rice, Bran, or Other non-cash) */}
+          {item !== "cash" && (
             <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
               <div className="grid grid-cols-3 gap-2">
                 <div>
@@ -2559,7 +2924,7 @@ function ReceiptFormModal({
                     value={bags}
                     onChange={(e) => setBags(e.target.value)}
                     placeholder="مثال: 10"
-                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
                 <div>
@@ -2583,15 +2948,147 @@ function ReceiptFormModal({
                     value={quantity}
                     onChange={(e) => setQuantity(e.target.value)}
                     placeholder="كجم"
-                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-black text-emerald-800 dark:text-emerald-300 text-sm placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-black text-emerald-800 dark:text-emerald-300 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
+              </div>
+
+              {item === "other" && (
+                <div>
+                  <label className="font-bold text-slate-800 dark:text-slate-200 block mb-1">اسم الصنف بالتفصيل *</label>
+                  <input
+                    type="text"
+                    required
+                    value={itemName}
+                    onChange={(e) => setItemName(e.target.value)}
+                    placeholder={operationType === "sale" ? "مثال: كسر أرز / سفا" : "مثال: سكر / مكرونة"}
+                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 5. Financial Inputs for Purchase */}
+          {operationType === "purchase" && (
+            <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-900 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-blue-950 dark:text-blue-200 text-xs flex items-center gap-1.5">
+                  <Coins className="w-4 h-4 text-blue-600" />
+                  المبلغ المدفوع (خصماً من التبرعات النقدية)
+                </span>
+                <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300">
+                  متوفر: {formatCurrency(availableCash)}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="font-bold text-blue-950 dark:text-blue-200 block mb-1">
+                    إجمالي المبلغ (ج.م) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="إجمالي التكلفة"
+                    className="w-full p-2 rounded-lg border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-800 font-black text-rose-700 dark:text-rose-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-blue-950 dark:text-blue-200 block mb-1">سعر الكيلو (تقريبي)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={pricePerUnit}
+                    onChange={(e) => setPricePerUnit(e.target.value)}
+                    placeholder="سعر الكيلو"
+                    className="w-full p-2 rounded-lg border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-blue-950 dark:text-blue-200 block mb-1">طريقة الدفع</label>
+                  <select
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="w-full p-2 rounded-lg border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="نقدًا">نقدًا</option>
+                    <option value="تحويل بنكي">تحويل بنكي</option>
+                    <option value="فودافون كاش">فودافون كاش</option>
+                    <option value="شيك">شيك</option>
+                  </select>
+                </div>
+              </div>
+              <div className="text-[11px] text-blue-800 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-900/40 p-2 rounded-lg">
+                💡 سيتم خصم مبلغ <strong>{formatCurrency(Number(amount) || 0)}</strong> من رصيد التبرعات النقدية للأرز، وإضافة كمية <strong>{formatNumber(Number(quantity) || 0)} كجم</strong> مباشرة إلى رصيد المخزن.
               </div>
             </div>
           )}
 
-          {/* Cash Donation Inputs */}
-          {item === "cash" && (
+          {/* 6. Financial Inputs for Sale */}
+          {operationType === "sale" && (
+            <div className="p-3.5 bg-amber-50/60 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-amber-950 dark:text-amber-200 text-xs flex items-center gap-1.5">
+                  <Coins className="w-4 h-4 text-amber-600" />
+                  المبلغ المحصل (إيداع بصندوق تبرعات الأرز)
+                </span>
+                <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300">
+                  توريد نقدية لصالح الأرز
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="font-bold text-amber-950 dark:text-amber-200 block mb-1">
+                    المبلغ المحصل (ج.م) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="إجمالي الإيراد"
+                    className="w-full p-2 rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-800 font-black text-emerald-700 dark:text-emerald-400 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-amber-950 dark:text-amber-200 block mb-1">سعر الكيلو (تقريبي)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={pricePerUnit}
+                    onChange={(e) => setPricePerUnit(e.target.value)}
+                    placeholder="سعر الكيلو"
+                    className="w-full p-2 rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-amber-950 dark:text-amber-200 block mb-1">طريقة التحصيل</label>
+                  <select
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="w-full p-2 rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="نقدًا">نقدًا</option>
+                    <option value="تحويل بنكي">تحويل بنكي</option>
+                    <option value="فودافون كاش">فودافون كاش</option>
+                    <option value="شيك">شيك</option>
+                  </select>
+                </div>
+              </div>
+              <div className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-900/40 p-2 rounded-lg">
+                💡 سيتم إضافة مبلغ <strong>{formatCurrency(Number(amount) || 0)}</strong> بالكامل إلى صندوق التبرعات النقدية للأرز لشراء أرز إضافي للمستحقين.
+              </div>
+            </div>
+          )}
+
+          {/* 7. Cash Donation Inputs (Only when operationType is donation and item is cash) */}
+          {operationType === "donation" && item === "cash" && (
             <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-900 space-y-3">
               <div className="grid grid-cols-3 gap-2">
                 <div>
@@ -2603,7 +3100,7 @@ function ReceiptFormModal({
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="المبلغ"
-                    className="w-full p-2 rounded-lg border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-800 font-black text-blue-900 dark:text-blue-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-2 rounded-lg border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-800 font-black text-blue-900 dark:text-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -2626,56 +3123,17 @@ function ReceiptFormModal({
                     value={purpose}
                     onChange={(e) => setPurpose(e.target.value)}
                     placeholder="الصدقة / الزكاة"
-                    className="w-full p-2 rounded-lg border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-2 rounded-lg border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
             </div>
           )}
 
-          {/* Other Item Inputs */}
-          {item === "other" && (
-            <div className="p-3.5 bg-purple-50/60 dark:bg-purple-950/20 rounded-xl border border-purple-200 dark:border-purple-900 space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="font-bold text-purple-950 dark:text-purple-200 block mb-1">اسم الصنف *</label>
-                  <input
-                    type="text"
-                    required
-                    value={itemName}
-                    onChange={(e) => setItemName(e.target.value)}
-                    placeholder="مثال: سكر / زيت"
-                    className="w-full p-2 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-purple-950 dark:text-purple-200 block mb-1">الكمية *</label>
-                  <input
-                    type="number"
-                    required
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    placeholder="الكمية"
-                    className="w-full p-2 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-800 font-black text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-purple-950 dark:text-purple-200 block mb-1">الوحدة</label>
-                  <input
-                    type="text"
-                    value={unit}
-                    onChange={(e) => setUnit(e.target.value)}
-                    placeholder="كرتونة / كجم"
-                    className="w-full p-2 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
+          {/* 8. Date and Notes */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="font-bold text-slate-800 dark:text-slate-200 block mb-1">تاريخ الاستلام</label>
+              <label className="font-bold text-slate-800 dark:text-slate-200 block mb-1">تاريخ العملية</label>
               <input
                 type="date"
                 required
@@ -2691,7 +3149,7 @@ function ReceiptFormModal({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="ملاحظات اختيارية..."
-                className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
           </div>
@@ -2707,10 +3165,16 @@ function ReceiptFormModal({
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex items-center gap-1.5 px-5 py-2 font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl shadow transition-colors"
+              className={`inline-flex items-center gap-1.5 px-5 py-2 font-bold text-white rounded-xl shadow transition-colors ${
+                operationType === "purchase"
+                  ? "bg-blue-700 hover:bg-blue-800"
+                  : operationType === "sale"
+                  ? "bg-amber-600 hover:bg-amber-700"
+                  : "bg-emerald-700 hover:bg-emerald-800"
+              }`}
             >
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-              حفظ واستخراج الإيصال
+              {operationType === "purchase" ? "تسجيل الشراء وحفظ الإذن" : operationType === "sale" ? "تسجيل البيع وحفظ الإيصال" : "حفظ واستخراج الإيصال"}
             </button>
           </div>
         </form>

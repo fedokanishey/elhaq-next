@@ -73,22 +73,24 @@ const ZkDonorSchema = new Schema<IZkDonor>(
   { timestamps: true, collection: "zk_donors" }
 );
 
-// --- 3. Receipts (الاستلامات من المتبرعين) ---
-export type ZkItemType = "barley" | "rice" | "other" | "cash";
+// --- 3. Receipts (الاستلامات والتوريدات من المتبرعين أو عمليات الشراء والبيع) ---
+export type ZkOperationType = "donation" | "purchase" | "sale";
+export type ZkItemType = "barley" | "rice" | "other" | "cash" | "bran";
 
 export interface IZkReceipt extends Document, IZkBase {
   no: string; // e.g. "00001"
-  donor_id: mongoose.Types.ObjectId;
+  operation_type?: ZkOperationType; // "donation" | "purchase" | "sale"
+  donor_id?: mongoose.Types.ObjectId | null;
   donor_name: string;
   date: Date;
   season: string;
-  item: ZkItemType; // barley | rice | other | cash
-  item_name?: string; // for "other" like "سكر"
+  item: ZkItemType; // barley | rice | other | cash | bran
+  item_name?: string; // for "other" like "سكر" or custom label
   bags: number;
   bag_kg: number;
-  quantity: number; // kg for barley/rice, unit count for other, amount for cash
+  quantity: number; // kg for barley/rice/bran, unit count for other, amount for cash
   unit: string; // "كجم" | "جنيه" | "شيكارة" | "علبة"
-  amount?: number; // for cash
+  amount?: number; // for cash donation, purchase cost, or sale revenue
   purpose?: string; // for cash e.g. "شراء أرز"
   payment_method?: string; // "نقدًا" | "تحويل" | "شيك"
   store_label: string; // "مخزن الشعير" | "مخزن الأرز" | "—"
@@ -100,13 +102,19 @@ export interface IZkReceipt extends Document, IZkBase {
 const ZkReceiptSchema = new Schema<IZkReceipt>(
   {
     no: { type: String, required: true, index: true },
-    donor_id: { type: Schema.Types.ObjectId, ref: "ZkDonor", required: true, index: true },
+    operation_type: { 
+      type: String, 
+      enum: ["donation", "purchase", "sale"], 
+      default: "donation", 
+      index: true 
+    },
+    donor_id: { type: Schema.Types.ObjectId, ref: "ZkDonor", required: false, default: null, index: true },
     donor_name: { type: String, required: true, trim: true },
     date: { type: Date, required: true, default: Date.now, index: true },
     season: { type: String, required: true, default: "2026", index: true },
     item: { 
       type: String, 
-      enum: ["barley", "rice", "other", "cash"], 
+      enum: ["barley", "rice", "other", "cash", "bran"], 
       default: "barley", 
       index: true 
     },

@@ -11,7 +11,6 @@ import {
   ZkAdjustment,
   ZkAudit,
   IZkSettings,
-  IZkMill,
 } from "@/lib/models/zakat-rice";
 import { padSerialNo, computeFieldDiff } from "./utils";
 import mongoose from "mongoose";
@@ -49,6 +48,16 @@ export interface StockSummary {
   cash: {
     totalAmount: number;
     count: number;
+    donationsTotal?: number;
+    salesTotal?: number;
+    purchasesTotal?: number;
+    expensesTotal?: number;
+    grossTotal?: number;
+  };
+  bran?: {
+    fromMilling: number;
+    sold: number;
+    balance: number;
   };
   expenses: {
     totalAmount: number;
@@ -110,29 +119,72 @@ export async function calculateStock(seasonFilter?: string): Promise<StockSummar
   let barleyBags = 0;
   let riceDirectReceived = 0;
   let riceDirectBags = 0;
-  let cashTotal = 0;
+  let barleySold = 0;
+  let riceSold = 0;
+  let branSold = 0;
+
+  let cashDonations = 0;
+  let cashSales = 0;
+  let cashPurchases = 0;
   let cashCount = 0;
 
   const otherItemsMap: Record<string, { totalQuantity: number; unit: string; bags: number; count: number }> = {};
 
   receipts.forEach((r) => {
-    if (r.item === "barley") {
-      barleyReceived += r.quantity || 0;
-      barleyBags += r.bags || 0;
-    } else if (r.item === "rice") {
-      riceDirectReceived += r.quantity || 0;
-      riceDirectBags += r.bags || 0;
-    } else if (r.item === "cash") {
-      cashTotal += r.amount || r.quantity || 0;
-      cashCount += 1;
-    } else if (r.item === "other") {
-      const name = r.item_name || "صنف غير مسمى";
-      if (!otherItemsMap[name]) {
-        otherItemsMap[name] = { totalQuantity: 0, unit: r.unit || "وحدة", bags: 0, count: 0 };
+    const op = (r as any).operation_type || "donation";
+    const amt = Number(r.amount) || 0;
+    const qty = Number(r.quantity) || 0;
+    const bgs = Number(r.bags) || 0;
+
+    if (op === "donation") {
+      if (r.item === "barley") {
+        barleyReceived += qty;
+        barleyBags += bgs;
+      } else if (r.item === "rice") {
+        riceDirectReceived += qty;
+        riceDirectBags += bgs;
+      } else if (r.item === "cash") {
+        cashDonations += amt || qty;
+        cashCount += 1;
+      } else if (r.item === "other") {
+        const name = r.item_name || "صنف غير مسمى";
+        if (!otherItemsMap[name]) {
+          otherItemsMap[name] = { totalQuantity: 0, unit: r.unit || "وحدة", bags: 0, count: 0 };
+        }
+        otherItemsMap[name].totalQuantity += qty;
+        otherItemsMap[name].bags += bgs;
+        otherItemsMap[name].count += 1;
       }
-      otherItemsMap[name].totalQuantity += r.quantity || 0;
-      otherItemsMap[name].bags += r.bags || 0;
-      otherItemsMap[name].count += 1;
+    } else if (op === "purchase") {
+      // Purchase: money is deducted from cash fund, crops are added to warehouse inventory
+      cashPurchases += amt;
+      if (r.item === "barley") {
+        barleyReceived += qty;
+        barleyBags += bgs;
+      } else if (r.item === "rice") {
+        riceDirectReceived += qty;
+        riceDirectBags += bgs;
+      } else if (r.item === "other") {
+        const name = r.item_name || "صنف غير مسمى";
+        if (!otherItemsMap[name]) {
+          otherItemsMap[name] = { totalQuantity: 0, unit: r.unit || "وحدة", bags: 0, count: 0 };
+        }
+        otherItemsMap[name].totalQuantity += qty;
+        otherItemsMap[name].bags += bgs;
+        otherItemsMap[name].count += 1;
+      }
+    } else if (op === "sale") {
+      // Sale: money collected is added to the rice cash donation fund
+      cashSales += amt;
+      if (r.item === "barley") {
+        barleySold += qty;
+      } else if (r.item === "rice") {
+        riceSold += qty;
+      } else if (r.item === "bran") {
+        branSold += qty;
+      } else if (r.item === "other") {
+        // Other items sold
+      }
     }
   });
 
@@ -140,8 +192,10 @@ export async function calculateStock(seasonFilter?: string): Promise<StockSummar
   const mills = await ZkMill.find({ ...notDeleted, ...seasonQuery }).lean();
   let barleyMilled = 0;
   let riceFromMilling = 0;
+  let branFromMilling = 0;
   mills.forEach((m) => {
     riceFromMilling += m.rice_kg || 0;
+    branFromMilling += m.bran_kg || 0;
     if (m.allocs && Array.isArray(m.allocs)) {
       m.allocs.forEach((a) => {
         barleyMilled += a.kg || 0;
@@ -180,23 +234,40 @@ export async function calculateStock(seasonFilter?: string): Promise<StockSummar
   const openingBarley = activeSeason === "all" ? 0 : settings.opening_barley_kg || 0;
   const openingRice = activeSeason === "all" ? 0 : settings.opening_rice_kg || 0;
 
-  const barleyBalance = openingBarley + barleyReceived - barleyMilled + barleyAdjusted;
-  const riceBalance = openingRice + riceFromMilling + riceDirectReceived - riceDistributed + riceAdjusted;
+  const barleyBalance = openingBarley + barleyReceived - barleyMilled - barleySold + barleyAdjusted;
+  const riceBalance = openingRice + riceFromMilling + riceDirectReceived - riceDistributed - riceSold + riceAdjusted;
+  // Deduct purchases and operational expenses (milling, transport, labor) from rice cash fund
+  const netCashBalance = cashDonations + cashSales - cashPurchases - expensesTotal;
 
   // Counts
   const donorsCount = await ZkDonor.countDocuments({ ...notDeleted, ...seasonQuery });
   const beneficiariesCount = await ZkBeneficiary.countDocuments({ ...notDeleted });
 
   // Recent 10 activities across receipts, mills, distributions
-  const recentReceipts = receipts.slice(-5).map((r) => ({
-    id: String(r._id),
-    type: "استلام",
-    no: r.no,
-    title: `استلام ${r.item === "barley" ? "شعير" : r.item === "rice" ? "أرز" : r.item === "cash" ? "نقدي" : r.item_name} من ${r.donor_name}`,
-    subTitle: r.notes || r.store_label,
-    date: r.date,
-    amountOrQty: r.item === "cash" ? `${r.amount} ج.م` : `${r.quantity} ${r.unit}`,
-  }));
+  const recentReceipts = receipts.slice(-5).map((r) => {
+    const op = (r as any).operation_type || "donation";
+    let title = "";
+    let amountOrQty = "";
+    if (op === "purchase") {
+      title = `شراء ${r.item === "barley" ? "شعير" : r.item === "rice" ? "أرز" : r.item_name || "محصول"} من ${r.donor_name}`;
+      amountOrQty = `${r.quantity} ${r.unit} (-${r.amount} ج.م)`;
+    } else if (op === "sale") {
+      title = `بيع ${r.item === "bran" ? "رجيع/ردة" : r.item === "rice" ? "أرز" : r.item === "barley" ? "شعير" : r.item_name || "مخرجات"} إلى ${r.donor_name}`;
+      amountOrQty = `+${r.amount} ج.م`;
+    } else {
+      title = `استلام ${r.item === "barley" ? "شعير" : r.item === "rice" ? "أرز" : r.item === "cash" ? "نقدي" : r.item_name} من ${r.donor_name}`;
+      amountOrQty = r.item === "cash" ? `${r.amount} ج.م` : `${r.quantity} ${r.unit}`;
+    }
+    return {
+      id: String(r._id),
+      type: op === "purchase" ? "شراء" : op === "sale" ? "بيع" : "استلام",
+      no: r.no,
+      title,
+      subTitle: r.notes || r.store_label,
+      date: r.date,
+      amountOrQty,
+    };
+  });
 
   const recentDistributions = distributions.slice(-5).map((d) => ({
     id: String(d._id),
@@ -250,8 +321,18 @@ export async function calculateStock(seasonFilter?: string): Promise<StockSummar
       ...data,
     })),
     cash: {
-      totalAmount: cashTotal,
+      totalAmount: netCashBalance,
       count: cashCount,
+      donationsTotal: cashDonations,
+      salesTotal: cashSales,
+      purchasesTotal: cashPurchases,
+      expensesTotal: expensesTotal,
+      grossTotal: cashDonations + cashSales,
+    },
+    bran: {
+      fromMilling: branFromMilling,
+      sold: branSold,
+      balance: Math.max(0, branFromMilling - branSold),
     },
     expenses: {
       totalAmount: expensesTotal,
@@ -594,19 +675,35 @@ export async function getStoreStatement(store: "barley" | "rice", season?: strin
   }> = [];
 
   if (store === "barley") {
-    // Receipts
+    // Receipts & Purchases / Sales
     const receipts = await ZkReceipt.find({ item: "barley", ...notDeleted, ...seasonQuery }).lean();
     receipts.forEach((r) => {
-      events.push({
-        date: r.date,
-        type: "وارد استلام",
-        no: r.no,
-        description: `توريد من المتبرع: ${r.donor_name} (${r.bags} شيكارة)`,
-        in_kg: r.quantity || 0,
-        out_kg: 0,
-        balance: 0,
-        notes: r.notes,
-      });
+      const op = (r as any).operation_type || "donation";
+      if (op === "sale") {
+        events.push({
+          date: r.date,
+          type: "صادر بيع شعير",
+          no: r.no,
+          description: `بيع شعير إلى: ${r.donor_name} (${r.bags} شيكارة)`,
+          in_kg: 0,
+          out_kg: r.quantity || 0,
+          balance: 0,
+          notes: r.notes,
+        });
+      } else {
+        events.push({
+          date: r.date,
+          type: op === "purchase" ? "وارد شراء شعير" : "وارد استلام تبرع",
+          no: r.no,
+          description: op === "purchase"
+            ? `شراء شعير من: ${r.donor_name} (${r.bags} شيكارة)`
+            : `توريد من المتبرع: ${r.donor_name} (${r.bags} شيكارة)`,
+          in_kg: r.quantity || 0,
+          out_kg: 0,
+          balance: 0,
+          notes: r.notes,
+        });
+      }
     });
 
     // Milling (outward)
@@ -639,19 +736,35 @@ export async function getStoreStatement(store: "barley" | "rice", season?: strin
     });
   } else {
     // Rice Store
-    // Direct receipts
+    // Direct receipts & Purchases / Sales
     const receipts = await ZkReceipt.find({ item: "rice", ...notDeleted, ...seasonQuery }).lean();
     receipts.forEach((r) => {
-      events.push({
-        date: r.date,
-        type: "وارد استلام مباشر",
-        no: r.no,
-        description: `توريد أرز من المتبرع: ${r.donor_name}`,
-        in_kg: r.quantity || 0,
-        out_kg: 0,
-        balance: 0,
-        notes: r.notes,
-      });
+      const op = (r as any).operation_type || "donation";
+      if (op === "sale") {
+        events.push({
+          date: r.date,
+          type: "صادر بيع أرز",
+          no: r.no,
+          description: `بيع أرز إلى: ${r.donor_name}`,
+          in_kg: 0,
+          out_kg: r.quantity || 0,
+          balance: 0,
+          notes: r.notes,
+        });
+      } else {
+        events.push({
+          date: r.date,
+          type: op === "purchase" ? "وارد شراء أرز" : "وارد استلام مباشر",
+          no: r.no,
+          description: op === "purchase"
+            ? `شراء أرز من: ${r.donor_name}`
+            : `توريد أرز من المتبرع: ${r.donor_name}`,
+          in_kg: r.quantity || 0,
+          out_kg: 0,
+          balance: 0,
+          notes: r.notes,
+        });
+      }
     });
 
     // From Milling
