@@ -45,12 +45,34 @@ export async function GET(req: Request) {
     }
 
     if (q) {
-      query.$or = [
+      let cleanCode = q.toLowerCase().replace(/[*]/g, "").trim();
+      if (cleanCode.startsWith("dhz")) {
+        cleanCode = cleanCode.replace(/^dhz0*/, "");
+      }
+      const numOnly = cleanCode.replace(/\D+/g, "");
+
+      const orConditions: any[] = [
         { no: { $regex: q, $options: "i" } },
         { beneficiary_name: { $regex: q, $options: "i" } },
         { place: { $regex: q, $options: "i" } },
         { notes: { $regex: q, $options: "i" } },
       ];
+
+      if (numOnly) {
+        // Also match padded serial e.g. "00023"
+        orConditions.push({ no: numOnly.padStart(5, "0") });
+
+        // Also match beneficiaries with this code/internalId
+        const matchingBens = await Beneficiary.find({ internalId: numOnly })
+          .select("_id")
+          .lean();
+        if (matchingBens.length > 0) {
+          const ids = matchingBens.map((b: any) => b._id);
+          orConditions.push({ beneficiary_id: { $in: ids } });
+        }
+      }
+
+      query.$or = orConditions;
     }
 
     const total = await ZkDistribution.countDocuments(query);

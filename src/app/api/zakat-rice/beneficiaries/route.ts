@@ -14,7 +14,9 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const q = searchParams.get("q")?.trim() || "";
     const page = parseInt(searchParams.get("page") || "1", 10);
-    const limit = parseInt(searchParams.get("limit") || "2000", 10);
+    const limitParam = searchParams.get("limit");
+    const allParam = searchParams.get("all") === "true";
+    const limit = limitParam !== null ? parseInt(limitParam, 10) : 0;
 
     // Build query for main Beneficiary collection
     const mainQuery: any = {
@@ -27,13 +29,28 @@ export async function GET(req: Request) {
     if (q) {
       const norm = normalizeArabicText(q);
       const regex = { $regex: q, $options: "i" };
-      mainQuery.$or = [
+
+      // Also clean barcode prefixes (e.g. DHZ00045, *DHZ00045*)
+      let cleanCode = q.toLowerCase().replace(/[*]/g, "").trim();
+      if (cleanCode.startsWith("dhz")) {
+        cleanCode = cleanCode.replace(/^dhz0*/, "");
+      }
+      const numOnly = cleanCode.replace(/\D+/g, "");
+
+      const orConditions: any[] = [
         { name: { $regex: norm, $options: "i" } },
         { phone: regex },
         { address: regex },
         { internalId: regex },
         { nationalId: regex },
       ];
+
+      if (numOnly && numOnly !== q) {
+        orConditions.push({ internalId: numOnly });
+        orConditions.push({ internalId: { $regex: `^0*${numOnly}$` } });
+      }
+
+      mainQuery.$or = orConditions;
 
       zkQuery.$or = [
         { nameNormalized: { $regex: norm, $options: "i" } },
@@ -43,8 +60,9 @@ export async function GET(req: Request) {
       ];
     }
 
-    // Fetch from main Beneficiary collection
+    // Fetch from main Beneficiary collection with numeric collation ordering
     const mainBeneficiaries = await Beneficiary.find(mainQuery)
+      .collation({ locale: "en_US", numericOrdering: true })
       .sort({ internalId: 1, name: 1 })
       .select("_id name phone address familyMembers internalId nationalId notes category")
       .lean();
@@ -57,6 +75,8 @@ export async function GET(req: Request) {
       phone: b.phone || "",
       area: b.address || "",
       family_size: b.familyMembers || 1,
+      internalId: b.internalId || "",
+      nationalId: b.nationalId || "",
       extra: b.internalId ? `كود: ${b.internalId}` : (b.nationalId || ""),
       notes: b.notes || "",
       category: b.category || "C",
@@ -80,15 +100,48 @@ export async function GET(req: Request) {
       }));
 
     const combined = [...mappedMain, ...extraZk];
+
+    // Natural numeric sorting: 1, 2, 3... 10... 100... 1000 instead of string order
+    const extractNumericCode = (item: any): number | null => {
+      const idStr = item.internalId || item.extra || "";
+      const match = String(idStr).match(/\d+/);
+      if (match) {
+        const val = parseInt(match[0], 10);
+        if (!isNaN(val) && val > 0) return val;
+      }
+      return null;
+    };
+
+    combined.sort((a: any, b: any) => {
+      const codeA = extractNumericCode(a);
+      const codeB = extractNumericCode(b);
+
+      if (codeA !== null && codeB !== null) {
+        if (codeA !== codeB) return codeA - codeB;
+      } else if (codeA !== null) {
+        return -1;
+      } else if (codeB !== null) {
+        return 1;
+      }
+
+      return (a.name || "").localeCompare(b.name || "", "ar");
+    });
+
     const total = combined.length;
 
-    // Apply pagination if limit is small, but if limit is high (e.g. 2000), return all for the dropdown
-    const paginated = combined.slice((page - 1) * limit, page * limit);
+    // If limit <= 0 or all=true, return all beneficiaries without pagination
+    const isUnpaginated = allParam || limit <= 0;
+    const paginated = isUnpaginated ? combined : combined.slice((page - 1) * limit, page * limit);
 
     return NextResponse.json({
       ok: true,
       data: paginated,
-      pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
+      pagination: {
+        total,
+        page: isUnpaginated ? 1 : page,
+        limit: isUnpaginated ? total : limit,
+        pages: isUnpaginated ? 1 : Math.ceil(total / limit) || 1,
+      },
     });
   } catch (error: any) {
     console.error("Error fetching zakat-rice beneficiaries:", error);

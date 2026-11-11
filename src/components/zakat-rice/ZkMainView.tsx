@@ -38,8 +38,10 @@ import {
   ShoppingCart,
   TrendingUp,
   Coins,
+  ScanBarcode,
 } from "lucide-react";
 import { formatNumber, formatCurrency, padSerialNo } from "@/lib/services/zakat-rice/utils";
+import QRScannerModal from "@/components/QRScannerModal";
 import ZkReceiptPrintModal from "./ZkReceiptPrintModal";
 import ZkStatementPrintModal from "./ZkStatementPrintModal";
 import ZkExcelImportModal from "./ZkExcelImportModal";
@@ -70,9 +72,11 @@ export default function ZkMainView() {
 
   const [isBeneficiaryModalOpen, setIsBeneficiaryModalOpen] = useState(false);
   const [editingBeneficiary, setEditingBeneficiary] = useState<any | null>(null);
+  const [isBeneficiaryTabScannerOpen, setIsBeneficiaryTabScannerOpen] = useState(false);
 
   const [isDistributionModalOpen, setIsDistributionModalOpen] = useState(false);
   const [editingDistribution, setEditingDistribution] = useState<any | null>(null);
+  const [isDistributionTabScannerOpen, setIsDistributionTabScannerOpen] = useState(false);
 
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any | null>(null);
@@ -138,7 +142,7 @@ export default function ZkMainView() {
   const mills = millsRes?.data || [];
 
   const { data: beneficiariesRes, mutate: mutateBeneficiaries } = useSWR(
-    `/api/zakat-rice/beneficiaries?limit=2000${activeTab === "beneficiaries" && searchTerm ? `&q=${encodeURIComponent(searchTerm)}` : ""}`,
+    `/api/zakat-rice/beneficiaries?limit=0${activeTab === "beneficiaries" && searchTerm ? `&q=${encodeURIComponent(searchTerm)}` : ""}`,
     fetcher,
     { revalidateOnFocus: false, dedupingInterval: 8000 }
   );
@@ -1317,8 +1321,16 @@ export default function ZkMainView() {
                     placeholder="بحث باسم المستفيد أو الهاتف أو المنطقة..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pr-9 pl-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                    className="w-full pr-9 pl-9 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setIsBeneficiaryTabScannerOpen(true)}
+                    className="absolute left-2.5 top-2.5 text-slate-400 hover:text-emerald-600 transition-colors"
+                    title="مسح باركود المستفيد"
+                  >
+                    <ScanBarcode className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 
@@ -1438,9 +1450,26 @@ export default function ZkMainView() {
                     placeholder="بحث برقم الإذن أو اسم المستفيد أو المقر..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pr-9 pl-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                    className="w-full pr-9 pl-9 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setIsDistributionTabScannerOpen(true)}
+                    className="absolute left-2.5 top-2.5 text-slate-400 hover:text-emerald-600 transition-colors"
+                    title="مسح باركود"
+                  >
+                    <ScanBarcode className="w-4 h-4" />
+                  </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsDistributionTabScannerOpen(true)}
+                  className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center gap-1.5 transition-all font-bold text-xs shrink-0 cursor-pointer shadow-xs"
+                  title="مسح باركود المستفيد أو إذن التوزيع"
+                >
+                  <ScanBarcode className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>مسح باركود</span>
+                </button>
               </div>
 
               <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
@@ -2326,6 +2355,66 @@ export default function ZkMainView() {
           toast.success("تم تحديث قائمة المستفيدين");
         }}
       />
+
+      {/* Beneficiary Tab Scanner Modal */}
+      {isBeneficiaryTabScannerOpen && (
+        <QRScannerModal
+          isOpen={isBeneficiaryTabScannerOpen}
+          onClose={() => setIsBeneficiaryTabScannerOpen(false)}
+          onScan={(val) => {
+            let clean = val.trim();
+            if (clean.toLowerCase().startsWith("dhz")) clean = clean.slice(3).replace(/^0+/, "");
+            setSearchTerm(clean);
+            setIsBeneficiaryTabScannerOpen(false);
+            toast.success(`تم مسح الباركود: ${clean}`);
+          }}
+          title="مسح باركود المستفيد للبحث"
+        />
+      )}
+
+      {/* Distribution Tab Scanner Modal */}
+      {isDistributionTabScannerOpen && (
+        <QRScannerModal
+          isOpen={isDistributionTabScannerOpen}
+          onClose={() => setIsDistributionTabScannerOpen(false)}
+          onScan={(val) => {
+            let clean = val.trim();
+            if (!clean) return;
+
+            let cleanCode = clean.toLowerCase().replace(/[*]/g, "").trim();
+            if (cleanCode.startsWith("dhz")) {
+              cleanCode = cleanCode.replace(/^dhz0*/, "");
+            }
+            const cleanNum = cleanCode.replace(/^0+/, "");
+
+            // Look up in loaded beneficiaries
+            const foundBen = beneficiaries.find((b: any) => {
+              const bInt = String(b.internalId || "").trim();
+              if (bInt && (bInt === cleanCode || bInt === cleanNum || parseInt(bInt, 10) === parseInt(cleanNum, 10))) {
+                return true;
+              }
+              const bExtra = String(b.extra || "");
+              const match = bExtra.match(/\d+/);
+              if (match && (match[0] === cleanCode || match[0] === cleanNum || parseInt(match[0], 10) === parseInt(cleanNum, 10))) {
+                return true;
+              }
+              if (String(b._id) === clean) return true;
+              return false;
+            });
+
+            if (foundBen) {
+              setSearchTerm(foundBen.name);
+              setIsDistributionTabScannerOpen(false);
+              toast.success(`تم العثور على المستفيد: ${foundBen.name} - جاري تصفية توزيعاته`);
+            } else {
+              setSearchTerm(cleanNum || clean);
+              setIsDistributionTabScannerOpen(false);
+              toast.success(`تم مسح الباركود: ${cleanNum || clean}`);
+            }
+          }}
+          title="مسح باركود المستفيد أو إذن الصرف"
+        />
+      )}
 
       {/* Audit Diff Modal */}
       <ZkAuditModal
@@ -3749,6 +3838,7 @@ function DistributionFormModal({
   const [date, setDate] = useState(distribution?.date ? new Date(distribution.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]);
   const [override, setOverride] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
 
   // Searchable beneficiary options
   const beneficiaryOptions = useMemo(() => {
@@ -3757,9 +3847,48 @@ function DistributionFormModal({
       label: b.name,
       subLabel: b.area || undefined,
       phone: b.phone || undefined,
-      extra: b.extra ? b.extra : `أسرة: ${b.family_size || 1}`,
+      extra: b.extra ? b.extra : (b.internalId ? `كود: ${b.internalId}` : `أسرة: ${b.family_size || 1}`),
+      internalId: b.internalId || (b.extra ? String(b.extra).replace(/[^\d]/g, "") : ""),
+      nationalId: b.nationalId || "",
     }));
   }, [beneficiaries]);
+
+  const handleBarcodeScan = (scannedValue: string) => {
+    const raw = scannedValue.trim();
+    if (!raw) return;
+
+    let clean = raw.toLowerCase().replace(/[*]/g, "").trim();
+    if (clean.startsWith("dhz")) {
+      clean = clean.replace(/^dhz0*/, "");
+    }
+    const cleanNum = clean.replace(/^0+/, "");
+
+    // Search in loaded beneficiaries list
+    const found = beneficiaries.find((b: any) => {
+      const bInt = String(b.internalId || "").trim();
+      if (bInt && (bInt === clean || bInt === cleanNum || parseInt(bInt, 10) === parseInt(cleanNum, 10))) {
+        return true;
+      }
+      const bExtra = String(b.extra || "");
+      const match = bExtra.match(/\d+/);
+      if (match && (match[0] === clean || match[0] === cleanNum || parseInt(match[0], 10) === parseInt(cleanNum, 10))) {
+        return true;
+      }
+      if (String(b._id) === raw) return true;
+      if (b.nationalId && String(b.nationalId).trim() === raw) return true;
+      if (b.phone && String(b.phone).trim() === raw) return true;
+      return false;
+    });
+
+    if (found) {
+      setBeneficiaryId(String(found._id));
+      setIsBarcodeModalOpen(false);
+      const codeDisplay = found.internalId ? `كود: ${found.internalId}` : (found.extra || "");
+      toast.success(`تم اختيار المستفيد بنجاح: ${found.name} ${codeDisplay ? `(${codeDisplay})` : ""}`);
+    } else {
+      toast.error(`لم يتم العثور على مستفيد بالباركود / الكود: ${raw}`);
+    }
+  };
 
   // Compute final kg deducted
   const finalKgDeducted = useMemo(() => {
@@ -3868,15 +3997,29 @@ function DistributionFormModal({
                 + مستفيد جديد
               </button>
             </div>
-            <ZkSearchableSelect
-              options={beneficiaryOptions}
-              value={beneficiaryId}
-              onChange={setBeneficiaryId}
-              required
-              placeholder="-- اختر أو ابحث عن اسم المستفيد --"
-              searchPlaceholder="ابحث بالاسم، الكود، الهاتف، أو العنوان..."
-              emptyMessage="لم يتم العثور على مستفيد بهذا الاسم، يمكنك إضافته من زر (+ مستفيد جديد)"
-            />
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <ZkSearchableSelect
+                  options={beneficiaryOptions}
+                  value={beneficiaryId}
+                  onChange={setBeneficiaryId}
+                  required
+                  placeholder="-- اختر أو ابحث عن اسم المستفيد --"
+                  searchPlaceholder="ابحث بالاسم، الكود، الهاتف، أو العنوان..."
+                  emptyMessage="لم يتم العثور على مستفيد بهذا الاسم، يمكنك إضافته من زر (+ مستفيد جديد)"
+                  onScanBarcode={() => setIsBarcodeModalOpen(true)}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBarcodeModalOpen(true)}
+                className="px-3 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center gap-1.5 transition-all font-bold text-xs shrink-0 cursor-pointer shadow-xs"
+                title="مسح باركود المستفيد بالكاميرا أو الإدخال اليدوي"
+              >
+                <ScanBarcode className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span className="hidden sm:inline">مسح باركود</span>
+              </button>
+            </div>
           </div>
 
           {/* Unit and Quantity Selection */}
@@ -4012,6 +4155,16 @@ function DistributionFormModal({
             </button>
           </div>
         </form>
+
+        {/* QR / Barcode Scanner Modal */}
+        {isBarcodeModalOpen && (
+          <QRScannerModal
+            isOpen={isBarcodeModalOpen}
+            onClose={() => setIsBarcodeModalOpen(false)}
+            onScan={handleBarcodeScan}
+            title="مسح باركود بطاقة المستفيد"
+          />
+        )}
       </div>
     </div>
   );

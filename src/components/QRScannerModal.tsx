@@ -10,8 +10,6 @@ interface QRScannerModalProps {
   title?: string;
 }
 
-const SCANNER_ELEMENT_ID = "global-qr-scanner";
-
 type ParsedPayload = {
   searchValue: string;
 };
@@ -24,7 +22,6 @@ const parseScannedValue = (rawText: string): ParsedPayload => {
 
   try {
     const parsed = JSON.parse(value) as Record<string, unknown>;
-    // Priority: always search by identifier (internalId, id, nationalId) first
     const preferredKeys = [
       "internalId",
       "beneficiaryInternalId",
@@ -44,7 +41,7 @@ const parseScannedValue = (rawText: string): ParsedPayload => {
       }
     }
   } catch {
-    // Ignore JSON parse errors and fallback to raw payload.
+    // Ignore JSON parse errors
   }
 
   return { searchValue: value };
@@ -67,187 +64,247 @@ const cleanBarcodeValue = (value: string): string => {
   return cleaned;
 };
 
+const VIEWPORT_ID = "qr-scanner-viewport";
+
 export default function QRScannerModal({
   isOpen,
   onClose,
   onScan,
   title = "مسح باركود",
 }: QRScannerModalProps) {
-  const scannerRef = useRef<{
-    stop: () => Promise<void>;
-    clear: () => void;
-    scanFile?: (file: File, showImage?: boolean) => Promise<string>;
-  } | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(true);
   const [scanError, setScanError] = useState<string | null>(null);
   const [manualValue, setManualValue] = useState("");
-  const isCancelledRef = useRef(false);
 
+  const onScanRef = useRef(onScan);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onScanRef.current = onScan;
+    onCloseRef.current = onClose;
+  }, [onScan, onClose]);
+
+  // Reset states when opened
   useEffect(() => {
     if (isOpen) {
       setIsCameraActive(true);
+      setScanError(null);
+      setManualValue("");
     }
   }, [isOpen]);
 
-  const handleManualSubmit = () => {
-    if (!manualValue.trim()) return;
-    void stopScanner();
-    onScan(cleanBarcodeValue(manualValue.trim()));
-    onClose();
-  };
-
-  const stopScanner = useCallback(async () => {
-    if (!scannerRef.current) return;
-    try {
-      await scannerRef.current.stop();
-    } catch {
-      // Scanner may already be stopped.
-    }
-    try {
-      await scannerRef.current.clear();
-    } catch {
-      // Ignore clear failures.
-    }
-    scannerRef.current = null;
-  }, []);
-
-  const startScanner = useCallback(async () => {
-    setIsStarting(true);
-    setScanError(null);
-    isCancelledRef.current = false;
-
-    // Stop any active camera first to be safe
-    await stopScanner();
-
-    if (isCancelledRef.current) {
-      setIsStarting(false);
-      return;
-    }
-
-    try {
-      const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
-      if (isCancelledRef.current) throw new Error("cancelled");
-
-      const scanner = new Html5Qrcode(SCANNER_ELEMENT_ID, {
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.QR_CODE,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8
-        ],
-        verbose: false
-      });
-      scannerRef.current = scanner;
-
-      const cameras = await Html5Qrcode.getCameras();
-      if (isCancelledRef.current) throw new Error("cancelled");
-      if (!cameras.length) {
-        throw new Error("لم يتم العثور على كاميرا متاحة");
-      }
-
-      const preferredCamera =
-        cameras.find((camera) =>
-          /back|rear|environment|خلف/i.test(camera.label || "")
-        ) || cameras[0];
-
-      await scanner.start(
-        preferredCamera.id,
-        {
-          fps: 15,
-          qrbox: (width, height) => {
-            // Enforce minimum sizes of 150px/80px for standard views, ensuring dimensions are
-            // never below 50px (the library's validation minimum) even if width/height are zero.
-            const qrWidth = Math.max(150, Math.floor(width * 0.8));
-            const qrHeight = Math.max(80, Math.floor(height * 0.45));
-            const finalWidth = Math.min(qrWidth, width || 150);
-            const finalHeight = Math.min(qrHeight, height || 80);
-            return {
-              width: Math.max(50, finalWidth),
-              height: Math.max(50, finalHeight)
-            };
-          },
-          aspectRatio: 1.777778, // 16:9 box
-          videoConstraints: {
-            deviceId: preferredCamera.id
-          } as any
-        },
-        async (decodedText: string) => {
-          if (isCancelledRef.current) return;
-          if (!decodedText.trim()) return;
-
-          const parsed = parseScannedValue(decodedText);
-          if (!parsed.searchValue) return;
-
-          await stopScanner();
-          onScan(cleanBarcodeValue(parsed.searchValue));
-          onClose();
-        },
-        () => {
-          // No-op for continuous scan failures.
-        }
-      );
-
-      if (isCancelledRef.current) {
-        await stopScanner();
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message === "cancelled") {
-        return;
-      }
-      console.warn("Barcode scanner start failed:", error);
-      if (!isCancelledRef.current) {
-        setScanError("تعذر تشغيل الكاميرا. يمكنك المحاولة بصورة باركود.");
-      }
-    } finally {
-      if (!isCancelledRef.current) {
-        setIsStarting(false);
-      }
-    }
-  }, [onClose, onScan, stopScanner]);
-
+  // Main camera scanner lifecycle
   useEffect(() => {
     if (!isOpen || !isCameraActive) {
       return;
     }
 
-    startScanner();
+    let isMounted = true;
+    let scannerInstance: any = null;
+
+    // Suppress html5-qrcode's uncaught onabort throw and browser video.play() aborts
+    const handleGlobalError = (event: ErrorEvent) => {
+      const msg = String(event.message || event.error || "");
+      if (
+        msg.includes("RenderedCameraImpl") ||
+        msg.includes("onabort") ||
+        msg.includes("play()") ||
+        msg.includes("AbortError")
+      ) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return true;
+      }
+    };
+
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      const reason = String(event.reason?.message || event.reason || "");
+      if (
+        reason.includes("RenderedCameraImpl") ||
+        reason.includes("onabort") ||
+        reason.includes("play()") ||
+        reason.includes("AbortError")
+      ) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    };
+
+    window.addEventListener("error", handleGlobalError, true);
+    window.addEventListener("unhandledrejection", handleRejection, true);
+
+    const runScanner = async () => {
+      setIsStarting(true);
+      setScanError(null);
+
+      // Ensure DOM element is mounted
+      await new Promise((r) => setTimeout(r, 60));
+      if (!isMounted) return;
+
+      const targetEl = document.getElementById(VIEWPORT_ID);
+      if (!targetEl) return;
+
+      // MutationObserver to neutralize video.onabort that html5-qrcode sets
+      const observer = new MutationObserver(() => {
+        const videos = targetEl.querySelectorAll("video");
+        videos.forEach((v) => {
+          v.onabort = null;
+          v.onerror = null;
+        });
+      });
+      observer.observe(targetEl, { childList: true, subtree: true });
+
+      try {
+        const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
+        if (!isMounted) return;
+
+        const scanner = new Html5Qrcode(VIEWPORT_ID, {
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+          ],
+          verbose: false,
+        });
+        scannerInstance = scanner;
+
+        // Determine camera ID or facing mode
+        let cameraConfig: any = { facingMode: "environment" };
+        try {
+          const cameras = await Html5Qrcode.getCameras();
+          if (cameras && cameras.length > 0) {
+            const preferred = cameras.find((c) =>
+              /back|rear|environment|خلف/i.test(c.label || "")
+            );
+            cameraConfig = (preferred || cameras[0]).id;
+          }
+        } catch {
+          // If getCameras fails, facingMode: environment will prompt for permission
+        }
+
+        if (!isMounted) return;
+
+        await scanner.start(
+          cameraConfig,
+          {
+            fps: 15,
+            qrbox: (width, height) => {
+              const qrWidth = Math.max(150, Math.floor(width * 0.8));
+              const qrHeight = Math.max(80, Math.floor(height * 0.45));
+              const finalWidth = Math.min(qrWidth, width || 150);
+              const finalHeight = Math.min(qrHeight, height || 80);
+              return {
+                width: Math.max(50, finalWidth),
+                height: Math.max(50, finalHeight),
+              };
+            },
+            aspectRatio: 1.777778,
+          },
+          async (decodedText: string) => {
+            if (!isMounted) return;
+            if (!decodedText.trim()) return;
+
+            const parsed = parseScannedValue(decodedText);
+            if (!parsed.searchValue) return;
+
+            try {
+              if (scanner.getState() === 2) {
+                await scanner.stop();
+              }
+            } catch {}
+            onScanRef.current(cleanBarcodeValue(parsed.searchValue));
+            onCloseRef.current();
+          },
+          () => {}
+        );
+
+        // Wipe onabort from active video
+        const videos = targetEl.querySelectorAll("video");
+        videos.forEach((v) => {
+          v.onabort = null;
+          v.onerror = null;
+        });
+      } catch (err: any) {
+        if (!isMounted) return;
+        const msg = String(err?.message || err || "");
+        if (msg.includes("cancelled") || msg.includes("onabort") || msg.includes("AbortError")) {
+          return;
+        }
+        console.warn("Scanner start error:", err);
+        setScanError("تعذر تشغيل الكاميرا. يمكنك استخدام الإدخال اليدوي أو اختيار صورة باركود.");
+      } finally {
+        if (isMounted) {
+          setIsStarting(false);
+        }
+      }
+    };
+
+    runScanner();
 
     return () => {
-      isCancelledRef.current = true;
-      void stopScanner();
+      isMounted = false;
+      window.removeEventListener("error", handleGlobalError, true);
+      window.removeEventListener("unhandledrejection", handleRejection, true);
+
+      // Clean up video media tracks
+      const targetEl = document.getElementById(VIEWPORT_ID);
+      if (targetEl) {
+        const videos = targetEl.querySelectorAll("video");
+        videos.forEach((v) => {
+          v.onabort = null;
+          v.onerror = null;
+          try {
+            v.pause();
+            if (v.srcObject instanceof MediaStream) {
+              v.srcObject.getTracks().forEach((t) => t.stop());
+              v.srcObject = null;
+            }
+          } catch {}
+        });
+      }
+
+      // Stop scanner instance
+      if (scannerInstance) {
+        try {
+          const state = scannerInstance.getState?.();
+          if (state === 2 || state === 3) {
+            void scannerInstance.stop().catch(() => {});
+          }
+        } catch {}
+        try {
+          void scannerInstance.clear();
+        } catch {}
+      }
     };
-  }, [isOpen, isCameraActive, startScanner, stopScanner]);
+  }, [isOpen, isCameraActive]);
+
+  const handleManualSubmit = () => {
+    if (!manualValue.trim()) return;
+    const val = cleanBarcodeValue(manualValue.trim());
+    onScanRef.current(val);
+    onCloseRef.current();
+  };
 
   const handleScanImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-
     if (!file) return;
 
-    // Signal cancellation to any running startScanner promise
-    isCancelledRef.current = true;
-    setIsStarting(false);
     setScanError(null);
     setIsCameraActive(false);
 
     try {
-      // Stop the active camera before scanning a file
-      await stopScanner();
-
-      // Load file into Image object to inspect dimensions and draw on canvas
       const img = new Image();
       const objectUrl = URL.createObjectURL(file);
-      
+
       const loadedImg = await new Promise<HTMLImageElement>((resolve, reject) => {
         img.onload = () => resolve(img);
         img.onerror = (err) => reject(err);
         img.src = objectUrl;
       });
 
-      // Add a 40px white border (quiet zone) on all sides.
-      // This is crucial for 1D barcodes that have been cropped tightly without side margins.
       const padding = 40;
       const canvas = document.createElement("canvas");
       canvas.width = loadedImg.width + padding * 2;
@@ -255,15 +312,11 @@ export default function QRScannerModal({
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Could not get canvas context");
 
-      // Draw solid white background
       ctx.fillStyle = "white";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Draw original image in center
       ctx.drawImage(loadedImg, padding, padding);
       URL.revokeObjectURL(objectUrl);
 
-      // Convert canvas to a File object for the scanner
       const paddedFile = await new Promise<File>((resolve, reject) => {
         canvas.toBlob((blob) => {
           if (!blob) {
@@ -281,14 +334,14 @@ export default function QRScannerModal({
           Html5QrcodeSupportedFormats.CODE_39,
           Html5QrcodeSupportedFormats.CODE_128,
           Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8
+          Html5QrcodeSupportedFormats.EAN_8,
         ],
-        verbose: false
+        verbose: false,
       });
-      
+
       try {
         const scannedText = await tempScanner.scanFile(paddedFile, false);
-        tempScanner.clear(); // cleanup temporary scanner
+        tempScanner.clear();
 
         const parsed = parseScannedValue(scannedText);
         if (!parsed.searchValue) {
@@ -296,11 +349,11 @@ export default function QRScannerModal({
           return;
         }
 
-        onScan(cleanBarcodeValue(parsed.searchValue));
-        onClose();
-      } catch (scanError) {
-        tempScanner.clear(); // clean up elements even on failure
-        throw scanError;
+        onScanRef.current(cleanBarcodeValue(parsed.searchValue));
+        onCloseRef.current();
+      } catch (scanErr) {
+        tempScanner.clear();
+        throw scanErr;
       }
     } catch (error) {
       console.warn("Barcode image scan failed:", error);
@@ -339,25 +392,29 @@ export default function QRScannerModal({
           {/* Camera area - stable aspect-ratio container */}
           {isCameraActive && (
             <div className="rounded-lg border border-border bg-muted/20 overflow-hidden relative w-full aspect-video min-h-[220px]">
-              <div id={SCANNER_ELEMENT_ID} className="w-full h-full" />
+              <div id={VIEWPORT_ID} className="w-full h-full min-h-[220px]" />
               {isStarting && (
                 <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground bg-black/40">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   جاري تشغيل الكاميرا...
                 </div>
               )}
-              <style dangerouslySetInnerHTML={{ __html: `
-                #${SCANNER_ELEMENT_ID} video {
+              <style
+                dangerouslySetInnerHTML={{
+                  __html: `
+                #${VIEWPORT_ID} video {
                   width: 100% !important;
                   height: 100% !important;
                   object-fit: cover !important;
                 }
-              `}} />
+              `,
+                }}
+              />
             </div>
           )}
 
           {/* Hidden scanner container for file scanning to avoid DOM conflicts */}
-          <div id="hidden-file-scanner-container" className="hidden" style={{ display: 'none' }} />
+          <div id="hidden-file-scanner-container" className="hidden" style={{ display: "none" }} />
 
           {!isCameraActive && (
             <button
@@ -399,7 +456,10 @@ export default function QRScannerModal({
             }}
             className="pt-3 border-t border-border space-y-2 shrink-0"
           >
-            <label htmlFor="manual-barcode-input" className="block text-xs font-medium text-muted-foreground text-right">
+            <label
+              htmlFor="manual-barcode-input"
+              className="block text-xs font-medium text-muted-foreground text-right"
+            >
               أو أدخل رقم الباركود / رقم المستفيد يدوياً:
             </label>
             <div className="flex gap-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { Search, ChevronDown, X, Check, User } from "lucide-react";
+import { Search, ChevronDown, X, Check, User, ScanBarcode } from "lucide-react";
 
 export interface SearchableSelectOption {
   value: string;
@@ -9,6 +9,8 @@ export interface SearchableSelectOption {
   subLabel?: string;
   extra?: string;
   phone?: string;
+  internalId?: string;
+  nationalId?: string;
 }
 
 interface ZkSearchableSelectProps {
@@ -21,6 +23,7 @@ interface ZkSearchableSelectProps {
   required?: boolean;
   disabled?: boolean;
   className?: string;
+  onScanBarcode?: () => void;
 }
 
 function normalizeArabic(text: string = ""): string {
@@ -45,6 +48,7 @@ export default function ZkSearchableSelect({
   required = false,
   disabled = false,
   className = "",
+  onScanBarcode,
 }: ZkSearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -59,14 +63,28 @@ export default function ZkSearchableSelect({
   // Filtered options based on search query
   const filteredOptions = useMemo(() => {
     if (!searchQuery.trim()) return options;
-    const q = normalizeArabic(searchQuery);
+    const rawQ = searchQuery.trim();
+    const q = normalizeArabic(rawQ);
+
+    // If query looks like a barcode: e.g. "DHZ00045", "*DHZ00045*", "00045"
+    let cleanedCode = rawQ.toLowerCase().replace(/[*]/g, "").trim();
+    if (cleanedCode.startsWith("dhz")) {
+      cleanedCode = cleanedCode.replace(/^dhz0*/, "");
+    }
+    const cleanNum = cleanedCode.replace(/^0+/, "");
 
     return options.filter((opt) => {
       const matchLabel = normalizeArabic(opt.label).includes(q);
       const matchSub = opt.subLabel ? normalizeArabic(opt.subLabel).includes(q) : false;
       const matchExtra = opt.extra ? normalizeArabic(opt.extra).includes(q) : false;
-      const matchPhone = opt.phone ? opt.phone.includes(searchQuery.trim()) : false;
-      return matchLabel || matchSub || matchExtra || matchPhone;
+      const matchPhone = opt.phone ? opt.phone.includes(rawQ) : false;
+      const matchInternal = opt.internalId
+        ? String(opt.internalId) === cleanNum || String(opt.internalId).includes(rawQ)
+        : false;
+      const matchNational = opt.nationalId ? String(opt.nationalId).includes(rawQ) : false;
+      const matchCleanCode = cleanNum && opt.extra ? opt.extra.includes(cleanNum) : false;
+
+      return matchLabel || matchSub || matchExtra || matchPhone || matchInternal || matchNational || matchCleanCode;
     });
   }, [options, searchQuery]);
 
@@ -187,17 +205,34 @@ export default function ZkSearchableSelect({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full pr-9 pl-8 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                className={`w-full pr-9 ${onScanBarcode ? (searchQuery ? "pl-16" : "pl-9") : (searchQuery ? "pl-8" : "pl-3")} py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 font-medium`}
               />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute left-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+              <div className="absolute left-2.5 flex items-center gap-1">
+                {onScanBarcode && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsOpen(false);
+                      onScanBarcode();
+                    }}
+                    className="p-1 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                    title="مسح باركود المستفيد"
+                  >
+                    <ScanBarcode className="w-4 h-4" />
+                  </button>
+                )}
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    title="مسح البحث"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
