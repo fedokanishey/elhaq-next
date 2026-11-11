@@ -45,19 +45,25 @@ export async function GET(req: Request) {
         { nationalId: regex },
       ];
 
-      if (numOnly && numOnly !== q) {
+      if (numOnly) {
         orConditions.push({ internalId: numOnly });
         orConditions.push({ internalId: { $regex: `^0*${numOnly}$` } });
+        orConditions.push({ name: { $regex: `\\(${numOnly}\\)` } });
       }
 
       mainQuery.$or = orConditions;
 
-      zkQuery.$or = [
+      const zkOrConditions: any[] = [
         { nameNormalized: { $regex: norm, $options: "i" } },
         { phone: regex },
         { area: regex },
         { extra: regex },
       ];
+      if (numOnly) {
+        zkOrConditions.push({ extra: { $regex: numOnly } });
+        zkOrConditions.push({ name: { $regex: `\\(${numOnly}\\)` } });
+      }
+      zkQuery.$or = zkOrConditions;
     }
 
     // Fetch from main Beneficiary collection with numeric collation ordering

@@ -232,6 +232,78 @@ export default function ZkMainView() {
     }
   };
 
+  // Helper to resolve beneficiary by barcode or number
+  const resolveBeneficiary = async (rawCode: string): Promise<{ _id?: string; name: string } | null> => {
+    const raw = String(rawCode || "").trim();
+    if (!raw) return null;
+
+    let cleanCode = raw.toLowerCase().replace(/[*]/g, "").trim();
+    if (cleanCode.startsWith("dhz")) {
+      cleanCode = cleanCode.replace(/^dhz0*/, "");
+    }
+    const cleanNum = cleanCode.replace(/^0+/, "");
+
+    // 1. Check in-memory beneficiaries
+    if (Array.isArray(beneficiaries) && beneficiaries.length > 0) {
+      const foundMem = beneficiaries.find((b: any) => {
+        const bInt = String(b.internalId || "").trim();
+        if (bInt && (bInt === cleanCode || bInt === cleanNum || parseInt(bInt, 10) === parseInt(cleanNum, 10))) {
+          return true;
+        }
+        const bExtra = String(b.extra || "");
+        const match = bExtra.match(/\d+/);
+        if (match && (match[0] === cleanCode || match[0] === cleanNum || parseInt(match[0], 10) === parseInt(cleanNum, 10))) {
+          return true;
+        }
+        if (String(b._id) === raw || String(b._id) === cleanCode) return true;
+        if (b.nationalId && String(b.nationalId).trim() === raw) return true;
+        if (b.phone && String(b.phone).trim() === raw) return true;
+        if (cleanNum && b.name && (b.name.includes(`(${cleanNum})`) || b.name.includes(` ${cleanNum} `) || b.name.endsWith(` ${cleanNum}`))) {
+          return true;
+        }
+        return false;
+      });
+      if (foundMem) return { _id: foundMem._id, name: foundMem.name };
+    }
+
+    // 2. Check loaded distributions
+    if (Array.isArray(distributions) && distributions.length > 0) {
+      const foundDist = distributions.find((d: any) => {
+        if (cleanNum && d.beneficiary_name && (d.beneficiary_name.includes(`(${cleanNum})`) || d.beneficiary_name.includes(` ${cleanNum}`))) {
+          return true;
+        }
+        if (d.no && (d.no === cleanCode || d.no === cleanNum || parseInt(d.no, 10) === parseInt(cleanNum, 10))) {
+          return true;
+        }
+        return false;
+      });
+      if (foundDist) {
+        return { _id: foundDist.beneficiary_id, name: foundDist.beneficiary_name };
+      }
+    }
+
+    // 3. Fallback: Query server API directly
+    try {
+      const q = cleanNum || cleanCode || raw;
+      const res = await fetch(`/api/zakat-rice/beneficiaries?limit=10&q=${encodeURIComponent(q)}`);
+      const json = await res.json();
+      if (json.ok && Array.isArray(json.data) && json.data.length > 0) {
+        const exact = json.data.find((b: any) => {
+          const bInt = String(b.internalId || "").trim();
+          if (bInt && (bInt === cleanCode || bInt === cleanNum || parseInt(bInt, 10) === parseInt(cleanNum, 10))) return true;
+          if (cleanNum && b.name && b.name.includes(`(${cleanNum})`)) return true;
+          return false;
+        });
+        const chosen = exact || json.data[0];
+        return { _id: chosen._id, name: chosen.name };
+      }
+    } catch (err) {
+      console.warn("Barcode beneficiary lookup error:", err);
+    }
+
+    return null;
+  };
+
   // Open Beneficiary Statement
   const openBeneficiaryStatement = async (bId: string) => {
     try {
@@ -1321,6 +1393,18 @@ export default function ZkMainView() {
                     placeholder="بحث باسم المستفيد أو الهاتف أو المنطقة..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if (e.key === "Enter") {
+                        const raw = searchTerm.trim();
+                        if (raw && (raw.toLowerCase().startsWith("dhz") || /^\d+$/.test(raw) || raw.startsWith("*"))) {
+                          const ben = await resolveBeneficiary(raw);
+                          if (ben?.name) {
+                            setSearchTerm(ben.name);
+                            toast.success(`تم العثور على المستفيد: ${ben.name}`);
+                          }
+                        }
+                      }
+                    }}
                     className="w-full pr-9 pl-9 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
                   <button
@@ -1450,6 +1534,18 @@ export default function ZkMainView() {
                     placeholder="بحث برقم الإذن أو اسم المستفيد أو المقر..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if (e.key === "Enter") {
+                        const raw = searchTerm.trim();
+                        if (raw && (raw.toLowerCase().startsWith("dhz") || /^\d+$/.test(raw) || raw.startsWith("*"))) {
+                          const ben = await resolveBeneficiary(raw);
+                          if (ben?.name) {
+                            setSearchTerm(ben.name);
+                            toast.success(`تم العثور على المستفيد: ${ben.name} - جاري تصفية توزيعاته`);
+                          }
+                        }
+                      }
+                    }}
                     className="w-full pr-9 pl-9 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
                   <button
@@ -2361,12 +2457,18 @@ export default function ZkMainView() {
         <QRScannerModal
           isOpen={isBeneficiaryTabScannerOpen}
           onClose={() => setIsBeneficiaryTabScannerOpen(false)}
-          onScan={(val) => {
-            let clean = val.trim();
-            if (clean.toLowerCase().startsWith("dhz")) clean = clean.slice(3).replace(/^0+/, "");
-            setSearchTerm(clean);
+          onScan={async (val) => {
             setIsBeneficiaryTabScannerOpen(false);
-            toast.success(`تم مسح الباركود: ${clean}`);
+            const ben = await resolveBeneficiary(val);
+            if (ben?.name) {
+              setSearchTerm(ben.name);
+              toast.success(`تم العثور على المستفيد: ${ben.name}`);
+            } else {
+              let clean = val.trim();
+              if (clean.toLowerCase().startsWith("dhz")) clean = clean.slice(3).replace(/^0+/, "");
+              setSearchTerm(clean);
+              toast.success(`تم مسح الباركود: ${clean}`);
+            }
           }}
           title="مسح باركود المستفيد للبحث"
         />
@@ -2377,38 +2479,19 @@ export default function ZkMainView() {
         <QRScannerModal
           isOpen={isDistributionTabScannerOpen}
           onClose={() => setIsDistributionTabScannerOpen(false)}
-          onScan={(val) => {
-            let clean = val.trim();
-            if (!clean) return;
-
-            let cleanCode = clean.toLowerCase().replace(/[*]/g, "").trim();
-            if (cleanCode.startsWith("dhz")) {
-              cleanCode = cleanCode.replace(/^dhz0*/, "");
-            }
-            const cleanNum = cleanCode.replace(/^0+/, "");
-
-            // Look up in loaded beneficiaries
-            const foundBen = beneficiaries.find((b: any) => {
-              const bInt = String(b.internalId || "").trim();
-              if (bInt && (bInt === cleanCode || bInt === cleanNum || parseInt(bInt, 10) === parseInt(cleanNum, 10))) {
-                return true;
-              }
-              const bExtra = String(b.extra || "");
-              const match = bExtra.match(/\d+/);
-              if (match && (match[0] === cleanCode || match[0] === cleanNum || parseInt(match[0], 10) === parseInt(cleanNum, 10))) {
-                return true;
-              }
-              if (String(b._id) === clean) return true;
-              return false;
-            });
-
-            if (foundBen) {
-              setSearchTerm(foundBen.name);
-              setIsDistributionTabScannerOpen(false);
-              toast.success(`تم العثور على المستفيد: ${foundBen.name} - جاري تصفية توزيعاته`);
+          onScan={async (val) => {
+            setIsDistributionTabScannerOpen(false);
+            if (!val?.trim()) return;
+            const ben = await resolveBeneficiary(val);
+            if (ben?.name) {
+              setSearchTerm(ben.name);
+              toast.success(`تم العثور على المستفيد: ${ben.name} - جاري تصفية توزيعاته`);
             } else {
+              let clean = val.trim();
+              let cleanCode = clean.toLowerCase().replace(/[*]/g, "").trim();
+              if (cleanCode.startsWith("dhz")) cleanCode = cleanCode.replace(/^dhz0*/, "");
+              const cleanNum = cleanCode.replace(/^0+/, "");
               setSearchTerm(cleanNum || clean);
-              setIsDistributionTabScannerOpen(false);
               toast.success(`تم مسح الباركود: ${cleanNum || clean}`);
             }
           }}
@@ -3853,7 +3936,7 @@ function DistributionFormModal({
     }));
   }, [beneficiaries]);
 
-  const handleBarcodeScan = (scannedValue: string) => {
+  const handleBarcodeScan = async (scannedValue: string) => {
     const raw = scannedValue.trim();
     if (!raw) return;
 
@@ -3864,7 +3947,7 @@ function DistributionFormModal({
     const cleanNum = clean.replace(/^0+/, "");
 
     // Search in loaded beneficiaries list
-    const found = beneficiaries.find((b: any) => {
+    let found = beneficiaries.find((b: any) => {
       const bInt = String(b.internalId || "").trim();
       if (bInt && (bInt === clean || bInt === cleanNum || parseInt(bInt, 10) === parseInt(cleanNum, 10))) {
         return true;
@@ -3877,8 +3960,29 @@ function DistributionFormModal({
       if (String(b._id) === raw) return true;
       if (b.nationalId && String(b.nationalId).trim() === raw) return true;
       if (b.phone && String(b.phone).trim() === raw) return true;
+      if (cleanNum && b.name && (b.name.includes(`(${cleanNum})`) || b.name.includes(` ${cleanNum}`))) return true;
       return false;
     });
+
+    // If not found in loaded array, query server API
+    if (!found) {
+      try {
+        const q = cleanNum || clean || raw;
+        const res = await fetch(`/api/zakat-rice/beneficiaries?limit=5&q=${encodeURIComponent(q)}`);
+        const json = await res.json();
+        if (json.ok && Array.isArray(json.data) && json.data.length > 0) {
+          const exact = json.data.find((b: any) => {
+            const bInt = String(b.internalId || "").trim();
+            if (bInt && (bInt === clean || bInt === cleanNum || parseInt(bInt, 10) === parseInt(cleanNum, 10))) return true;
+            if (cleanNum && b.name && b.name.includes(`(${cleanNum})`)) return true;
+            return false;
+          });
+          found = exact || json.data[0];
+        }
+      } catch (err) {
+        console.warn("API barcode lookup error:", err);
+      }
+    }
 
     if (found) {
       setBeneficiaryId(String(found._id));

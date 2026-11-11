@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Code128Barcode from "@/components/Code128Barcode";
 import BrandedLoader from "@/components/BrandedLoader";
+import { useBranchContext } from "@/contexts/BranchContext";
 
 interface Beneficiary {
   _id: string;
@@ -41,6 +42,14 @@ const formatBarcodeValue = (internalId?: string | number) => {
   const idStr = String(internalId || "0").trim();
   return `DHZ${idStr.padStart(5, "0")}`;
 };
+
+function chunkList<T>(list: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < list.length; i += size) {
+    result.push(list.slice(i, i + size));
+  }
+  return result;
+}
 
 function CarnetInner() {
   const searchParams = useSearchParams();
@@ -650,39 +659,68 @@ function CarnetInner() {
               )}
             </div>
 
-            {/* Print Output - Exact print layout matching daawat_alhaq_v9_kolna_wahed.html */}
+            {/* Print Output - Exact print layout matching daawat_alhaq_v9_kolna_wahed.html (5 cards per page) */}
             <div className="print-sheets-root">
               {viewMode === "duplex" ? (
-                <>
-                  <div className="print-grid-container">
-                    {printableList.map((b) => (
-                      <div key={`front-${b._id}`} className="print-card-box">
-                        {renderFrontCard(b)}
+                chunkList(printableList, 10).map((chunk, pIdx) => (
+                  <React.Fragment key={`duplex-p-${pIdx}`}>
+                    <div className="print-page">
+                      <div className="print-grid-container">
+                        {chunk.map((b) => (
+                          <div key={`front-${b._id}`} className="print-card-box">
+                            {renderFrontCard(b)}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                  <div className="page-break" />
-                  <div className="print-grid-container">
-                    {printableList.map((b) => (
-                      <div key={`back-${b._id}`} className="print-card-box">
-                        {renderBackCard()}
+                    </div>
+                    <div className="print-page">
+                      <div className="print-grid-container">
+                        {chunk.map((b) => (
+                          <div key={`back-${b._id}`} className="print-card-box">
+                            {renderBackCard()}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+                  </React.Fragment>
+                ))
+              ) : viewMode === "both" ? (
+                chunkList(printableList, 5).map((chunk, pIdx) => (
+                  <div key={`both-p-${pIdx}`} className="print-page">
+                    <div className="print-grid-container">
+                      {chunk.map((b) => (
+                        <React.Fragment key={b._id}>
+                          <div className="print-card-box">{renderFrontCard(b)}</div>
+                          <div className="print-card-box">{renderBackCard()}</div>
+                        </React.Fragment>
+                      ))}
+                    </div>
                   </div>
-                </>
+                ))
+              ) : viewMode === "front" ? (
+                chunkList(printableList, 10).map((chunk, pIdx) => (
+                  <div key={`front-p-${pIdx}`} className="print-page">
+                    <div className="print-grid-container">
+                      {chunk.map((b) => (
+                        <div key={b._id} className="print-card-box">
+                          {renderFrontCard(b)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
               ) : (
-                <div className="print-grid-container">
-                  {printableList.map((b) => (
-                    <React.Fragment key={b._id}>
-                      {(viewMode === "both" || viewMode === "front") && (
-                        <div className="print-card-box">{renderFrontCard(b)}</div>
-                      )}
-                      {(viewMode === "both" || viewMode === "back") && (
-                        <div className="print-card-box">{renderBackCard()}</div>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </div>
+                chunkList(printableList, 10).map((chunk, pIdx) => (
+                  <div key={`back-p-${pIdx}`} className="print-page">
+                    <div className="print-grid-container">
+                      {chunk.map((b) => (
+                        <div key={b._id} className="print-card-box">
+                          {renderBackCard()}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           </>
@@ -690,7 +728,7 @@ function CarnetInner() {
       </main>
 
       {/* EXACT STYLES FROM daawat_alhaq_v9_kolna_wahed.html */}
-      <style jsx global>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         /* CSS Variables */
         :root {
           --bg: #FCF4E4;
@@ -1216,7 +1254,7 @@ function CarnetInner() {
         @media print {
           @page {
             size: A4 portrait;
-            margin: 6mm 4mm;
+            margin: 4mm 4mm;
           }
 
           *, *::before, *::after {
@@ -1257,28 +1295,44 @@ function CarnetInner() {
             display: block !important;
           }
 
+          .print-page {
+            page-break-after: always !important;
+            break-after: page !important;
+            box-sizing: border-box !important;
+            padding: 1mm 0 !important;
+            margin: 0 auto !important;
+          }
+
+          .print-page:last-child {
+            page-break-after: auto !important;
+            break-after: auto !important;
+          }
+
           .print-grid-container {
             display: grid !important;
-            grid-template-columns: repeat(2, 85.6mm) !important;
-            gap: 4mm 6mm !important;
+            grid-template-columns: repeat(2, 82.5mm) !important;
+            grid-auto-rows: 52mm !important;
+            gap: 2.2mm 5mm !important;
             justify-content: center !important;
             align-content: start !important;
           }
 
           .print-card-box {
-            width: 85.6mm !important;
-            height: 54mm !important;
+            width: 82.5mm !important;
+            height: 52mm !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
             display: flex !important;
             justify-content: center !important;
             align-items: center !important;
+            box-sizing: border-box !important;
           }
 
           .id-card {
-            width: 85.6mm !important;
+            width: 82.5mm !important;
+            height: 52mm !important;
             aspect-ratio: 85.6 / 54 !important;
-            border-radius: 3.18mm !important;
+            border-radius: 2.8mm !important;
             box-shadow: none !important;
             border: 0.2mm solid #bbb !important;
             page-break-inside: avoid !important;
@@ -1292,7 +1346,7 @@ function CarnetInner() {
             display: block !important;
           }
         }
-      `}</style>
+      ` }} />
     </div>
   );
 }
