@@ -694,29 +694,28 @@ function CarnetInner() {
               {viewMode === "duplex" ? (
                 chunkList(printableList, 10).map((chunk, pIdx) => (
                   <React.Fragment key={`duplex-p-${pIdx}`}>
-                    <div className="print-page">
-                      <div className="print-grid-container">
-                        {chunk.map((b) => (
-                          <div key={`front-${b._id}`} className="print-card-box">
-                            {renderFrontCard(b)}
-                          </div>
-                        ))}
-                      </div>
+                    {pIdx > 0 && <div className="page-break" />}
+                    <div className="print-grid-container">
+                      {chunk.map((b) => (
+                        <div key={`front-${b._id}`} className="print-card-box">
+                          {renderFrontCard(b)}
+                        </div>
+                      ))}
                     </div>
-                    <div className="print-page">
-                      <div className="print-grid-container">
-                        {getDuplexBackList(chunk).map((b, bIdx) => (
-                          <div key={`back-slot-${pIdx}-${bIdx}`} className="print-card-box">
-                            {b ? renderBackCard() : <div className="id-card-placeholder" />}
-                          </div>
-                        ))}
-                      </div>
+                    <div className="page-break" />
+                    <div className="print-grid-container">
+                      {getDuplexBackList(chunk).map((b, bIdx) => (
+                        <div key={`back-slot-${pIdx}-${bIdx}`} className="print-card-box">
+                          {b ? renderBackCard() : <div className="id-card-placeholder" />}
+                        </div>
+                      ))}
                     </div>
                   </React.Fragment>
                 ))
               ) : viewMode === "both" ? (
                 chunkList(printableList, 5).map((chunk, pIdx) => (
-                  <div key={`both-p-${pIdx}`} className="print-page">
+                  <React.Fragment key={`both-p-${pIdx}`}>
+                    {pIdx > 0 && <div className="page-break" />}
                     <div className="print-grid-container">
                       {chunk.map((b) => (
                         <React.Fragment key={b._id}>
@@ -725,11 +724,12 @@ function CarnetInner() {
                         </React.Fragment>
                       ))}
                     </div>
-                  </div>
+                  </React.Fragment>
                 ))
               ) : viewMode === "front" ? (
                 chunkList(printableList, 10).map((chunk, pIdx) => (
-                  <div key={`front-p-${pIdx}`} className="print-page">
+                  <React.Fragment key={`front-p-${pIdx}`}>
+                    {pIdx > 0 && <div className="page-break" />}
                     <div className="print-grid-container">
                       {chunk.map((b) => (
                         <div key={b._id} className="print-card-box">
@@ -737,11 +737,12 @@ function CarnetInner() {
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </React.Fragment>
                 ))
               ) : (
                 chunkList(printableList, 10).map((chunk, pIdx) => (
-                  <div key={`back-p-${pIdx}`} className="print-page">
+                  <React.Fragment key={`back-p-${pIdx}`}>
+                    {pIdx > 0 && <div className="page-break" />}
                     <div className="print-grid-container">
                       {chunk.map((b) => (
                         <div key={b._id} className="print-card-box">
@@ -749,7 +750,7 @@ function CarnetInner() {
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </React.Fragment>
                 ))
               )}
             </div>
@@ -1284,7 +1285,7 @@ function CarnetInner() {
         @media print {
           @page {
             size: A4 portrait;
-            margin: 0 !important;
+            margin: 6mm 4mm;
           }
 
           *, *::before, *::after {
@@ -1292,13 +1293,11 @@ function CarnetInner() {
             print-color-adjust: exact !important;
           }
 
-          html, body {
+          body {
             background: #ffffff !important;
             color: #000000 !important;
             margin: 0 !important;
             padding: 0 !important;
-            width: 210mm !important;
-            height: 297mm !important;
           }
 
           .no-print,
@@ -1329,34 +1328,8 @@ function CarnetInner() {
             padding: 0 !important;
           }
 
-          .print-page {
-            width: 210mm !important;
-            height: 297mm !important;
-            min-height: 297mm !important;
-            max-height: 297mm !important;
-            box-sizing: border-box !important;
-            margin: 0 !important;
-            padding: 13.5mm 19mm !important;
-            page-break-before: always !important;
-            break-before: page !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            overflow: hidden !important;
-          }
-
-          .print-page:first-child {
-            page-break-before: auto !important;
-            break-before: auto !important;
-          }
-
-          .print-page:last-child {
-            page-break-after: auto !important;
-            break-after: auto !important;
-          }
-
           .print-grid-container {
             width: 172mm !important;
-            height: 270mm !important;
             display: grid !important;
             grid-template-columns: 82.5mm 82.5mm !important;
             grid-template-rows: repeat(5, 52mm) !important;
@@ -1366,6 +1339,8 @@ function CarnetInner() {
             margin: 0 auto !important;
             padding: 0 !important;
             box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
 
           .print-card-box {
@@ -1381,6 +1356,7 @@ function CarnetInner() {
             box-sizing: border-box !important;
             margin: 0 !important;
             padding: 0 !important;
+            overflow: hidden !important;
           }
 
           .id-card {
@@ -1402,13 +1378,18 @@ function CarnetInner() {
             width: 82.5mm !important;
             height: 52mm !important;
             visibility: hidden !important;
+            box-sizing: border-box !important;
           }
 
           .page-break {
             page-break-before: always !important;
             break-before: page !important;
             height: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
             display: block !important;
+            clear: both !important;
           }
         }
       ` }} />
