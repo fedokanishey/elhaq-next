@@ -51,8 +51,8 @@ export async function PUT(
     await dbConnect();
     
     const authResult = await getAuthenticatedUser();
-    if (!authResult.isAuthorized) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!authResult.isAuthorized || !authResult.isAdmin || authResult.isMember) {
+      return NextResponse.json({ error: "Forbidden - Read only" }, { status: 403 });
     }
 
     const { id } = await context.params;
@@ -95,8 +95,8 @@ export async function DELETE(
     await dbConnect();
     
     const authResult = await getAuthenticatedUser();
-    if (!authResult.isAuthorized) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!authResult.isAuthorized || !authResult.isAdmin || authResult.isMember) {
+      return NextResponse.json({ error: "Forbidden - Read only" }, { status: 403 });
     }
 
     const { id } = await context.params;

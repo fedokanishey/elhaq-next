@@ -61,8 +61,8 @@ export async function POST(req: Request) {
     await dbConnect();
     
     const authResult = await getAuthenticatedUser();
-    if (!authResult.isAuthorized) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!authResult.isAuthorized || !authResult.isAdmin || authResult.isMember) {
+      return NextResponse.json({ error: "Forbidden - Read only" }, { status: 403 });
     }
 
     const body = await req.json();

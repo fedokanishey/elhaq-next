@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useUser } from "@clerk/nextjs";
 import useSWR, { mutate } from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { toast } from "sonner";
@@ -49,6 +50,14 @@ import ZkAuditModal from "./ZkAuditModal";
 import ZkSearchableSelect from "./ZkSearchableSelect";
 
 export default function ZkMainView() {
+  const { user } = useUser();
+  const role = (user?.publicMetadata?.role || user?.unsafeMetadata?.role || "user") as string;
+  const isSuperAdmin = role === "superadmin";
+  const isAdmin = role === "admin" || isSuperAdmin;
+  const isMember = role === "member";
+  // Member role is strictly read-only: no adding, editing, or deleting
+  const canMutate = isAdmin && !isMember;
+
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [season, setSeason] = useState<string>("2026");
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -530,7 +539,7 @@ export default function ZkMainView() {
       {/* Navigation Tabs Bar */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-2 shadow-sm border border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none">
         <div className="flex items-center gap-1.5 min-w-max">
-          {tabs.map((tab) => {
+          {tabs.filter((t) => canMutate || t.id !== "settings").map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
@@ -562,51 +571,53 @@ export default function ZkMainView() {
         {activeTab === "dashboard" && stock && (
           <div className="space-y-6">
             {/* Quick Actions Row */}
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={() => {
-                  setEditingReceipt(null);
-                  setIsReceiptModalOpen(true);
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                تسجيل توريد / استلام جديد
-              </button>
+            {canMutate && (
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => {
+                    setEditingReceipt(null);
+                    setIsReceiptModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                  تسجيل توريد / استلام جديد
+                </button>
 
-              <button
-                onClick={() => {
-                  setEditingDistribution(null);
-                  setIsDistributionModalOpen(true);
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
-              >
-                <Send className="w-4 h-4" />
-                صرف وتوزيع أرز لمستفيد
-              </button>
+                <button
+                  onClick={() => {
+                    setEditingDistribution(null);
+                    setIsDistributionModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+                >
+                  <Send className="w-4 h-4" />
+                  صرف وتوزيع أرز لمستفيد
+                </button>
 
-              <button
-                onClick={() => {
-                  setEditingMill(null);
-                  setIsMillModalOpen(true);
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
-              >
-                <Factory className="w-4 h-4" />
-                تسجيل عملية تبييض بمضرب
-              </button>
+                <button
+                  onClick={() => {
+                    setEditingMill(null);
+                    setIsMillModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+                >
+                  <Factory className="w-4 h-4" />
+                  تسجيل عملية تبييض بمضرب
+                </button>
 
-              <button
-                onClick={() => {
-                  setEditingDonor(null);
-                  setIsDonorModalOpen(true);
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all border border-slate-300 dark:border-slate-700"
-              >
-                <Users className="w-4 h-4 text-emerald-600" />
-                + متبرع جديد للمخزن
-              </button>
-            </div>
+                <button
+                  onClick={() => {
+                    setEditingDonor(null);
+                    setIsDonorModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all border border-slate-300 dark:border-slate-700"
+                >
+                  <Users className="w-4 h-4 text-emerald-600" />
+                  + متبرع جديد للمخزن
+                </button>
+              </div>
+            )}
 
             {/* Warehouse Detailed Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -831,18 +842,20 @@ export default function ZkMainView() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button
-                  onClick={() => {
-                    setEditingDonor(null);
-                    setIsDonorModalOpen(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  إضافة متبرع جديد للمخزن
-                </button>
-              </div>
+              {canMutate && (
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={() => {
+                      setEditingDonor(null);
+                      setIsDonorModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    إضافة متبرع جديد للمخزن
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Donors Table */}
@@ -882,39 +895,43 @@ export default function ZkMainView() {
                             >
                               كشف حساب
                             </button>
-                            <button
-                              onClick={() => {
-                                setEditingDonor(d);
-                                setIsDonorModalOpen(true);
-                              }}
-                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-md"
-                              title="تعديل"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setDeleteConfirm({
-                                  isOpen: true,
-                                  title: "تأكيد حذف المتبرع",
-                                  message: `هل أنت متأكد من رغبتك في حذف المتبرع (${d.name})؟ لن يتم الحذف إن كان له عمليات استلام مسجلة.`,
-                                  onConfirm: async () => {
-                                    const res = await fetch(`/api/zakat-rice/donors/${d._id}`, { method: "DELETE" });
-                                    const result = await res.json();
-                                    if (result.ok) {
-                                      toast.success("تم حذف المتبرع بنجاح");
-                                      mutateDonors();
-                                    } else {
-                                      toast.error(result.error?.message || "فشل الحذف");
-                                    }
-                                  },
-                                });
-                              }}
-                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-md"
-                              title="حذف"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {canMutate && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setEditingDonor(d);
+                                    setIsDonorModalOpen(true);
+                                  }}
+                                  className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-md"
+                                  title="تعديل"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setDeleteConfirm({
+                                      isOpen: true,
+                                      title: "تأكيد حذف المتبرع",
+                                      message: `هل أنت متأكد من رغبتك في حذف المتبرع (${d.name})؟ لن يتم الحذف إن كان له عمليات استلام مسجلة.`,
+                                      onConfirm: async () => {
+                                        const res = await fetch(`/api/zakat-rice/donors/${d._id}`, { method: "DELETE" });
+                                        const result = await res.json();
+                                        if (result.ok) {
+                                          toast.success("تم حذف المتبرع بنجاح");
+                                          mutateDonors();
+                                        } else {
+                                          toast.error(result.error?.message || "فشل الحذف");
+                                        }
+                                      },
+                                    });
+                                  }}
+                                  className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-md"
+                                  title="حذف"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -989,18 +1006,20 @@ export default function ZkMainView() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button
-                  onClick={() => {
-                    setEditingReceipt(null);
-                    setIsReceiptModalOpen(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  تسجيل عملية جديدة
-                </button>
-              </div>
+              {canMutate && (
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={() => {
+                      setEditingReceipt(null);
+                      setIsReceiptModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    تسجيل عملية جديدة
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Receipts Table */}
@@ -1129,40 +1148,44 @@ export default function ZkMainView() {
                               >
                                 <Printer className="w-3.5 h-3.5" />
                               </button>
-                              <button
-                                onClick={() => {
-                                  setEditingReceipt(r);
-                                  setIsReceiptModalOpen(true);
-                                }}
-                                className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-md"
-                                title="تعديل"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setDeleteConfirm({
-                                    isOpen: true,
-                                    title: `تأكيد حذف عملية ${op === "purchase" ? "الشراء" : op === "sale" ? "البيع" : "الاستلام"}`,
-                                    message: `هل أنت متأكد من حذف عملية رقم (${r.no}) لـ (${r.donor_name})؟ سيتم عكس التأثير على رصيد المخزن والنقدية آلياً.`,
-                                    onConfirm: async () => {
-                                      const res = await fetch(`/api/zakat-rice/receipts/${r._id}`, { method: "DELETE" });
-                                      const result = await res.json();
-                                      if (result.ok) {
-                                        toast.success("تم حذف العملية بنجاح");
-                                        mutateReceipts();
-                                        mutate(`/api/zakat-rice/stock?season=${season}`);
-                                      } else {
-                                        toast.error(result.error?.message || "فشل الحذف");
-                                      }
-                                    },
-                                  });
-                                }}
-                                className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-md"
-                                title="حذف"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {canMutate && (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setEditingReceipt(r);
+                                      setIsReceiptModalOpen(true);
+                                    }}
+                                    className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-md"
+                                    title="تعديل"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setDeleteConfirm({
+                                        isOpen: true,
+                                        title: `تأكيد حذف عملية ${op === "purchase" ? "الشراء" : op === "sale" ? "البيع" : "الاستلام"}`,
+                                        message: `هل أنت متأكد من حذف عملية رقم (${r.no}) لـ (${r.donor_name})؟ سيتم عكس التأثير على رصيد المخزن والنقدية آلياً.`,
+                                        onConfirm: async () => {
+                                          const res = await fetch(`/api/zakat-rice/receipts/${r._id}`, { method: "DELETE" });
+                                          const result = await res.json();
+                                          if (result.ok) {
+                                            toast.success("تم حذف العملية بنجاح");
+                                            mutateReceipts();
+                                            mutate(`/api/zakat-rice/stock?season=${season}`);
+                                          } else {
+                                            toast.error(result.error?.message || "فشل الحذف");
+                                          }
+                                        },
+                                      });
+                                    }}
+                                    className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-md"
+                                    title="حذف"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1229,18 +1252,20 @@ export default function ZkMainView() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button
-                  onClick={() => {
-                    setEditingMill(null);
-                    setIsMillModalOpen(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  تسجيل عملية تبييض جديدة
-                </button>
-              </div>
+              {canMutate && (
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={() => {
+                      setEditingMill(null);
+                      setIsMillModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    تسجيل عملية تبييض جديدة
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Mills Table */}
@@ -1298,40 +1323,46 @@ export default function ZkMainView() {
                           </td>
                           <td className="p-3">
                             <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                onClick={() => {
-                                  setEditingMill(m);
-                                  setIsMillModalOpen(true);
-                                }}
-                                className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-md"
-                                title="تعديل"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setDeleteConfirm({
-                                    isOpen: true,
-                                    title: "تأكيد حذف عملية التبييض",
-                                    message: `هل أنت متأكد من حذف عملية تبييض رقم (${m.no}) بمضرب (${m.place})؟ سيتم حذف المصروفات التشغيلية المرتبطة بها آليًا، مع التحقق من عدم جعل رصيد الأرز سالبًا.`,
-                                    onConfirm: async () => {
-                                      const res = await fetch(`/api/zakat-rice/mills/${m._id}`, { method: "DELETE" });
-                                      const result = await res.json();
-                                      if (result.ok) {
-                                        toast.success("تم حذف عملية التبييض");
-                                        mutateMills();
-                                        mutate(`/api/zakat-rice/stock?season=${season}`);
-                                      } else {
-                                        toast.error(result.error?.message || "فشل الحذف");
-                                      }
-                                    },
-                                  });
-                                }}
-                                className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-md"
-                                title="حذف"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {canMutate ? (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setEditingMill(m);
+                                      setIsMillModalOpen(true);
+                                    }}
+                                    className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-md"
+                                    title="تعديل"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setDeleteConfirm({
+                                        isOpen: true,
+                                        title: "تأكيد حذف عملية التبييض",
+                                        message: `هل أنت متأكد من حذف عملية تبييض رقم (${m.no}) بمضرب (${m.place})؟ سيتم حذف المصروفات التشغيلية المرتبطة بها آليًا، مع التحقق من عدم جعل رصيد الأرز سالبًا.`,
+                                        onConfirm: async () => {
+                                          const res = await fetch(`/api/zakat-rice/mills/${m._id}`, { method: "DELETE" });
+                                          const result = await res.json();
+                                          if (result.ok) {
+                                            toast.success("تم حذف عملية التبييض");
+                                            mutateMills();
+                                            mutate(`/api/zakat-rice/stock?season=${season}`);
+                                          } else {
+                                            toast.error(result.error?.message || "فشل الحذف");
+                                          }
+                                        },
+                                      });
+                                    }}
+                                    className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-md"
+                                    title="حذف"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="text-slate-400 text-xs">—</span>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1418,25 +1449,27 @@ export default function ZkMainView() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button
-                  onClick={() => setIsExcelImportOpen(true)}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold transition-colors"
-                >
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                  استيراد من Excel / CSV
-                </button>
-                <button
-                  onClick={() => {
-                    setEditingBeneficiary(null);
-                    setIsBeneficiaryModalOpen(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  إضافة مستفيد جديد
-                </button>
-              </div>
+              {canMutate && (
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={() => setIsExcelImportOpen(true)}
+                    className="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold transition-colors"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                    استيراد من Excel / CSV
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingBeneficiary(null);
+                      setIsBeneficiaryModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    إضافة مستفيد جديد
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Beneficiaries Table */}
@@ -1476,39 +1509,43 @@ export default function ZkMainView() {
                             >
                               كشف استلامات
                             </button>
-                            <button
-                              onClick={() => {
-                                setEditingBeneficiary(b);
-                                setIsBeneficiaryModalOpen(true);
-                              }}
-                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-md"
-                              title="تعديل"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setDeleteConfirm({
-                                  isOpen: true,
-                                  title: "تأكيد حذف المستفيد",
-                                  message: `هل أنت متأكد من حذف المستفيد (${b.name})؟ لن يتم الحذف إن كان له أذونات توزيع سابقة مسجلة.`,
-                                  onConfirm: async () => {
-                                    const res = await fetch(`/api/zakat-rice/beneficiaries/${b._id}`, { method: "DELETE" });
-                                    const result = await res.json();
-                                    if (result.ok) {
-                                      toast.success("تم حذف المستفيد بنجاح");
-                                      mutateBeneficiaries();
-                                    } else {
-                                      toast.error(result.error?.message || "فشل الحذف");
-                                    }
-                                  },
-                                });
-                              }}
-                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-md"
-                              title="حذف"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {canMutate && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setEditingBeneficiary(b);
+                                    setIsBeneficiaryModalOpen(true);
+                                  }}
+                                  className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-md"
+                                  title="تعديل"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setDeleteConfirm({
+                                      isOpen: true,
+                                      title: "تأكيد حذف المستفيد",
+                                      message: `هل أنت متأكد من حذف المستفيد (${b.name})؟ لن يتم الحذف إن كان له أذونات توزيع سابقة مسجلة.`,
+                                      onConfirm: async () => {
+                                        const res = await fetch(`/api/zakat-rice/beneficiaries/${b._id}`, { method: "DELETE" });
+                                        const result = await res.json();
+                                        if (result.ok) {
+                                          toast.success("تم حذف المستفيد بنجاح");
+                                          mutateBeneficiaries();
+                                        } else {
+                                          toast.error(result.error?.message || "فشل الحذف");
+                                        }
+                                      },
+                                    });
+                                  }}
+                                  className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-md"
+                                  title="حذف"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1568,18 +1605,20 @@ export default function ZkMainView() {
                 </button>
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button
-                  onClick={() => {
-                    setEditingDistribution(null);
-                    setIsDistributionModalOpen(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  تسجيل إذن توزيع جديد
-                </button>
-              </div>
+              {canMutate && (
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={() => {
+                      setEditingDistribution(null);
+                      setIsDistributionModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    تسجيل إذن توزيع جديد
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Distributions Table */}
@@ -1658,40 +1697,44 @@ export default function ZkMainView() {
                             >
                               <Printer className="w-3.5 h-3.5" />
                             </button>
-                            <button
-                              onClick={() => {
-                                setEditingDistribution(d);
-                                setIsDistributionModalOpen(true);
-                              }}
-                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-md"
-                              title="تعديل"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setDeleteConfirm({
-                                  isOpen: true,
-                                  title: "تأكيد حذف إذن التوزيع",
-                                  message: `هل أنت متأكد من حذف إذن توزيع رقم (${d.no}) للمستفيد (${d.beneficiary_name})؟ سيتم إعادة (${d.quantity_kg} كجم) لرصيد مخزن الأرز آليًا.`,
-                                  onConfirm: async () => {
-                                    const res = await fetch(`/api/zakat-rice/distributions/${d._id}`, { method: "DELETE" });
-                                    const result = await res.json();
-                                    if (result.ok) {
-                                      toast.success("تم حذف إذن التوزيع");
-                                      mutateDistributions();
-                                      mutate(`/api/zakat-rice/stock?season=${season}`);
-                                    } else {
-                                      toast.error(result.error?.message || "فشل الحذف");
-                                    }
-                                  },
-                                });
-                              }}
-                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-md"
-                              title="حذف"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {canMutate && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setEditingDistribution(d);
+                                    setIsDistributionModalOpen(true);
+                                  }}
+                                  className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-md"
+                                  title="تعديل"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setDeleteConfirm({
+                                      isOpen: true,
+                                      title: "تأكيد حذف إذن التوزيع",
+                                      message: `هل أنت متأكد من حذف إذن توزيع رقم (${d.no}) للمستفيد (${d.beneficiary_name})؟ سيتم إعادة (${d.quantity_kg} كجم) لرصيد مخزن الأرز آليًا.`,
+                                      onConfirm: async () => {
+                                        const res = await fetch(`/api/zakat-rice/distributions/${d._id}`, { method: "DELETE" });
+                                        const result = await res.json();
+                                        if (result.ok) {
+                                          toast.success("تم حذف إذن التوزيع");
+                                          mutateDistributions();
+                                          mutate(`/api/zakat-rice/stock?season=${season}`);
+                                        } else {
+                                          toast.error(result.error?.message || "فشل الحذف");
+                                        }
+                                      },
+                                    });
+                                  }}
+                                  className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-md"
+                                  title="حذف"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1722,18 +1765,20 @@ export default function ZkMainView() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button
-                  onClick={() => {
-                    setEditingExpense(null);
-                    setIsExpenseModalOpen(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  إضافة مصروف تشغيلي جديد
-                </button>
-              </div>
+              {canMutate && (
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={() => {
+                      setEditingExpense(null);
+                      setIsExpenseModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    إضافة مصروف تشغيلي جديد
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Expenses Table */}
@@ -1788,7 +1833,7 @@ export default function ZkMainView() {
                         </td>
                         <td className="p-3">
                           <div className="flex items-center justify-center gap-1.5">
-                            {!e.auto && (
+                            {!e.auto && canMutate ? (
                               <>
                                 <button
                                   onClick={() => {
@@ -1825,6 +1870,8 @@ export default function ZkMainView() {
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </>
+                            ) : (
+                              <span className="text-slate-400 text-xs">—</span>
                             )}
                           </div>
                         </td>
@@ -1847,13 +1894,15 @@ export default function ZkMainView() {
                 <h2 className="text-base font-bold text-slate-900 dark:text-white">التسويات الجردية للمخازن</h2>
                 <p className="text-xs text-slate-500">معالجة أي فروق جردية فعلية (زيادة أو عجز) مع إلزامية توثيق السبب</p>
               </div>
-              <button
-                onClick={() => setIsAdjustmentModalOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow"
-              >
-                <Plus className="w-4 h-4" />
-                تسجيل تسوية جردية جديدة
-              </button>
+              {canMutate && (
+                <button
+                  onClick={() => setIsAdjustmentModalOpen(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow"
+                >
+                  <Plus className="w-4 h-4" />
+                  تسجيل تسوية جردية جديدة
+                </button>
+              )}
             </div>
 
             {/* Adjustments Table */}
@@ -1903,29 +1952,33 @@ export default function ZkMainView() {
                         <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">{a.reason}</td>
                         <td className="p-3 text-slate-700 dark:text-slate-300">{a.createdByName || "—"}</td>
                         <td className="p-3 text-center">
-                          <button
-                            onClick={() => {
-                              setDeleteConfirm({
-                                isOpen: true,
-                                title: "إلغاء وحذف التسوية",
-                                message: `هل أنت متأكد من إلغاء تسوية (${a.reason})؟ ستعود الأرصدة لوضعها السابق.`,
-                                onConfirm: async () => {
-                                  const res = await fetch(`/api/zakat-rice/adjustments/${a._id}`, { method: "DELETE" });
-                                  const result = await res.json();
-                                  if (result.ok) {
-                                    toast.success("تم إلغاء التسوية");
-                                    mutateAdjustments();
-                                    mutate(`/api/zakat-rice/stock?season=${season}`);
-                                  } else {
-                                    toast.error(result.error?.message || "فشل الإلغاء");
-                                  }
-                                },
-                              });
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {canMutate ? (
+                            <button
+                              onClick={() => {
+                                setDeleteConfirm({
+                                  isOpen: true,
+                                  title: "إلغاء وحذف التسوية",
+                                  message: `هل أنت متأكد من إلغاء تسوية (${a.reason})؟ ستعود الأرصدة لوضعها السابق.`,
+                                  onConfirm: async () => {
+                                    const res = await fetch(`/api/zakat-rice/adjustments/${a._id}`, { method: "DELETE" });
+                                    const result = await res.json();
+                                    if (result.ok) {
+                                      toast.success("تم إلغاء التسوية");
+                                      mutateAdjustments();
+                                      mutate(`/api/zakat-rice/stock?season=${season}`);
+                                    } else {
+                                      toast.error(result.error?.message || "فشل الإلغاء");
+                                    }
+                                  },
+                                });
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          ) : (
+                            <span className="text-slate-400 text-xs">—</span>
+                          )}
                         </td>
                       </tr>
                     ))

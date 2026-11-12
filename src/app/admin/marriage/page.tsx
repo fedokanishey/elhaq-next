@@ -28,6 +28,7 @@ import {
   X,
   Loader2,
   FileImage,
+  Eye,
   Tag,
   Sparkles,
   Info,
@@ -132,8 +133,8 @@ export default function MarriageAssistancePage() {
   const [formError, setFormError] = useState("");
 
   const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-  const isAdmin = role === "admin" || isSuperAdmin;
   const isMember = role === "member";
+  const isAdmin = role === "admin" || isSuperAdmin;
   const canAccess = isAdmin || isMember;
 
   // Build SWR query
@@ -427,13 +428,15 @@ export default function MarriageAssistancePage() {
                 onBranchChange={setSelectedBranchId}
               />
             )}
-            <button
-              onClick={handleOpenAddModal}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md hover:bg-primary/90 transition-all cursor-pointer"
-            >
-              <Plus className="w-5 h-5" />
-              <span>تسجيل حالة زواج جديدة</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={handleOpenAddModal}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md hover:bg-primary/90 transition-all cursor-pointer"
+              >
+                <Plus className="w-5 h-5" />
+                <span>تسجيل حالة زواج جديدة</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -575,13 +578,15 @@ export default function MarriageAssistancePage() {
                   : "لم يتم تسجيل أي حالات زواج في هذا الفرع أو هذا القسم حتى الآن."}
               </p>
             </div>
-            <button
-              onClick={handleOpenAddModal}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition shadow cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              تسجيل أول حالة زواج
-            </button>
+            {isAdmin && (
+              <button
+                onClick={handleOpenAddModal}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition shadow cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                تسجيل أول حالة زواج
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -765,8 +770,8 @@ export default function MarriageAssistancePage() {
                   {/* Actions Footer */}
                   <div className="pt-3 border-t border-border flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
-                      {/* Fast status buttons */}
-                      {c.status !== "completed" && (
+                      {/* Fast status buttons - Admins only */}
+                      {isAdmin && c.status !== "completed" && (
                         <button
                           onClick={() => handleQuickStatusChange(c._id, "completed")}
                           className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60 text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
@@ -776,7 +781,7 @@ export default function MarriageAssistancePage() {
                           <span>تمت المساعدة</span>
                         </button>
                       )}
-                      {c.status !== "in_progress" && c.status !== "completed" && (
+                      {isAdmin && c.status !== "in_progress" && c.status !== "completed" && (
                         <button
                           onClick={() => handleQuickStatusChange(c._id, "in_progress")}
                           className="px-2 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/60 text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
@@ -789,25 +794,38 @@ export default function MarriageAssistancePage() {
                     </div>
 
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleOpenEditModal(c)}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition cursor-pointer"
-                        title="تعديل الحالة والأجهزة"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCase(c._id, c.personName)}
-                        disabled={deletingId === c._id}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer disabled:opacity-50"
-                        title="حذف الحالة"
-                      >
-                        {deletingId === c._id ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-rose-500" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                      </button>
+                      {isAdmin ? (
+                        <>
+                          <button
+                            onClick={() => handleOpenEditModal(c)}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition cursor-pointer"
+                            title="تعديل الحالة والأجهزة"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCase(c._id, c.personName)}
+                            disabled={deletingId === c._id}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer disabled:opacity-50"
+                            title="حذف الحالة"
+                          >
+                            {deletingId === c._id ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-rose-500" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => handleOpenEditModal(c)}
+                          className="px-2.5 py-1 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition cursor-pointer flex items-center gap-1 text-xs font-medium border border-border"
+                          title="عرض تفاصيل الحالة"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>عرض التفاصيل</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1229,10 +1247,10 @@ export default function MarriageAssistancePage() {
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-foreground">
-                      تعديل ومتابعة حالة الزواج
+                      {isAdmin ? "تعديل ومتابعة حالة الزواج" : "تفاصيل حالة الزواج"}
                     </h2>
                     <p className="text-xs text-muted-foreground">
-                      المستفيد: {editingCase.beneficiaryName} | الحالة: {editingCase.personName}
+                      المستفيد: {editingCase.beneficiaryName} | الحالة: {editingCase.personName} {!isAdmin && "(عرض فقط - غير مصرح بالتعديل)"}
                     </p>
                   </div>
                 </div>
@@ -1252,6 +1270,7 @@ export default function MarriageAssistancePage() {
               )}
 
               <form onSubmit={handleSaveEditCase} className="space-y-5">
+                <fieldset disabled={!isAdmin} className="space-y-5 border-none p-0 m-0 disabled:opacity-95">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-foreground mb-1">
@@ -1480,23 +1499,27 @@ export default function MarriageAssistancePage() {
                   </div>
                 </div>
 
+                </fieldset>
+
                 {/* Submit buttons */}
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
                   <button
                     type="button"
                     onClick={() => setEditingCase(null)}
-                    className="px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted rounded-xl transition cursor-pointer"
+                    className="px-5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted rounded-xl transition cursor-pointer"
                   >
-                    إلغاء
+                    {isAdmin ? "إلغاء" : "إغلاق"}
                   </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm shadow hover:bg-primary/90 transition cursor-pointer disabled:opacity-50"
-                  >
-                    {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                    حفظ التعديلات
-                  </button>
+                  {isAdmin && (
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm shadow hover:bg-primary/90 transition cursor-pointer disabled:opacity-50"
+                    >
+                      {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                      حفظ التعديلات
+                    </button>
+                  )}
                 </div>
               </form>
             </div>

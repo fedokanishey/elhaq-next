@@ -42,8 +42,8 @@ export async function PATCH(
   try {
     await dbConnect();
     const authResult = await getAuthenticatedUser();
-    if (!authResult.isAuthorized || (!authResult.isAdmin && !authResult.isMember)) {
-      return NextResponse.json({ error: "غير مصرح لك بالتعديل" }, { status: 403 });
+    if (!authResult.isAuthorized || !authResult.isAdmin || authResult.isMember) {
+      return NextResponse.json({ error: "غير مصرح لك بالتعديل (صلاحية عرض فقط)" }, { status: 403 });
     }
 
     const { id } = await params;
@@ -119,8 +119,8 @@ export async function DELETE(
   try {
     await dbConnect();
     const authResult = await getAuthenticatedUser();
-    if (!authResult.isAuthorized || (!authResult.isAdmin && !authResult.isMember)) {
-      return NextResponse.json({ error: "غير مصرح لك بالحذف" }, { status: 403 });
+    if (!authResult.isAuthorized || !authResult.isAdmin || authResult.isMember) {
+      return NextResponse.json({ error: "غير مصرح لك بالحذف (صلاحية عرض فقط)" }, { status: 403 });
     }
 
     const { id } = await params;

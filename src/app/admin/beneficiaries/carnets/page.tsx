@@ -51,6 +51,21 @@ function chunkList<T>(list: T[], size: number): T[][] {
   return result;
 }
 
+// Invert columns row-by-row so the back of each card lands directly behind its front on long-edge duplex
+function getDuplexBackList<T>(chunk: T[]): (T | null)[] {
+  const result: (T | null)[] = [];
+  for (let i = 0; i < chunk.length; i += 2) {
+    const first = chunk[i];
+    const second = i + 1 < chunk.length ? chunk[i + 1] : null;
+    // In RTL: first is at column 1 (right), second is at column 2 (left).
+    // On duplex flip along the long edge, column 1 becomes column 2.
+    // So we put second in column 1 and first in column 2:
+    result.push(second);
+    result.push(first);
+  }
+  return result;
+}
+
 function CarnetInner() {
   const searchParams = useSearchParams();
 
@@ -578,6 +593,21 @@ function CarnetInner() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        {/* Duplex and 5-card Print Guide Banner */}
+        <div className="mb-4 bg-teal-50/80 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/60 rounded-2xl p-3.5 text-xs text-teal-900 dark:text-teal-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
+          <div className="flex items-center gap-2.5">
+            <span className="text-lg">🖨️</span>
+            <div>
+              <span className="font-bold">تطابق ليزري 100% بين الوش والظهر (5 كروت بالعمود):</span>
+              <span className="text-teal-800/90 dark:text-teal-300 mr-1">
+                في نافذة الطباعة: اختر <strong>الهوامش: بلا (Margins: None)</strong> وألغِ تفعيل <strong>الرؤوس والتذييلات</strong> لضمان خروج 10 كروت بالصفحة وتطابق الوش والظهر بالمليمتر.
+              </span>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 bg-teal-700 text-white rounded-lg text-[11px] font-bold shrink-0 self-start sm:self-center">
+            A4 · 10 كروت / صفحة
+          </span>
+        </div>
         {isLoading && !data ? (
           <div className="text-center py-20">
             <BrandedLoader />
@@ -675,9 +705,9 @@ function CarnetInner() {
                     </div>
                     <div className="print-page">
                       <div className="print-grid-container">
-                        {chunk.map((b) => (
-                          <div key={`back-${b._id}`} className="print-card-box">
-                            {renderBackCard()}
+                        {getDuplexBackList(chunk).map((b, bIdx) => (
+                          <div key={`back-slot-${pIdx}-${bIdx}`} className="print-card-box">
+                            {b ? renderBackCard() : <div className="id-card-placeholder" />}
                           </div>
                         ))}
                       </div>
@@ -1254,7 +1284,7 @@ function CarnetInner() {
         @media print {
           @page {
             size: A4 portrait;
-            margin: 4mm 4mm;
+            margin: 0 !important;
           }
 
           *, *::before, *::after {
@@ -1262,11 +1292,13 @@ function CarnetInner() {
             print-color-adjust: exact !important;
           }
 
-          body {
+          html, body {
             background: #ffffff !important;
             color: #000000 !important;
             margin: 0 !important;
             padding: 0 !important;
+            width: 210mm !important;
+            height: 297mm !important;
           }
 
           .no-print,
@@ -1293,14 +1325,28 @@ function CarnetInner() {
 
           .print-sheets-root {
             display: block !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
 
           .print-page {
-            page-break-after: always !important;
-            break-after: page !important;
+            width: 210mm !important;
+            height: 297mm !important;
+            min-height: 297mm !important;
+            max-height: 297mm !important;
             box-sizing: border-box !important;
-            padding: 1mm 0 !important;
-            margin: 0 auto !important;
+            margin: 0 !important;
+            padding: 13.5mm 19mm !important;
+            page-break-before: always !important;
+            break-before: page !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            overflow: hidden !important;
+          }
+
+          .print-page:first-child {
+            page-break-before: auto !important;
+            break-before: auto !important;
           }
 
           .print-page:last-child {
@@ -1309,34 +1355,53 @@ function CarnetInner() {
           }
 
           .print-grid-container {
+            width: 172mm !important;
+            height: 270mm !important;
             display: grid !important;
-            grid-template-columns: repeat(2, 82.5mm) !important;
-            grid-auto-rows: 52mm !important;
-            gap: 2.2mm 5mm !important;
+            grid-template-columns: 82.5mm 82.5mm !important;
+            grid-template-rows: repeat(5, 52mm) !important;
+            gap: 2.5mm 7mm !important;
             justify-content: center !important;
             align-content: start !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
           }
 
           .print-card-box {
             width: 82.5mm !important;
             height: 52mm !important;
+            max-width: 82.5mm !important;
+            max-height: 52mm !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
             display: flex !important;
             justify-content: center !important;
             align-items: center !important;
             box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
 
           .id-card {
             width: 82.5mm !important;
             height: 52mm !important;
+            max-width: 82.5mm !important;
+            max-height: 52mm !important;
             aspect-ratio: 85.6 / 54 !important;
             border-radius: 2.8mm !important;
             box-shadow: none !important;
             border: 0.2mm solid #bbb !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+          }
+
+          .id-card-placeholder {
+            width: 82.5mm !important;
+            height: 52mm !important;
+            visibility: hidden !important;
           }
 
           .page-break {

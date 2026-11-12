@@ -145,8 +145,8 @@ export async function POST(req: Request) {
     await dbConnect();
     const authResult = await getAuthenticatedUser();
 
-    if (!authResult.isAuthorized || (!authResult.isAdmin && !authResult.isMember)) {
-      return NextResponse.json({ error: "غير مصرح لك بتسجيل حالات" }, { status: 403 });
+    if (!authResult.isAuthorized || !authResult.isAdmin || authResult.isMember) {
+      return NextResponse.json({ error: "غير مصرح لك بتسجيل حالات (صلاحية عرض فقط)" }, { status: 403 });
     }
 
     const body = await req.json();

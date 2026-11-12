@@ -49,13 +49,13 @@ export async function getZkAuth(): Promise<ZkAuthContext> {
     if (zkUser) {
       role = zkUser.role;
     } else if (mainAuth.isMember) {
-      role = "store"; // default for active staff members
+      role = "viewer"; // Member role is strictly read-only (viewer)
     }
 
-    const isAdmin = role === "admin" || mainAuth.isAdmin || mainAuth.isSuperAdmin;
-    const canStore = isAdmin || role === "store";
-    const canDistribute = isAdmin || role === "dist";
-    const canAccount = isAdmin || role === "acct" || role === "store";
+    const isAdmin = (role === "admin" || mainAuth.isAdmin || mainAuth.isSuperAdmin) && !mainAuth.isMember;
+    const canStore = isAdmin || (role === "store" && !mainAuth.isMember);
+    const canDistribute = isAdmin || (role === "dist" && !mainAuth.isMember);
+    const canAccount = isAdmin || ((role === "acct" || role === "store") && !mainAuth.isMember);
     const canDelete = isAdmin;
 
     return {
