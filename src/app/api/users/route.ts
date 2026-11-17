@@ -1,4 +1,5 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { isValidObjectId, type Types } from "mongoose";
 import dbConnect from "@/lib/mongodb";
 import User from "@/lib/models/User";
 import Branch from "@/lib/models/Branch";
@@ -92,12 +93,93 @@ export async function GET() {
       return NextResponse.json({ users, role: 'admin', branch: authResult.branchName });
     } 
     
-    // Non-admin: return only own profile
+    // Non-admin: return only own profile and active branches (for self-service branch selection)
     console.log("Non-admin fetching own profile");
-    const user = await User.findOne({ clerkId: userId }).populate('branch');
-    return NextResponse.json({ user, role });
+    const [user, branches] = await Promise.all([
+      User.findOne({ clerkId: userId }).populate('branch'),
+      Branch.find({ isActive: true }).sort({ name: 1 }).select('_id name code').lean(),
+    ]);
+    const finalRole = role || user?.role || 'user';
+    return NextResponse.json({ user, role: finalRole, branches });
   } catch (error) {
     console.error("Error fetching users:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
+// PATCH: Regular users (`role === "user"`) can set or change their own assigned branch from Profile
+export async function PATCH(request: Request) {
+  try {
+    const authResult = await getAuthenticatedUser();
+    if (!authResult.userId) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
+    if (
+      authResult.role !== "user" ||
+      authResult.isAdmin ||
+      authResult.isSuperAdmin ||
+      authResult.isMember
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "تغيير الفرع متاح للمستخدم العادي فقط؛ يتم تعيين فرع الأعضاء والمسؤولين بواسطة السوبر ادمن",
+        },
+        { status: 403 }
+      );
+    }
+
+    const body = (await request.json().catch(() => null)) as {
+      branchId?: unknown;
+    } | null;
+    const branchId = typeof body?.branchId === "string" ? body.branchId.trim() : "";
+
+    if (!branchId || !isValidObjectId(branchId)) {
+      return NextResponse.json(
+        { error: "يرجى اختيار فرع صالح" },
+        { status: 400 }
+      );
+    }
+
+    await dbConnect();
+
+    const branchDoc = (await Branch.findOne({
+      _id: branchId,
+      isActive: true,
+    })
+      .select("_id name code")
+      .lean()) as { _id: Types.ObjectId; name: string; code: string } | null;
+
+    if (!branchDoc) {
+      return NextResponse.json(
+        { error: "الفرع المختار غير متاح" },
+        { status: 404 }
+      );
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { clerkId: authResult.userId },
+      {
+        $set: {
+          branch: branchDoc._id,
+          branchName: branchDoc.name,
+        },
+      },
+      { new: true }
+    ).populate("branch");
+
+    return NextResponse.json({
+      ok: true,
+      branchId: branchDoc._id.toString(),
+      branchName: branchDoc.name,
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Error updating user branch:", error);
+    return NextResponse.json(
+      { error: "تعذر تحديث الفرع حالياً" },
+      { status: 500 }
+    );
   }
 }

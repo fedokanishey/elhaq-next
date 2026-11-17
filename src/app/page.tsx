@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
-import { ArrowRight, Heart, Shield, Users, LayoutDashboard, UserCircle, Image as ImageIcon, Wallet, BarChart3, HandCoins, Archive } from "lucide-react";
+import { ArrowRight, Heart, Shield, Users, LayoutDashboard, UserCircle, Image as ImageIcon, Wallet, BarChart3, HandCoins, Archive, FileText, ClipboardList } from "lucide-react";
 import InstallPWA from "@/components/InstallPWA";
 
 interface InitiativePreview {
@@ -164,9 +164,15 @@ export default function Home() {
     cancelled: "ملغاة",
   };
 
-  const role = user ? (user.publicMetadata?.role || user.unsafeMetadata?.role) : undefined;
-  const canAccessDashboard = role === "admin";
-  const canViewBeneficiaries = role === "admin" || role === "member";
+  const effectiveRole = user
+    ? ((user.publicMetadata?.role || user.unsafeMetadata?.role || "user") as string)
+    : undefined;
+  const canAccessDashboard = effectiveRole === "admin";
+  const isRegularUser = Boolean(user) && effectiveRole === "user";
+  const canViewBeneficiaries =
+    effectiveRole === "admin" ||
+    effectiveRole === "superadmin" ||
+    effectiveRole === "member";
 
   return (
     <div className="min-h-screen bg-background flex flex-col transition-colors duration-300">
@@ -241,6 +247,26 @@ export default function Home() {
                     التقارير
                   </Link>
                 </>
+              )}
+
+              {canViewBeneficiaries && (
+                <Link
+                  href="/admin/assistance-requests"
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 text-base font-medium rounded-md transition-colors shadow-sm"
+                >
+                  <ClipboardList className="ml-2 h-5 w-5" aria-hidden="true" />
+                  طلبات المساعدة
+                </Link>
+              )}
+
+              {isRegularUser && (
+                <Link
+                  href="/assistance-request"
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 text-base font-medium rounded-md transition-colors shadow-sm"
+                >
+                  <FileText className="ml-2 h-5 w-5" aria-hidden="true" />
+                  استبيان طلب مساعدة
+                </Link>
               )}
 
               <Link

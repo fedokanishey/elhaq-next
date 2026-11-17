@@ -29,10 +29,13 @@ export default function Navbar() {
     return () => observer.disconnect();
   }, []);
 
-  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-  const isSuperAdmin = role === "superadmin";
-  const isAdmin = role === "admin" || isSuperAdmin;
-  const isMember = role === "member";
+  const effectiveRole = (user?.publicMetadata?.role ||
+    user?.unsafeMetadata?.role ||
+    "user") as string;
+  const isSuperAdmin = effectiveRole === "superadmin";
+  const isAdmin = effectiveRole === "admin" || isSuperAdmin;
+  const isMember = effectiveRole === "member";
+  const isRegularUser = Boolean(user) && effectiveRole === "user";
   const canViewBeneficiaries = isAdmin || isMember;
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
@@ -67,6 +70,22 @@ export default function Navbar() {
                     className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
                   >
                     لوحة التحكم
+                  </Link>
+                )}
+                {canViewBeneficiaries && (
+                  <Link
+                    href="/admin/assistance-requests"
+                    className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+                  >
+                    طلبات المساعدة
+                  </Link>
+                )}
+                {isRegularUser && (
+                  <Link
+                    href="/assistance-request"
+                    className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+                  >
+                    استبيان طلب مساعدة
                   </Link>
                 )}
                 {canViewBeneficiaries && (
@@ -177,6 +196,24 @@ export default function Navbar() {
                     onClick={() => setMenuOpen(false)}
                   >
                     لوحة التحكم
+                  </Link>
+                )}
+                {canViewBeneficiaries && (
+                  <Link
+                    href="/admin/assistance-requests"
+                    className="block rounded-md px-3 py-2 text-base font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    طلبات المساعدة
+                  </Link>
+                )}
+                {isRegularUser && (
+                  <Link
+                    href="/assistance-request"
+                    className="block rounded-md px-3 py-2 text-base font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    استبيان طلب مساعدة
                   </Link>
                 )}
                 {canViewBeneficiaries && (

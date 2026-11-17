@@ -228,6 +228,13 @@ BeneficiarySchema.index({ nationalId: 1, branch: 1 }, { unique: true });
 // Compound unique index: internalId must be unique within each branch
 BeneficiarySchema.index({ internalId: 1, branch: 1 }, { unique: true, sparse: true });
 
+// Sparse indexes for fast exact-match verification across family members
+BeneficiarySchema.index({ "spouse.nationalId": 1 }, { sparse: true });
+BeneficiarySchema.index({ "children.nationalId": 1 }, { sparse: true });
+BeneficiarySchema.index({ "children.idNumber": 1 }, { sparse: true });
+BeneficiarySchema.index({ "children.spouse.nationalId": 1 }, { sparse: true });
+BeneficiarySchema.index({ "relationships.relativeNationalId": 1 }, { sparse: true });
+
 if (mongoose.models.Beneficiary) {
   mongoose.deleteModel('Beneficiary');
 }

@@ -20,7 +20,8 @@ import {
   HandCoins,
   Building2,
   Crown,
-  Heart
+  Heart,
+  ClipboardList
 } from "lucide-react";
 import { useBranchContext } from "@/contexts/BranchContext";
 import BranchSelector from "@/components/BranchSelector";
@@ -170,6 +171,19 @@ export default function AdminDashboard() {
         {/* Quick Actions */}
         <h2 className="text-2xl font-bold text-foreground mt-8 mb-4">إجراءات سريعة</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Link
+            href="/admin/assistance-requests"
+            className="group bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
+          >
+            <div className="flex items-center gap-4 mb-3">
+              <div className="p-3 bg-primary/10 rounded-full group-hover:bg-primary/20 transition-colors">
+                <ClipboardList className="h-6 w-6 text-primary" aria-hidden="true" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">طلبات المساعدة</h3>
+            </div>
+            <p className="text-muted-foreground text-sm">مراجعة طلبات المساعدة والتحقق من ارتباطها بسجلات المستفيدين والأسرة</p>
+          </Link>
+
           <Link
             href="/admin/beneficiaries"
             className="group bg-card border border-border rounded-xl shadow-sm p-6 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "inngest:dev": "npx inngest-cli@latest dev",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --experimental-strip-types --import ./scripts/test-register.mjs --test src/lib/assistance/__tests__/verification.test.ts src/lib/assistance/__tests__/privacy-and-auth.test.ts src/lib/assistance/__tests__/history.test.ts src/lib/assistance/__tests__/workflow.test.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",
