@@ -35,7 +35,6 @@ export default function Navbar() {
   const isSuperAdmin = effectiveRole === "superadmin";
   const isAdmin = effectiveRole === "admin" || isSuperAdmin;
   const isMember = effectiveRole === "member";
-  const isRegularUser = Boolean(user) && effectiveRole === "user";
   const canViewBeneficiaries = isAdmin || isMember;
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
@@ -80,15 +79,12 @@ export default function Navbar() {
                     طلبات المساعدة
                   </Link>
                 )}
-                {isRegularUser && (
-                  <Link
-                    href="/assistance-request"
-                    className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-                  >
-                    استبيان طلب مساعدة
-                  </Link>
-                )}
-                {canViewBeneficiaries && (
+                <Link
+                  href="/assistance-request"
+                  className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+                >
+                  استبيان طلب مساعدة
+                </Link>                {canViewBeneficiaries && (
                   <Link
                     href="/beneficiaries"
                     className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
@@ -207,15 +203,13 @@ export default function Navbar() {
                     طلبات المساعدة
                   </Link>
                 )}
-                {isRegularUser && (
-                  <Link
-                    href="/assistance-request"
-                    className="block rounded-md px-3 py-2 text-base font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    استبيان طلب مساعدة
-                  </Link>
-                )}
+                <Link
+                  href="/assistance-request"
+                  className="block rounded-md px-3 py-2 text-base font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  استبيان طلب مساعدة
+                </Link>
                 {canViewBeneficiaries && (
                   <Link
                     href="/beneficiaries"

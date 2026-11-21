@@ -42,7 +42,7 @@
 ## 4. هيكل بيانات طلبات المساعدة والمراجعة (Assistance Request Schema)
 
 ### 4.1 مجموعة `assistancerequests` (`src/lib/models/AssistanceRequest.ts`)
-- **بيانات مقدم الطلب**: `fullName`, `nationalIdEncrypted` (AES-256-GCM), `nationalIdBlindIndex` (HMAC-SHA256 مفهرس), `nationalIdMasked`, `phone`, `whatsapp`, `address`, `familyMembersCount`, `maritalStatus`, `monthlyIncome`, `assistanceCategory`, `description`, `attachments`, `submittedByClerkId`.
+- **بيانات مقدم الطلب**: `fullName`, `nationalIdEncrypted` (AES-256-GCM), `nationalIdBlindIndex` (HMAC-SHA256 مفهرس), `nationalIdMasked`, `phone`, `whatsapp`, `address`, `familyMembersCount`, `maritalStatus`, `monthlyIncome`, `assistanceCategory`, `assistanceCategoryCustom` (النص الحر عند إضافة نوع مساعدة جديد غير موجود بالقائمة، ويُخزن التصنيف كـ `other`), `description`, `attachments`, `submittedByClerkId`.
 - **نتيجة التحقق والربط**:
   - `verificationStatus`: `'matched_primary_beneficiary' | 'matched_spouse' | 'matched_child' | 'matched_other_dependent' | 'not_matched' | 'manual_review'`
   - `relationshipType`: `'primary_beneficiary' | 'beneficiary_spouse' | 'beneficiary_child' | 'other_dependent' | 'unknown'`
@@ -86,7 +86,7 @@
   - كشف الرقم القومي الكامل يتم حصراً عبر `POST /api/admin/assistance-requests/[id]/reveal-national-id` مع تسجيل الحدث في `AssistanceAuditLog` وترويسة `Cache-Control: no-store`.
 - **عزل الصلاحيات ومنع الثغرات**:
   - طبقة حماية Clerk middleware تشمل `/admin(.*)` و `/api/admin(.*)` و `/assistance-request(.*)` و `/api/assistance-requests(.*)`.
-  - الدالة `evaluateAssistanceUserSubmitAccess` تقصر الوصول وتقديم الطلبات عبر `استبيان طلب مساعدة` (`/assistance-request` و `/api/assistance-requests`) حصراً على دور **`user` (`مستخدم عادي`)** وتمنع الزوار (`401`) وبقية الأدوار (`member`, `admin`, `superadmin` — `403`). كما يتيح `/profile` (`PATCH /api/users`) للمستخدم العادي تحديد فرعه بحيث يتوجه طلبه والتحقق من المستفيدين حصراً لهذا الفرع فقط.
+  - الدالة `evaluateAssistanceSubmitAccess` تتيح الوصول وتقديم الطلبات عبر `استبيان طلب مساعدة` (`/assistance-request` و `/api/assistance-requests`) لأي مستخدم مسجل الدخول بغض النظر عن دوره (`user`, `member`, `admin`, `superadmin`) وتمنع الزوار فقط (`401`). كما يتيح `/profile` (`PATCH /api/users`) للمستخدم العادي تحديد فرعه بحيث يتوجه طلبه والتحقق من المستفيدين حصراً لهذا الفرع فقط.
   - الدالة `evaluateAssistanceReadAccess` تمنح صلاحية **العرض فقط** لطلبات المساعدة في نفس الفرع لدور **`member` (`عضو`)** وللمسؤولين (`admin` نفس الفرع و`superadmin` جميع الفروع أو فرع محدد)، وتمنع `user` (`403`) وفروعاً أخرى (`403` IDOR).
   - الدالة `evaluateAssistanceAdminAccess` تقصر جميع عمليات التعديل والحذف وحسم التحقق وإضافة الملاحظات وتعيين المراجعين حصراً على `admin` (نفس الفرع) و`superadmin`، وتمنع تماماً غير المسجلين (`401`)، وذوي دور `user` (`403`)، وذوي دور **`member`** (`403`)، ومسؤولي الفروع الأخرى (`403` IDOR).
   - **عزل الإشعارات العامة**: نظراً لأن `NotificationBell` يعرض مجموعة `Notification` لدور `member`، لا تُرسل أي أحداث تخص طلبات المساعدة إلى `Notification` بتاتاً.

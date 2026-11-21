@@ -118,10 +118,10 @@ export function evaluateAssistanceReadAccess(
 }
 
 /**
- * Pure authorization check enforcing regular-user-only questionnaire access (`role === 'user'`).
- * Unauthenticated users, committee members (`member`), admins, and superadmins are denied.
+ * Pure authorization check for the assistance request questionnaire.
+ * Any authenticated user is allowed regardless of role; unauthenticated callers are denied.
  */
-export function evaluateAssistanceUserSubmitAccess(
+export function evaluateAssistanceSubmitAccess(
   authInput: MinimalAuthCheckInput
 ): AdminAccessDecision {
   if (!authInput.userId) {
@@ -132,27 +132,14 @@ export function evaluateAssistanceUserSubmitAccess(
     };
   }
 
-  if (
-    authInput.role !== "user" ||
-    authInput.isAdmin ||
-    authInput.isSuperAdmin ||
-    authInput.isMember
-  ) {
-    return {
-      ok: false,
-      status: 403,
-      error: "ممنوع الوصول — استبيان طلب المساعدة مخصص للمستخدمين فقط",
-    };
-  }
-
   return { ok: true };
 }
 
-export async function requireAssistanceRegularUser() {
+export async function requireAssistanceSubmitAccess() {
   const { getAuthenticatedUser } = await import("@/lib/auth-helpers");
   const authResult = await getAuthenticatedUser();
 
-  const decision = evaluateAssistanceUserSubmitAccess({
+  const decision = evaluateAssistanceSubmitAccess({
     userId: authResult.userId,
     role: authResult.role,
     branchId: authResult.branch ? authResult.branch.toString() : null,

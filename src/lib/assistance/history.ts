@@ -1,4 +1,7 @@
-import type { ApplicantRelationshipType } from "./types";
+import {
+  resolveAssistanceCategoryLabel,
+  type ApplicantRelationshipType,
+} from "./types";
 
 export type HistoryScope = "individual" | "family_level";
 
@@ -96,6 +99,7 @@ export interface RawLoanForHistory {
 export interface RawPriorRequestForHistory {
   _id: unknown;
   assistanceCategory: string;
+  assistanceCategoryCustom?: string;
   status: string;
   createdAt: Date | string;
   nationalIdBlindIndex: string;
@@ -381,8 +385,14 @@ export function classifyAssistanceHistory(
         source: "assistance_request",
         scope: "individual",
         scopeLabel: INDIVIDUAL_LEVEL_LABEL,
-        title: `طلب مساعدة سابق (${req.assistanceCategory})`,
-        category: req.assistanceCategory,
+        title: `طلب مساعدة سابق (${resolveAssistanceCategoryLabel(
+          req.assistanceCategory,
+          req.assistanceCategoryCustom
+        )})`,
+        category: resolveAssistanceCategoryLabel(
+          req.assistanceCategory,
+          req.assistanceCategoryCustom
+        ),
         status: req.status,
         date: toIsoString(req.createdAt),
         description: req.description ? req.description.slice(0, 140) : undefined,
@@ -395,7 +405,10 @@ export function classifyAssistanceHistory(
         scope: "family_level",
         scopeLabel: FAMILY_LEVEL_LABEL,
         title: `طلب مساعدة سابق من فرد بالأسرة (${req.fullName})`,
-        category: req.assistanceCategory,
+        category: resolveAssistanceCategoryLabel(
+          req.assistanceCategory,
+          req.assistanceCategoryCustom
+        ),
         status: req.status,
         date: toIsoString(req.createdAt),
         description: req.description ? req.description.slice(0, 140) : undefined,
@@ -545,7 +558,7 @@ export async function loadAssistanceHistoryForRequest(params: {
       })
         .sort({ createdAt: -1 })
         .select(
-          "_id assistanceCategory status createdAt nationalIdBlindIndex fullName relationshipType description"
+          "_id assistanceCategory assistanceCategoryCustom status createdAt nationalIdBlindIndex fullName relationshipType description"
         )
         .lean(),
     ]);

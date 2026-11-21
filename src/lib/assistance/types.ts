@@ -94,6 +94,22 @@ export const ASSISTANCE_CATEGORY_LABELS: Record<AssistanceCategory, string> = {
   other: "أخرى",
 };
 
+export const ASSISTANCE_CATEGORY_CUSTOM_MAX_LENGTH = 80;
+
+/**
+ * Resolves the human-readable label for an assistance category.
+ * Custom categories (stored under `other` with a free-text label) are preferred when present.
+ */
+export function resolveAssistanceCategoryLabel(
+  category: string,
+  customLabel?: string | null
+): string {
+  if (category === "other" && customLabel && customLabel.trim()) {
+    return customLabel.trim();
+  }
+  return ASSISTANCE_CATEGORY_LABELS[category as AssistanceCategory] ?? category;
+}
+
 export const VERIFICATION_WARNING_CODES = [
   "duplicate_national_id",
   "conflicting_relationship_types",
@@ -204,6 +220,7 @@ export interface ValidatedAssistanceSubmission {
   whatsapp?: string;
   address: string;
   assistanceCategory: AssistanceCategory;
+  assistanceCategoryCustom?: string;
   description: string;
   maritalStatus?: ApplicantMaritalStatus;
   familyMembersCount?: number;

@@ -9,7 +9,7 @@ import {
 import {
   evaluateAssistanceAdminAccess,
   evaluateAssistanceReadAccess,
-  evaluateAssistanceUserSubmitAccess,
+  evaluateAssistanceSubmitAccess,
   sanitizeAuditDetails,
   sanitizePublicSubmissionResponse,
 } from "../auth";
@@ -206,8 +206,8 @@ describe("Privacy, Cryptography & Access Control (Phase 10.2)", () => {
     assert.equal(okSubmission.attachments.length, 1);
   });
 
-  it("restricts assistance questionnaire submission strictly to `user` role", () => {
-    const guest = evaluateAssistanceUserSubmitAccess({
+  it("allows any authenticated user to submit the assistance questionnaire while denying guests", () => {
+    const guest = evaluateAssistanceSubmitAccess({
       userId: null,
       role: "user",
       branchId: null,
@@ -218,7 +218,7 @@ describe("Privacy, Cryptography & Access Control (Phase 10.2)", () => {
     assert.equal(guest.ok, false);
     if (!guest.ok) assert.equal(guest.status, 401);
 
-    const basicUser = evaluateAssistanceUserSubmitAccess({
+    const basicUser = evaluateAssistanceSubmitAccess({
       userId: "user_1",
       role: "user",
       branchId: "branch_1",
@@ -228,7 +228,7 @@ describe("Privacy, Cryptography & Access Control (Phase 10.2)", () => {
     });
     assert.equal(basicUser.ok, true);
 
-    const memberUser = evaluateAssistanceUserSubmitAccess({
+    const memberUser = evaluateAssistanceSubmitAccess({
       userId: "member_1",
       role: "member",
       branchId: "branch_1",
@@ -236,10 +236,9 @@ describe("Privacy, Cryptography & Access Control (Phase 10.2)", () => {
       isAdmin: false,
       isMember: true,
     });
-    assert.equal(memberUser.ok, false);
-    if (!memberUser.ok) assert.equal(memberUser.status, 403);
+    assert.equal(memberUser.ok, true);
 
-    const adminUser = evaluateAssistanceUserSubmitAccess({
+    const adminUser = evaluateAssistanceSubmitAccess({
       userId: "admin_1",
       role: "admin",
       branchId: "branch_1",
@@ -247,10 +246,9 @@ describe("Privacy, Cryptography & Access Control (Phase 10.2)", () => {
       isAdmin: true,
       isMember: false,
     });
-    assert.equal(adminUser.ok, false);
-    if (!adminUser.ok) assert.equal(adminUser.status, 403);
+    assert.equal(adminUser.ok, true);
 
-    const superAdminUser = evaluateAssistanceUserSubmitAccess({
+    const superAdminUser = evaluateAssistanceSubmitAccess({
       userId: "super_1",
       role: "superadmin",
       branchId: null,
@@ -258,8 +256,7 @@ describe("Privacy, Cryptography & Access Control (Phase 10.2)", () => {
       isAdmin: false,
       isMember: false,
     });
-    assert.equal(superAdminUser.ok, false);
-    if (!superAdminUser.ok) assert.equal(superAdminUser.status, 403);
+    assert.equal(superAdminUser.ok, true);
   });
 
   it("grants read-only assistance request viewing to same-branch `member` while blocking regular `user` and cross-branch `member`", () => {

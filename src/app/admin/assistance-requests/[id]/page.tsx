@@ -35,13 +35,13 @@ import {
 } from "lucide-react";
 import BrandedLoader from "@/components/BrandedLoader";
 import {
-  ASSISTANCE_CATEGORY_LABELS,
   type AssistanceCategory,
   MARITAL_STATUS_LABELS,
   type ApplicantMaritalStatus,
   type ApplicantRelationshipType,
   RELATIONSHIP_TYPE_LABELS,
   REQUEST_STATUS_LABELS,
+  resolveAssistanceCategoryLabel,
   type RequestStatus,
   VERIFICATION_STATUS_LABELS,
   type VerificationStatus,
@@ -95,6 +95,7 @@ interface AssistanceRequestDetail {
   maritalStatus?: ApplicantMaritalStatus;
   monthlyIncome?: number;
   assistanceCategory: AssistanceCategory;
+  assistanceCategoryCustom?: string;
   description: string;
   attachments: string[];
   verificationStatus: VerificationStatus;
@@ -723,7 +724,10 @@ export default function AdminAssistanceRequestDetailPage({
               <p className="text-sm text-muted-foreground mt-1">
                 نوع الطلب:{" "}
                 <span className="text-foreground font-medium">
-                  {ASSISTANCE_CATEGORY_LABELS[req.assistanceCategory]}
+                  {resolveAssistanceCategoryLabel(
+                    req.assistanceCategory,
+                    req.assistanceCategoryCustom
+                  )}
                 </span>
                 {req.branchName ? ` • الفرع: ${req.branchName}` : ""}
               </p>

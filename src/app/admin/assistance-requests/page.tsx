@@ -29,11 +29,11 @@ import { useBranchContext } from "@/contexts/BranchContext";
 import {
   APPLICANT_RELATIONSHIP_TYPES,
   type ApplicantRelationshipType,
-  ASSISTANCE_CATEGORY_LABELS,
   type AssistanceCategory,
   RELATIONSHIP_TYPE_LABELS,
   REQUEST_STATUSES,
   REQUEST_STATUS_LABELS,
+  resolveAssistanceCategoryLabel,
   type RequestStatus,
   VERIFICATION_STATUSES,
   VERIFICATION_STATUS_LABELS,
@@ -46,6 +46,7 @@ interface AssistanceRequestRow {
   nationalIdMasked: string;
   phone: string;
   assistanceCategory: AssistanceCategory;
+  assistanceCategoryCustom?: string;
   verificationStatus: VerificationStatus;
   relationshipType: ApplicantRelationshipType;
   beneficiarySnapshot?: {
@@ -637,8 +638,10 @@ export default function AdminAssistanceRequestsPage() {
                           {req.fullName}
                         </div>
                         <div className="text-xs text-muted-foreground mt-0.5">
-                          {ASSISTANCE_CATEGORY_LABELS[req.assistanceCategory] ||
-                            req.assistanceCategory}
+                          {resolveAssistanceCategoryLabel(
+                            req.assistanceCategory,
+                            req.assistanceCategoryCustom
+                          )}
                           {req.branchName ? ` • ${req.branchName}` : ""}
                         </div>
                       </td>
@@ -734,7 +737,11 @@ export default function AdminAssistanceRequestsPage() {
                     <div>
                       <h3 className="font-bold text-foreground">{req.fullName}</h3>
                       <p className="text-xs text-muted-foreground">
-                        {ASSISTANCE_CATEGORY_LABELS[req.assistanceCategory]} •{" "}
+                        {resolveAssistanceCategoryLabel(
+                          req.assistanceCategory,
+                          req.assistanceCategoryCustom
+                        )}{" "}
+                        •{" "}
                         {formatDateTime(req.createdAt)}
                       </p>
                     </div>

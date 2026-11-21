@@ -1,5 +1,6 @@
 import {
   ASSISTANCE_CATEGORIES,
+  ASSISTANCE_CATEGORY_CUSTOM_MAX_LENGTH,
   type AssistanceCategory,
   type ApplicantMaritalStatus,
   MARITAL_STATUS_VALUES,
@@ -101,10 +102,43 @@ export function validateAssistanceSubmission(
     );
   }
 
-  const category = asTrimmedString(rawBody.assistanceCategory);
-  if (!ASSISTANCE_CATEGORIES.includes(category as AssistanceCategory)) {
+  const rawCategory = asTrimmedString(rawBody.assistanceCategory);
+  let category: AssistanceCategory;
+  let categoryCustom: string | undefined;
+
+  if (ASSISTANCE_CATEGORIES.includes(rawCategory as AssistanceCategory)) {
+    category = rawCategory as AssistanceCategory;
+    if (category === "other") {
+      const custom = asTrimmedString(rawBody.assistanceCategoryCustom);
+      if (custom) {
+        if (custom.length > ASSISTANCE_CATEGORY_CUSTOM_MAX_LENGTH) {
+          throw new ValidationError(
+            `نوع المساعدة المكتوب طويل جداً (الحد الأقصى ${ASSISTANCE_CATEGORY_CUSTOM_MAX_LENGTH} حرفاً)`,
+            "assistanceCategory"
+          );
+        }
+        categoryCustom = custom;
+      }
+    }
+  } else if (rawCategory) {
+    // A free-text category typed by the applicant (not one of the predefined options)
+    if (rawCategory.length < 2) {
+      throw new ValidationError(
+        "يرجى كتابة نوع المساعدة المطلوبة (حرفان على الأقل)",
+        "assistanceCategory"
+      );
+    }
+    if (rawCategory.length > ASSISTANCE_CATEGORY_CUSTOM_MAX_LENGTH) {
+      throw new ValidationError(
+        `نوع المساعدة المكتوب طويل جداً (الحد الأقصى ${ASSISTANCE_CATEGORY_CUSTOM_MAX_LENGTH} حرفاً)`,
+        "assistanceCategory"
+      );
+    }
+    category = "other";
+    categoryCustom = rawCategory;
+  } else {
     throw new ValidationError(
-      "يرجى اختيار نوع المساعدة المطلوبة من القائمة",
+      "يرجى اختيار أو كتابة نوع المساعدة المطلوبة",
       "assistanceCategory"
     );
   }
@@ -207,7 +241,8 @@ export function validateAssistanceSubmission(
     phone,
     whatsapp,
     address,
-    assistanceCategory: category as AssistanceCategory,
+    assistanceCategory: category,
+    assistanceCategoryCustom: categoryCustom,
     description,
     maritalStatus,
     familyMembersCount,

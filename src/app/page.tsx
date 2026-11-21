@@ -168,7 +168,6 @@ export default function Home() {
     ? ((user.publicMetadata?.role || user.unsafeMetadata?.role || "user") as string)
     : undefined;
   const canAccessDashboard = effectiveRole === "admin";
-  const isRegularUser = Boolean(user) && effectiveRole === "user";
   const canViewBeneficiaries =
     effectiveRole === "admin" ||
     effectiveRole === "superadmin" ||
@@ -259,15 +258,13 @@ export default function Home() {
                 </Link>
               )}
 
-              {isRegularUser && (
-                <Link
-                  href="/assistance-request"
-                  className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 text-base font-medium rounded-md transition-colors shadow-sm"
-                >
-                  <FileText className="ml-2 h-5 w-5" aria-hidden="true" />
-                  استبيان طلب مساعدة
-                </Link>
-              )}
+              <Link
+                href="/assistance-request"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 text-base font-medium rounded-md transition-colors shadow-sm"
+              >
+                <FileText className="ml-2 h-5 w-5" aria-hidden="true" />
+                استبيان طلب مساعدة
+              </Link>
 
               <Link
                 href="/profile"

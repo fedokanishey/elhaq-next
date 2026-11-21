@@ -21,7 +21,7 @@ import {
 } from "@/lib/assistance/crypto";
 import { verifyApplicantAgainstDatabase } from "@/lib/assistance/verification";
 import {
-  requireAssistanceRegularUser,
+  requireAssistanceSubmitAccess,
   sanitizePublicSubmissionResponse,
 } from "@/lib/assistance/auth";
 import {
@@ -75,11 +75,11 @@ async function padResponseTiming(startTimeMs: number) {
 }
 
 /**
- * Regular-user-only metadata endpoint for the assistance request questionnaire (`role === "user"`).
+ * Authenticated metadata endpoint for the assistance request questionnaire (any role).
  * Never returns any submitted assistance requests or verification data.
  */
 export async function GET() {
-  const userCheck = await requireAssistanceRegularUser();
+  const userCheck = await requireAssistanceSubmitAccess();
   if (!userCheck.ok) {
     return NextResponse.json(
       { error: userCheck.error },
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
   const startTime = Date.now();
 
   try {
-    const userCheck = await requireAssistanceRegularUser();
+    const userCheck = await requireAssistanceSubmitAccess();
     if (!userCheck.ok) {
       await padResponseTiming(startTime);
       return NextResponse.json(
@@ -277,6 +277,7 @@ export async function POST(request: Request) {
       maritalStatus: valid.maritalStatus,
       monthlyIncome: valid.monthlyIncome,
       assistanceCategory: valid.assistanceCategory,
+      assistanceCategoryCustom: valid.assistanceCategoryCustom,
       description: valid.description,
       attachments: valid.attachments,
       submittedByClerkId,

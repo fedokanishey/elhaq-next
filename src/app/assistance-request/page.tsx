@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import BrandedLoader from "@/components/BrandedLoader";
 import ImageUpload from "@/components/ImageUpload";
+import SearchableSelect from "@/components/SearchableSelect";
 import {
   ASSISTANCE_CATEGORIES,
   ASSISTANCE_CATEGORY_LABELS,
@@ -50,6 +51,11 @@ const FULL_NAME_REGEX =
 const NATIONAL_ID_REGEX = /^\d{14}$/;
 const PHONE_REGEX = /^\+?\d{10,13}$/;
 
+const ASSISTANCE_CATEGORY_OPTIONS = ASSISTANCE_CATEGORIES.map((value) => ({
+  value,
+  label: ASSISTANCE_CATEGORY_LABELS[value],
+}));
+
 function normalizeDigits(input: string): string {
   const arabicIndic = "٠١٢٣٤٥٦٧٨٩";
   const easternArabic = "۰۱۲۳۴۵۶۷۸۹";
@@ -62,10 +68,6 @@ function normalizeDigits(input: string): string {
 export default function AssistanceRequestFormPage() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
-  const effectiveRole = (user?.publicMetadata?.role ||
-    user?.unsafeMetadata?.role ||
-    "user") as string;
-  const isRegularUser = Boolean(user && effectiveRole === "user");
 
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [metadataLoaded, setMetadataLoaded] = useState(false);
@@ -80,6 +82,7 @@ export default function AssistanceRequestFormPage() {
   const [branchId, setBranchId] = useState("");
   const [assistanceCategory, setAssistanceCategory] =
     useState<AssistanceCategory>("financial_aid");
+  const [customCategory, setCustomCategory] = useState("");
   const [maritalStatus, setMaritalStatus] = useState("");
   const [familyMembersCount, setFamilyMembersCount] = useState("");
   const [monthlyIncome, setMonthlyIncome] = useState("");
@@ -101,15 +104,11 @@ export default function AssistanceRequestFormPage() {
     if (!isLoaded) return;
     if (!user) {
       router.replace("/sign-in");
-      return;
     }
-    if (!isRegularUser) {
-      router.replace("/admin/assistance-requests");
-    }
-  }, [isLoaded, user, isRegularUser, router]);
+  }, [isLoaded, user, router]);
 
   useEffect(() => {
-    if (!isLoaded || !isRegularUser) return;
+    if (!isLoaded || !user) return;
     let active = true;
     fetch("/api/assistance-requests")
       .then((res) => (res.ok ? res.json() : null))
@@ -138,7 +137,12 @@ export default function AssistanceRequestFormPage() {
     return () => {
       active = false;
     };
-  }, [isLoaded, isRegularUser]);
+  }, [isLoaded, user]);
+
+  const handleCategoryChange = (value: string, customValue?: string) => {
+    setAssistanceCategory(value as AssistanceCategory);
+    setCustomCategory(value === "other" && customValue ? customValue : "");
+  };
 
   const validateClient = (): FieldErrors => {
     const errors: FieldErrors = {};
@@ -167,8 +171,14 @@ export default function AssistanceRequestFormPage() {
     if (!branchId) {
       errors.branchId = "يرجى تحديد الفرع التابع له قبل إرسال الطلب";
     }
-    if (!ASSISTANCE_CATEGORIES.includes(assistanceCategory)) {
-      errors.assistanceCategory = "يرجى اختيار نوع المساعدة المطلوبة";
+    if (!assistanceCategory) {
+      errors.assistanceCategory = "يرجى اختيار أو كتابة نوع المساعدة المطلوبة";
+    } else if (
+      assistanceCategory === "other" &&
+      customCategory.trim() &&
+      customCategory.trim().length < 2
+    ) {
+      errors.assistanceCategory = "نوع المساعدة المكتوب قصير جداً";
     }
     if (cleanDesc.length < 10) {
       errors.description = "يرجى كتابة شرح للحالة والاحتياج (10 أحرف على الأقل)";
@@ -198,6 +208,7 @@ export default function AssistanceRequestFormPage() {
     setSameAsPhone(true);
     setAddress("");
     setAssistanceCategory("financial_aid");
+    setCustomCategory("");
     setMaritalStatus("");
     setFamilyMembersCount("");
     setMonthlyIncome("");
@@ -234,6 +245,10 @@ export default function AssistanceRequestFormPage() {
           address: address.trim(),
           branchId: branchId || undefined,
           assistanceCategory,
+          assistanceCategoryCustom:
+            assistanceCategory === "other" && customCategory.trim()
+              ? customCategory.trim()
+              : undefined,
           maritalStatus: maritalStatus || undefined,
           familyMembersCount: familyMembersCount
             ? Number(familyMembersCount)
@@ -282,7 +297,7 @@ export default function AssistanceRequestFormPage() {
     }
   };
 
-  if (!isLoaded || !isRegularUser) {
+  if (!isLoaded || !user) {
     return <BrandedLoader fullScreen />;
   }
 
@@ -632,22 +647,27 @@ export default function AssistanceRequestFormPage() {
               >
                 نوع المساعدة المطلوبة <span className="text-destructive">*</span>
               </label>
-              <select
+              <SearchableSelect
                 id="req-category"
+                options={ASSISTANCE_CATEGORY_OPTIONS}
                 value={assistanceCategory}
-                onChange={(e) =>
-                  setAssistanceCategory(e.target.value as AssistanceCategory)
-                }
-                aria-invalid={Boolean(fieldErrors.assistanceCategory)}
-                className="w-full px-4 py-2.5 rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                customValue={customCategory}
+                onChange={handleCategoryChange}
+                placeholder="اختر نوع المساعدة أو اكتب نوعاً جديداً"
+                searchPlaceholder="ابحث أو اكتب نوعاً جديداً..."
+                allowCustom
+                createLabel={(query) => `إضافة نوع جديد: ${query}`}
                 required
-              >
-                {ASSISTANCE_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {ASSISTANCE_CATEGORY_LABELS[cat]}
-                  </option>
-                ))}
-              </select>
+                invalid={Boolean(fieldErrors.assistanceCategory)}
+                describedBy={
+                  fieldErrors.assistanceCategory ? "err-category" : undefined
+                }
+              />
+              {fieldErrors.assistanceCategory && (
+                <p id="err-category" className="mt-1 text-xs text-destructive">
+                  {fieldErrors.assistanceCategory}
+                </p>
+              )}
             </div>
 
             {/* Marital Status */}

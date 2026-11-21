@@ -56,6 +56,7 @@ export interface IAssistanceRequest extends Document {
   maritalStatus?: ApplicantMaritalStatus;
   monthlyIncome?: number;
   assistanceCategory: AssistanceCategory;
+  assistanceCategoryCustom?: string;
   description: string;
   attachments: string[];
   submittedByClerkId?: string | null;
@@ -218,6 +219,7 @@ const AssistanceRequestSchema = new Schema<IAssistanceRequest>(
       enum: ASSISTANCE_CATEGORIES,
       required: true,
     },
+    assistanceCategoryCustom: { type: String, trim: true, maxlength: 80 },
     description: { type: String, required: true, trim: true },
     attachments: { type: [String], default: [] },
     submittedByClerkId: { type: String, default: null, index: true },
